@@ -1,2 +1,3 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Keep Linux line endings so scripts run on the Pi even when edited on Windows.
+* text=auto eol=lf
+*.ps1 text eol=crlf
