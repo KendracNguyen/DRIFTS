@@ -1,0 +1,5 @@
+# pip install -r requirements.txt
+# (picamera2, opencv, and numpy come from apt on the Pi, not pip)
+bleak>=0.22
+ncnn>=1.0.20240410
+pytest>=8.0
