@@ -1,0 +1,6 @@
+gpio,direction,component,signal,firmware_constant,notes
+10,output_pwm,ERM vibration motor array,MOSFET Q1 gate via 100R,MOTOR_PIN,LEDC 20kHz 8-bit; never direct-drive
+11,output_tone,Piezo buzzer,MOSFET Q2 gate via 100R,BUZZER_PIN,ledcWriteTone; passive element required
+2,output,Status LED,Anode via 330R,LED_PIN,External LED; on-board RGB is GPIO 8
+21,bidirectional,MPU-6050,I2C SDA,IMU_SDA_PIN,Wire.begin(21_22) must be explicit; C6 default SDA is 23
+22,output,MPU-6050,I2C SCL,IMU_SCL_PIN,400 kHz

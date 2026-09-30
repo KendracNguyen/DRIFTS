@@ -1,0 +1,18 @@
+gpio,status,reason
+4,reserved,Strapping pin MTMS
+5,reserved,Strapping pin MTDI
+8,reserved,Strapping pin and on-board addressable RGB LED
+9,reserved,Strapping pin and BOOT button
+12,reserved,USB Serial/JTAG D-minus
+13,reserved,USB Serial/JTAG D-plus
+14,absent,Not bonded out on WROOM-1
+15,reserved,Strapping pin JTAG source select
+16,reserved,UART0 TXD console
+17,reserved,UART0 RXD console
+24,absent,SPI flash SPICS0
+25,absent,SPI flash SPIQ - was buzzer on ESP32-WROOM-32
+26,absent,SPI flash SPIWP - was motor on ESP32-WROOM-32
+27,absent,SPI flash VDD_SPI
+28,absent,SPI flash SPIHD
+29,absent,SPI flash SPICLK
+30,absent,SPI flash SPID
