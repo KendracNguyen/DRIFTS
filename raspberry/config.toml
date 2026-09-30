@@ -1,0 +1,32 @@
+# DRIFTS v2 — Raspberry Pi configuration
+
+[ble]
+device_name = "DRIFTS-ESP32"        # ESP32 to connect to
+address = ""                         # optional MAC for faster connection
+reconnect_s = 3.0
+service_uuid = "DFT10001-B5A3-F393-E0A9-E50E24DCCA9E"
+wake_char_uuid = "DFT10002-B5A3-F393-E0A9-E50E24DCCA9E"
+result_char_uuid = "DFT10003-B5A3-F393-E0A9-E50E24DCCA9E"
+# PING interval. The ESP32 fail-safe cuts the alert if the Pi is silent
+# for longer than FAILSAFE_MS (3 s) in its config.h. Keep this below it.
+heartbeat_s = 1.0
+
+[camera]
+width = 640
+height = 480
+fps = 10                             # capture rate (inference will be slower)
+
+[detector]
+model_param = "model/mobilenetv2_dms.param"
+model_bin   = "model/mobilenetv2_dms.bin"
+model_onnx  = "model/mobilenetv2_dms.onnx"
+input_size  = 224                    # MobileNetV2 input resolution (224x224)
+conf_threshold = 0.5                 # minimum detection confidence
+# How many consecutive "drowsy" frames before we declare DROWSY
+drowsy_frame_threshold = 3
+# How many total frames to analyze per wake cycle
+max_frames_per_cycle = 30            # at ~3-5 FPS ≈ 6-10 seconds of analysis
+
+[power]
+idle_camera_off = true               # turn off camera when not analyzing
+cooldown_s = 10                      # wait before accepting another WAKE

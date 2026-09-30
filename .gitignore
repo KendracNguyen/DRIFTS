@@ -4,3 +4,7 @@ __pycache__/
 .pytest_cache/
 captures/
 *.log
+
+# host test binaries
+esp32/test/test_trigger
+esp32/test/test_stream
