@@ -115,12 +115,32 @@ constexpr int   THROTTLE_WINDOW_S       = 30;
 constexpr float SPEED_STDDEV_TRIGGER = 8.0f;
 constexpr int   SPEED_WINDOW_S       = 30;
 
-// Operating-domain gate. Vehicle-dynamics fatigue metrics are only valid
-// on open road above highway speed; below this the trigger is suppressed
-// rather than allowed to fire on stop-and-go traffic. Volvo's production
+// ---------------------------------------------------------------
+// Operating-domain gate
+// ---------------------------------------------------------------
+// Vehicle-dynamics fatigue metrics are only valid on open road above
+// highway speed. In production the trigger is suppressed below it rather
+// than allowed to fire on stop-and-go traffic, turns and signals. Volvo's
 // Driver Alert Control uses 65 km/h for the same reason.
-constexpr float MIN_SPEED_KPH        = 65.0f;
-constexpr float GATE_COVERAGE        = 0.80f;  // fraction of the window that must be above MIN_SPEED_KPH
+//
+// PRODUCTION VALUES -- restore these once bench testing is confirmed.
+constexpr float MIN_SPEED_KPH_PRODUCTION = 65.0f;
+constexpr float GATE_COVERAGE_PRODUCTION = 0.80f;
+
+// BENCH MODE
+// ==========
+// true  = the gate opens as soon as OBD data is flowing, at any speed.
+//         Lets the trigger chain be exercised with the car parked or on a
+//         desk. The firmware prints a banner at boot, on every trigger,
+//         and sets "gate":"BENCH" in the phone telemetry, so this cannot
+//         be shipped by accident.
+// false = production. Trigger requires real highway conditions.
+//
+// >>> SET THIS BACK TO false ONCE THRESHOLDS ARE CONFIRMED ON THE ROAD <<<
+constexpr bool GATE_BENCH_MODE = true;
+
+constexpr float MIN_SPEED_KPH = GATE_BENCH_MODE ? 0.0f : MIN_SPEED_KPH_PRODUCTION;
+constexpr float GATE_COVERAGE = GATE_BENCH_MODE ? 0.0f : GATE_COVERAGE_PRODUCTION;
 
 // Minimum samples in a window before its statistic is trusted.
 constexpr int   MIN_SAMPLES_FOR_STAT = 12;

@@ -92,6 +92,34 @@ class BleClient:
             log.error("Failed to write result to ESP32: %s", exc)
             return False
 
+    async def send_ping(self) -> bool:
+        """Write PING to the result characteristic.
+
+        This is the ESP32's fail-safe input, not a keepalive for the BLE
+        link itself. The ESP32 kills the motor and buzzer if it has not
+        heard from the Pi within FAILSAFE_MS while alerting -- so without
+        this, every alert is cut off a few seconds after it starts, and it
+        looks like the actuator driver is broken.
+        """
+        if not self._client or not self.connected:
+            return False
+        try:
+            await self._client.write_gatt_char(
+                self.cfg.result_char_uuid, b"PING", response=False
+            )
+            return True
+        except Exception as exc:
+            log.debug("PING failed: %s", exc)
+            return False
+
+    async def heartbeat(self) -> None:
+        """Send PING at the configured interval for as long as we are up."""
+        log.info("Heartbeat started (%.1f s interval)", self.cfg.heartbeat_s)
+        while not self._stop:
+            await asyncio.sleep(self.cfg.heartbeat_s)
+            if self.connected:
+                await self.send_ping()
+
     def trigger_simulated_wake(self) -> None:
         """Manually trigger wake for local simulation."""
         log.info("[SIM] Triggering simulated WAKE event.")

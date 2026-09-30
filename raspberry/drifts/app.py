@@ -40,6 +40,8 @@ class Application:
 
         if not self.no_ble:
             tasks.append(asyncio.create_task(self.ble.run()))
+            # Required: the ESP32 fail-safe cuts alerts without it.
+            tasks.append(asyncio.create_task(self.ble.heartbeat()))
 
         if self.sim:
             tasks.append(asyncio.create_task(self._sim_wake_loop()))

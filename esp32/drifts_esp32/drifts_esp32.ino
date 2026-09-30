@@ -74,6 +74,21 @@ void setup() {
     Hub.init();
     Obd.begin();
 
+    if (GATE_BENCH_MODE) {
+        Serial.println();
+        Serial.println("  ***********************************************");
+        Serial.println("  *  GATE_BENCH_MODE = true                     *");
+        Serial.println("  *  Speed gate DISABLED. The trigger will fire *");
+        Serial.println("  *  at any speed, including parked.            *");
+        Serial.println("  *  NOT VALID FOR ROAD DATA. Set false in      *");
+        Serial.println("  *  config.h once thresholds are confirmed.    *");
+        Serial.println("  ***********************************************");
+        Serial.println();
+    } else {
+        Serial.printf("[MAIN] Speed gate active: %.0f km/h over %.0f%% of the window\n",
+                      MIN_SPEED_KPH, GATE_COVERAGE * 100.0f);
+    }
+
     Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS");
     Serial.println("==================================\n");
     stateStartMs = millis();
@@ -83,12 +98,13 @@ static void printStatus() {
     const TriggerSnapshot &s = drivingTrigger.snapshot();
     Serial.printf("[STATUS] obd=%s layout=%s %.1f Hz | rpm %.0f (sd %.0f, n %d) "
                   "spd %.0f (sd %.1f, n %d) thr %.0f (sd %.1f, n %d) | "
-                  "brakes %d accel=%d gate=%d | pi=%d phone=%d | nodata %lu err %lu ovf %lu\n",
+                  "brakes %d accel=%d gate=%s | pi=%d phone=%d | nodata %lu err %lu ovf %lu\n",
                   Obd.stateName(), Obd.layoutName(), Obd.achievedHz(),
                   s.rpm, s.rpm_stddev, s.rpm_samples,
                   s.speed, s.speed_stddev, s.speed_samples,
                   s.throttle, s.throttle_stddev, s.throttle_samples,
-                  s.hard_brake_count, (int)s.accel_available, (int)s.gate_open,
+                  s.hard_brake_count, (int)s.accel_available,
+                  GATE_BENCH_MODE ? "BENCH" : (s.gate_open ? "open" : "closed"),
                   (int)Hub.isPiConnected(), (int)Hub.isPhoneConnected(),
                   (unsigned long)Obd.noDataCount(), (unsigned long)Obd.errorCount(),
                   (unsigned long)Obd.rxOverflows());
@@ -149,7 +165,8 @@ void loop() {
     const TriggerSnapshot &snap = drivingTrigger.snapshot();
 
     if (fired && state == SystemState::Idle) {
-        Serial.printf("[TRIGGER] %s -> waking Pi\n", snap.reason);
+        Serial.printf("[TRIGGER]%s %s -> waking Pi\n",
+                      GATE_BENCH_MODE ? " [BENCH]" : "", snap.reason);
         Hub.wakePi();
         state = SystemState::WaitingPi;
         stateStartMs = now;
@@ -177,8 +194,14 @@ void loop() {
 
     // 6. Fail-safe. Restored from v1, where it worked and where losing it
     //    meant a crashed Pi left the motor and buzzer running indefinitely.
+    //
+    //    It applies ONLY while the Pi is connected. Without this guard a
+    //    bench test with no Pi attached kills the alert instantly, because
+    //    piSilentForMs() returns UINT32_MAX when the Pi has never been
+    //    seen -- which reads as a dead motor driver, not as a fail-safe.
+    //    MAX_ALERT_MS still bounds the alert in that case.
     if (state == SystemState::Alerting) {
-        if (Hub.piSilentForMs(now) > FAILSAFE_MS) {
+        if (Hub.isPiConnected() && Hub.piSilentForMs(now) > FAILSAFE_MS) {
             enterIdle("fail-safe: Pi silent");
         } else if (now - stateStartMs > MAX_ALERT_MS) {
             // An alert must not latch even if the Pi is alive but never
@@ -196,11 +219,11 @@ void loop() {
         char json[224];
         snprintf(json, sizeof(json),
                  "{\"rpm\":%.0f,\"spd\":%.1f,\"thr\":%.1f,\"g\":%.2f,"
-                 "\"obd\":\"%s\",\"hz\":%.1f,\"gate\":%s,\"drv\":\"%s\","
+                 "\"obd\":\"%s\",\"hz\":%.1f,\"gate\":\"%s\",\"drv\":\"%s\","
                  "\"pi\":\"%s\",\"alert\":%s}",
                  snap.rpm, snap.speed, snap.throttle, Motion.longitudinalG(),
                  Obd.stateName(), Obd.achievedHz(),
-                 snap.gate_open ? "true" : "false",
+                 GATE_BENCH_MODE ? "BENCH" : (snap.gate_open ? "open" : "closed"),
                  snap.triggered ? "TRIGGERED" : "OK",
                  piStatus, isAlertActive() ? "true" : "false");
         Hub.pushPhoneStatus(json);

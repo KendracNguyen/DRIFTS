@@ -1,3 +1,4 @@
+#include "../drifts_esp32/config.h"
 #include "../drifts_esp32/trigger.h"
 #include <cassert>
 #include <cstdio>
@@ -57,15 +58,37 @@ int main() {
         CHECK(!fired, "steady driving does not trigger");
     }
 
-    // 5. The operating-domain gate suppresses parking-lot speeds.
+    // 5. The operating-domain gate.
+    //
+    //    Behaviour depends on GATE_BENCH_MODE in config.h, so the test
+    //    asserts whichever contract is currently configured and says which.
+    //    A bench build that silently kept passing the production assertion
+    //    would be the failure this catches.
     {
         DrivingTrigger t;
         uint32_t t0 = 100000;
         for (int i = 0; i < 60; i++) t.pushRpm(i % 2 ? 3000.0f : 1000.0f, t0 + i * 500);
-        fillGate(t, t0, 15.0f);   // parking lot
+        fillGate(t, t0, 15.0f);   // parking-lot speed
         bool fired = t.evaluate(t0 + 30000);
-        CHECK(!t.snapshot().gate_open, "gate closed below 65 km/h");
-        CHECK(!fired, "no trigger below the speed gate despite wild RPM");
+
+        if (GATE_BENCH_MODE) {
+            printf("      (GATE_BENCH_MODE = true: gate is disabled)\n");
+            CHECK(t.snapshot().gate_open, "BENCH: gate open at 15 km/h");
+            CHECK(fired, "BENCH: trigger fires at parking-lot speed");
+        } else {
+            CHECK(!t.snapshot().gate_open, "PROD: gate closed below 65 km/h");
+            CHECK(!fired, "PROD: no trigger below the gate despite wild RPM");
+        }
+    }
+
+    // 5b. Whatever the mode, the gate still needs enough samples to form a
+    //     statistic. Bench mode relaxes the speed rule, not the data rule.
+    {
+        DrivingTrigger t;
+        uint32_t t0 = 100000;
+        for (int i = 0; i < 3; i++) t.pushSpeed(100.0f, t0 + i * 500);
+        t.evaluate(t0 + 2000);
+        CHECK(!t.snapshot().gate_open, "gate stays closed on too few samples, in either mode");
     }
 
     // 6. Above the gate, wild RPM does trigger, once (rising edge).
