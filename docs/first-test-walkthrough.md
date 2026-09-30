@@ -107,7 +107,7 @@ Dongle **not** in a car yet. This isolates the BLE layer from the vehicle.
 
 ---
 
-## Phase 3 — Dongle in the car (45 min) ⭐ the real test
+## Phase 3 — Dongle in the car (45 min) the real test
 
 Car parked, **ignition on** (engine running is better — idle RPM varies, which
 the trigger can actually see).
