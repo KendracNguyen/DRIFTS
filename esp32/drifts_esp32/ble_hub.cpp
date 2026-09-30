@@ -1,163 +1,171 @@
 #include "ble_hub.h"
 #include "config.h"
 
-#if defined(USE_NIMBLE) || __has_include(<NimBLEDevice.h>)
-    #include <NimBLEDevice.h>
-    using BleServerType = NimBLEServer;
-    using BleServiceType = NimBLEService;
-    using BleCharType = NimBLECharacteristic;
-    using BleServerCallbacksType = NimBLEServerCallbacks;
-    using BleCharCallbacksType = NimBLECharacteristicCallbacks;
-    using Ble2902Type = NimBLE2902;
-#else
-    #include <BLEDevice.h>
-    #include <BLEServer.h>
-    #include <BLEUtils.h>
-    #include <BLE2902.h>
-    using BleServerType = BLEServer;
-    using BleServiceType = BLEService;
-    using BleCharType = BLECharacteristic;
-    using BleServerCallbacksType = BLEServerCallbacks;
-    using BleCharCallbacksType = BLECharacteristicCallbacks;
-    using Ble2902Type = BLE2902;
-#endif
+#include <NimBLEDevice.h>
 
-static BleCharType *wakeChar = nullptr;
-static BleCharType *resultChar = nullptr;
-static BleCharType *statusChar = nullptr;
+BleHub Hub;
 
-static volatile bool piConnected = false;
-static volatile bool phoneConnected = false;
-static volatile uint32_t lastPiMsgMs = 0;
+static NimBLEServer *g_server = nullptr;
+static NimBLECharacteristic *g_wakeChar = nullptr;    // notify -> Pi
+static NimBLECharacteristic *g_resultChar = nullptr;  // write  <- Pi
+static NimBLECharacteristic *g_statusChar = nullptr;  // notify -> phone
 
-static String pendingResult = "";
-static bool hasResult = false;
+// Connection handles of the subscribed peers, or BLE_HS_CONN_HANDLE_NONE.
+static volatile uint16_t g_piHandle = BLE_HS_CONN_HANDLE_NONE;
+static volatile uint16_t g_phoneHandle = BLE_HS_CONN_HANDLE_NONE;
+static volatile uint32_t g_lastPiMsgMs = 0;
+static volatile bool g_piEverSeen = false;
 
-class HubServerCallbacks : public BleServerCallbacksType {
-    void onConnect(BleServerType *pServer) override {
-        // Multi-connection server: track overall state and refresh timestamp
-        lastPiMsgMs = millis();
-        piConnected = true; // Pi connects first; both can connect
-    }
+// Result handoff. A FreeRTOS queue rather than a shared String: the write
+// callback runs on the NimBLE host task and loop() reads it, and a heap
+// object handed between tasks without synchronisation is a real crash,
+// not a theoretical one.
+static constexpr size_t RESULT_MAX = 24;
+static QueueHandle_t g_resultQueue = nullptr;
 
-    void onDisconnect(BleServerType *pServer) override {
-        // Continue advertising for reconnection
-        pServer->startAdvertising();
+class HubServerCallbacks : public NimBLEServerCallbacks {
+    void onDisconnect(NimBLEServer *, NimBLEConnInfo &connInfo, int reason) override {
+        const uint16_t h = connInfo.getConnHandle();
+        if (h == g_piHandle) {
+            g_piHandle = BLE_HS_CONN_HANDLE_NONE;
+            Serial.println("[BLE] Pi disconnected");
+        }
+        if (h == g_phoneHandle) {
+            g_phoneHandle = BLE_HS_CONN_HANDLE_NONE;
+            Serial.println("[BLE] Phone disconnected");
+        }
+        // Without this the peer can never come back.
+        NimBLEDevice::startAdvertising();
     }
 };
+static HubServerCallbacks g_serverCallbacks;
 
-class PiResultCallbacks : public BleCharCallbacksType {
-    void onWrite(BleCharType *pChar) override {
-        lastPiMsgMs = millis();
-        String val = pChar->getValue().c_str();
-        val.trim();
-        if (val.length() > 0) {
-            pendingResult = val;
-            hasResult = true;
-            Serial.printf("[BLE] Pi wrote result: %s\n", val.c_str());
+// Peers identify themselves by what they subscribe to.
+class WakeCharCallbacks : public NimBLECharacteristicCallbacks {
+    void onSubscribe(NimBLECharacteristic *, NimBLEConnInfo &connInfo, uint16_t subValue) override {
+        if (subValue > 0) {
+            g_piHandle = connInfo.getConnHandle();
+            g_lastPiMsgMs = millis();
+            g_piEverSeen = true;
+            Serial.printf("[BLE] Pi subscribed (handle %u)\n", (unsigned)g_piHandle);
+        } else if (connInfo.getConnHandle() == g_piHandle) {
+            g_piHandle = BLE_HS_CONN_HANDLE_NONE;
         }
     }
 };
+static WakeCharCallbacks g_wakeCallbacks;
 
-BleHub::BleHub() {}
+class StatusCharCallbacks : public NimBLECharacteristicCallbacks {
+    void onSubscribe(NimBLECharacteristic *, NimBLEConnInfo &connInfo, uint16_t subValue) override {
+        if (subValue > 0) {
+            g_phoneHandle = connInfo.getConnHandle();
+            Serial.printf("[BLE] Phone subscribed (handle %u)\n", (unsigned)g_phoneHandle);
+        } else if (connInfo.getConnHandle() == g_phoneHandle) {
+            g_phoneHandle = BLE_HS_CONN_HANDLE_NONE;
+        }
+    }
+};
+static StatusCharCallbacks g_statusCallbacks;
+
+class ResultCharCallbacks : public NimBLECharacteristicCallbacks {
+    void onWrite(NimBLECharacteristic *chr, NimBLEConnInfo &connInfo) override {
+        g_lastPiMsgMs = millis();
+        g_piEverSeen = true;
+        if (g_piHandle == BLE_HS_CONN_HANDLE_NONE) g_piHandle = connInfo.getConnHandle();
+
+        String value(chr->getValue().c_str());
+        value.trim();
+        if (value.length() == 0) return;
+
+        // PING is the fail-safe heartbeat, not a classification result.
+        if (value.equalsIgnoreCase("PING")) return;
+
+        char buf[RESULT_MAX] = {0};
+        strncpy(buf, value.c_str(), RESULT_MAX - 1);
+        if (g_resultQueue != nullptr) {
+            xQueueSend(g_resultQueue, buf, 0);
+        }
+    }
+};
+static ResultCharCallbacks g_resultCallbacks;
 
 bool BleHub::init() {
-    BLEDevice::init(DEVICE_NAME);
-    BleServerType *server = BLEDevice::createServer();
-    server->setCallbacks(new HubServerCallbacks());
+    g_resultQueue = xQueueCreate(4, RESULT_MAX);
 
-    // 1. Pi Link Service
-    BleServiceType *piService = server->createService(PI_SERVICE_UUID);
-    wakeChar = piService->createCharacteristic(
-        PI_WAKE_CHAR_UUID,
-        BLECharacteristic::PROPERTY_NOTIFY
-    );
-    wakeChar->addDescriptor(new Ble2902Type());
+    NimBLEDevice::init(DEVICE_NAME);
+    NimBLEDevice::setMTU(247);
 
-    resultChar = piService->createCharacteristic(
-        PI_RESULT_CHAR_UUID,
-        BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
-    );
-    resultChar->setCallbacks(new PiResultCallbacks());
+    g_server = NimBLEDevice::createServer();
+    g_server->setCallbacks(&g_serverCallbacks);
+    // Keep serving the phone and the Pi even if one of them drops.
+    g_server->advertiseOnDisconnect(true);
+
+    NimBLEService *piService = g_server->createService(PI_SERVICE_UUID);
+    g_wakeChar = piService->createCharacteristic(PI_WAKE_CHAR_UUID, NIMBLE_PROPERTY::NOTIFY);
+    g_wakeChar->setCallbacks(&g_wakeCallbacks);
+    g_resultChar = piService->createCharacteristic(
+        PI_RESULT_CHAR_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
+    g_resultChar->setCallbacks(&g_resultCallbacks);
     piService->start();
 
-    // 2. Phone Link Service
-    BleServiceType *phoneService = server->createService(PHONE_SERVICE_UUID);
-    statusChar = phoneService->createCharacteristic(
-        PHONE_STATUS_CHAR_UUID,
-        BLECharacteristic::PROPERTY_NOTIFY
-    );
-    statusChar->addDescriptor(new Ble2902Type());
+    NimBLEService *phoneService = g_server->createService(PHONE_SERVICE_UUID);
+    g_statusChar = phoneService->createCharacteristic(PHONE_STATUS_CHAR_UUID, NIMBLE_PROPERTY::NOTIFY);
+    g_statusChar->setCallbacks(&g_statusCallbacks);
     phoneService->start();
 
-    // Advertising
-    auto *adv = BLEDevice::getAdvertising();
+    // Both services must be started BEFORE advertising begins, or a later
+    // client connect() aborts advertising. See NimBLE-Arduino issue #298.
+    NimBLEAdvertising *adv = NimBLEDevice::getAdvertising();
     adv->addServiceUUID(PI_SERVICE_UUID);
     adv->addServiceUUID(PHONE_SERVICE_UUID);
-#ifndef USE_NIMBLE
-    adv->setScanResponse(true);
-#endif
-    BLEDevice::startAdvertising();
+    adv->enableScanResponse(true);
+    NimBLEDevice::startAdvertising();
 
-    Serial.printf("[BLE] Hub initialized. Advertising as %s\n", DEVICE_NAME);
+    Serial.printf("[BLE] Hub up, advertising as %s\n", DEVICE_NAME);
     return true;
 }
 
 void BleHub::wakePi() {
-    if (wakeChar) {
-        Serial.println("[BLE] Sending WAKE to Pi...");
-        wakeChar->setValue("WAKE");
-        wakeChar->notify();
-    }
+    if (g_wakeChar == nullptr || g_piHandle == BLE_HS_CONN_HANDLE_NONE) return;
+    g_wakeChar->setValue("WAKE");
+    g_wakeChar->notify();
+    Serial.println("[BLE] WAKE -> Pi");
 }
 
 void BleHub::setPiIdle() {
-    if (wakeChar) {
-        wakeChar->setValue("IDLE");
-        wakeChar->notify();
-    }
+    if (g_wakeChar == nullptr || g_piHandle == BLE_HS_CONN_HANDLE_NONE) return;
+    g_wakeChar->setValue("IDLE");
+    g_wakeChar->notify();
 }
 
 bool BleHub::isPiConnected() const {
-    return piConnected;
+    return g_piHandle != BLE_HS_CONN_HANDLE_NONE;
 }
 
 bool BleHub::isPhoneConnected() const {
-    return phoneConnected;
+    return g_phoneHandle != BLE_HS_CONN_HANDLE_NONE;
 }
 
-bool BleHub::hasNewResult() {
-    return hasResult;
+bool BleHub::hasResult() const {
+    return g_resultQueue != nullptr && uxQueueMessagesWaiting(g_resultQueue) > 0;
 }
 
 String BleHub::popResult() {
-    hasResult = false;
-    String res = pendingResult;
-    pendingResult = "";
-    return res;
-}
-
-void BleHub::pushPhoneStatus(float rpm, float speed, float throttle,
-                           const char *drvStatus, const char *piStatus,
-                           bool alertActive) {
-    if (!statusChar) return;
-
-    char jsonBuf[128];
-    snprintf(jsonBuf, sizeof(jsonBuf),
-             "{\"rpm\":%.0f,\"spd\":%.1f,\"thr\":%.1f,\"drv\":\"%s\",\"pi\":\"%s\",\"alert\":%s}",
-             rpm, speed, throttle, drvStatus, piStatus, alertActive ? "true" : "false");
-
-    statusChar->setValue(jsonBuf);
-    statusChar->notify();
-}
-
-void BleHub::update() {
-    // Check failsafe: if Pi has been connected but silent for longer than FAILSAFE_MS
-    if (piConnected && (millis() - lastPiMsgMs > FAILSAFE_MS)) {
-        // Optional: track watchdog or flag failsafe
+    char buf[RESULT_MAX] = {0};
+    if (g_resultQueue != nullptr && xQueueReceive(g_resultQueue, buf, 0) == pdTRUE) {
+        return String(buf);
     }
+    return String("");
 }
 
-uint32_t BleHub::getLastPiMessageTime() const {
-    return lastPiMsgMs;
+uint32_t BleHub::piSilentForMs(uint32_t now_ms) const {
+    if (!g_piEverSeen) return UINT32_MAX;
+    const uint32_t last = g_lastPiMsgMs;
+    return now_ms - last;
+}
+
+void BleHub::pushPhoneStatus(const char *json) {
+    if (g_statusChar == nullptr || json == nullptr) return;
+    g_statusChar->setValue((uint8_t *)json, strlen(json));
+    if (g_phoneHandle != BLE_HS_CONN_HANDLE_NONE) g_statusChar->notify();
 }
