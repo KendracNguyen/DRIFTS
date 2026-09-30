@@ -1,0 +1,23 @@
+{
+	"folders": [
+		{
+			"path": ".",
+			"name": "DRIFTS_T1"
+		}
+	],
+	"settings": {
+		"git.autofetch": true,
+		"python.languageServer": "Default",
+		"editor.formatOnSave": true,
+		"files.exclude": {
+			"**/__pycache__": true,
+			"**/*.pyc": true
+		}
+	},
+	"extensions": {
+		"recommendations": [
+			"ms-python.python",
+			"ms-python.pylint"
+		]
+	}
+}
