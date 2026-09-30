@@ -15,14 +15,36 @@
 #include <stdint.h>
 
 // ---------------------------------------------------------------
-// Pin assignments
+// Pin assignments  --  TARGET: ESP32-C6-WROOM-1
 // ---------------------------------------------------------------
-constexpr int MOTOR_PIN  = 26;   // PWM -> motor transistor base
-constexpr int BUZZER_PIN = 25;   // tone -> buzzer transistor base
-constexpr int LED_PIN    = 2;    // on-board LED (lit when the Pi is subscribed)
+// These are NOT the ESP32-WROOM-32 pins. On the C6, GPIO24-30 are the
+// SPI flash lines and are not bonded out on the WROOM-1 module:
+//   GPIO24 SPICS0   GPIO25 SPIQ    GPIO26 SPIWP   GPIO27 VDD_SPI
+//   GPIO28 SPIHD    GPIO29 SPICLK  GPIO30 SPID
+//
+// The trap: the C6's GPIO validity mask covers 0-30, so ledcAttach(26, ...)
+// returns true and digitalWrite(25, ...) compiles and runs. They drive the
+// flash lines. You get corruption or a crash loop, with nothing pointing at
+// the cause. The old 25/26 assignments were exactly this mistake.
+//
+// Avoid entirely: 4, 5, 8, 9 (strapping), 12, 13 (USB Serial/JTAG),
+// 15 (strapping), 16, 17 (UART0 console), 14 and 24-30 (absent).
+// GPIO0-6 are also ADC1_CH0-6; leave them free if analog is ever needed.
+constexpr int MOTOR_PIN  = 10;   // PWM -> motor transistor base
+constexpr int BUZZER_PIN = 11;   // tone -> buzzer transistor base
 
-// MPU-6050 on the ESP32's I2C bus. See "Longitudinal acceleration" below
-// for why the IMU lives here rather than on the Pi.
+// There is no plain user LED on any C6 devkit -- the on-board one is an
+// addressable RGB on GPIO 8, where digitalWrite() does nothing visible.
+// This is an EXTERNAL LED. To use the on-board RGB instead, drop this and
+// call rgbLedWrite(RGB_BUILTIN, r, g, b).
+constexpr int LED_PIN    = 2;    // external LED (lit when the Pi is subscribed)
+
+// MPU-6050 on the I2C bus. See "Longitudinal acceleration" below for why
+// the IMU lives on the ESP32 rather than on the Pi.
+//
+// imu.cpp calls Wire.begin(IMU_SDA_PIN, IMU_SCL_PIN) explicitly, which
+// matters: the C6's Arduino default SDA is 23, not 21, so a bare
+// Wire.begin() would silently use the wrong pin.
 constexpr int IMU_SDA_PIN = 21;
 constexpr int IMU_SCL_PIN = 22;
 constexpr uint8_t IMU_I2C_ADDR = 0x68;
