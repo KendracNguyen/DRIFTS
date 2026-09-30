@@ -1,165 +1,210 @@
 /*
-  DRIFTS v2 ESP32 Firmware
-  ========================
-  - Passively sniffs OBD-II CAN bus frames via SN65HVD230 and TWAI driver
-  - Evaluates rolling statistical thresholds (braking, RPM stddev, speed stddev, throttle jitter)
-  - Sends WAKE notification to Raspberry Pi Zero 2 W over BLE Pi Link service
-  - Receives DROWSY / NOT_DROWSY classification from Pi and triggers haptic/audio alert
-  - Publishes live telemetry & status to Mobile App over BLE Phone Link service
+  DRIFTS v3 - ESP32 controller
+  ============================
+  Data path:
+    BLE ELM327 dongle  --(BLE central)-->  ESP32
+    ESP32  --(BLE peripheral)-->  Raspberry Pi Zero 2 W  (WAKE / result)
+    ESP32  --(BLE peripheral)-->  phone app              (telemetry)
+
+  The ESP32 holds three BLE connections at once. That requires NimBLE
+  with MYNEWT_VAL_BLE_MAX_CONNECTIONS >= 4 and the "Huge APP" partition
+  scheme. See README_BLE_OBD.md in this folder.
+
+  Serial test commands (115200 baud):
+    WAKE          trigger a Pi analysis cycle by hand
+    DROWSY        simulate a DROWSY result from the Pi
+    NOT_DROWSY    simulate a NOT_DROWSY result
+    STOP          stop the alert
+    BRAKE         inject one harsh-brake event
+    STATUS        print the current state
 */
 
 #include "config.h"
 #include "actuators.h"
-#include "obd_reader.h"
-#include "trigger.h"
 #include "ble_hub.h"
+#include "obd_ble.h"
+#include "trigger.h"
+#include "imu.h"
 
-static ObdReader obd;
 static DrivingTrigger drivingTrigger;
-static BleHub bleHub;
 
-// States
-enum class SystemState {
-    IDLE,
-    WAITING_PI,
-    ALERTING
-};
+enum class SystemState : uint8_t { Idle, WaitingPi, Alerting };
 
-static SystemState state = SystemState::IDLE;
-static uint32_t stateStartTimeMs = 0;
-static const uint32_t PI_RESPONSE_TIMEOUT_MS = 15000; // Allow Pi up to 15s for analysis
+static SystemState state = SystemState::Idle;
+static uint32_t stateStartMs = 0;
+static uint32_t lastPhoneMs = 0;
+static const char *piStatus = "idle";
 
-static uint32_t lastPhoneUpdateMs = 0;
-static char currentPiStatus[16] = "idle";
+static void enterIdle(const char *why) {
+    if (state == SystemState::Alerting) stopAll();
+    state = SystemState::Idle;
+    stateStartMs = millis();
+    piStatus = "idle";
+    if (why != nullptr) Serial.printf("[MAIN] -> IDLE (%s)\n", why);
+}
+
+static void enterAlerting() {
+    startAlert();
+    state = SystemState::Alerting;
+    stateStartMs = millis();
+    piStatus = "drowsy";
+    Serial.println("[MAIN] -> ALERTING");
+}
 
 void setup() {
     Serial.begin(115200);
     delay(500);
     Serial.println("\n==================================");
-    Serial.println("  DRIFTS v2 — ESP32 Controller");
+    Serial.println("  DRIFTS v3 - ESP32 (BLE OBD)");
     Serial.println("==================================");
 
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, LOW);
 
-    // 1. Actuators
     initActuators();
-    Serial.println("[MAIN] Actuators initialized");
+    Serial.println("[MAIN] Actuators ready");
 
-    // 2. OBD-II CAN (TWAI)
-    if (!obd.init()) {
-        Serial.println("[WARN] CAN TWAI init failed; simulation mode available");
-    }
+    // The IMU supplies harsh-braking events. Without it that condition is
+    // disabled rather than silently reporting zero.
+    const bool imuOk = Motion.begin();
+    drivingTrigger.setAccelAvailable(imuOk);
 
-    // 3. BLE Hub (Pi Link + Phone Link)
-    bleHub.init();
+    // NimBLEDevice::init() happens inside the hub; the dongle client
+    // reuses the same stack, so the hub must come first.
+    Hub.init();
+    Obd.begin();
 
-    Serial.println("[MAIN] System ready. Serial test commands available:");
-    Serial.println("  WAKE               -> trigger Pi manually");
-    Serial.println("  SIM <rpm> <spd> <thr> -> inject OBD data");
-    Serial.println("  STOP               -> stop alert");
+    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS");
     Serial.println("==================================\n");
+    stateStartMs = millis();
 }
 
-void handleSerialCommands() {
+static void printStatus() {
+    const TriggerSnapshot &s = drivingTrigger.snapshot();
+    Serial.printf("[STATUS] obd=%s layout=%s %.1f Hz | rpm %.0f (sd %.0f, n %d) "
+                  "spd %.0f (sd %.1f, n %d) thr %.0f (sd %.1f, n %d) | "
+                  "brakes %d accel=%d gate=%d | pi=%d phone=%d | nodata %lu err %lu ovf %lu\n",
+                  Obd.stateName(), Obd.layoutName(), Obd.achievedHz(),
+                  s.rpm, s.rpm_stddev, s.rpm_samples,
+                  s.speed, s.speed_stddev, s.speed_samples,
+                  s.throttle, s.throttle_stddev, s.throttle_samples,
+                  s.hard_brake_count, (int)s.accel_available, (int)s.gate_open,
+                  (int)Hub.isPiConnected(), (int)Hub.isPhoneConnected(),
+                  (unsigned long)Obd.noDataCount(), (unsigned long)Obd.errorCount(),
+                  (unsigned long)Obd.rxOverflows());
+}
+
+static void handleSerial() {
     if (!Serial.available()) return;
     String cmd = Serial.readStringUntil('\n');
     cmd.trim();
-    if (cmd.length() == 0) return;
+    if (cmd.isEmpty()) return;
 
     if (cmd.equalsIgnoreCase("WAKE")) {
-        Serial.println("[CMD] Manual WAKE triggered");
-        bleHub.wakePi();
-        state = SystemState::WAITING_PI;
-        stateStartTimeMs = millis();
-        strncpy(currentPiStatus, "analyzing", sizeof(currentPiStatus) - 1);
-    } else if (cmd.equalsIgnoreCase("STOP")) {
-        Serial.println("[CMD] Manual STOP");
-        stopAll();
-        state = SystemState::IDLE;
-        strncpy(currentPiStatus, "idle", sizeof(currentPiStatus) - 1);
-    } else if (cmd.startsWith("SIM") || cmd.startsWith("sim")) {
-        float rpm = 0, spd = 0, thr = 0;
-        int parsed = sscanf(cmd.c_str() + 3, "%f %f %f", &rpm, &spd, &thr);
-        if (parsed >= 2) {
-            obd.injectValues(rpm, spd, thr);
-            Serial.printf("[CMD] Injected: RPM=%.0f, SPD=%.1f, THR=%.1f\n", rpm, spd, thr);
-        }
+        Hub.wakePi();
+        state = SystemState::WaitingPi;
+        stateStartMs = millis();
+        piStatus = "analyzing";
+        Serial.println("[CMD] Manual WAKE");
     } else if (cmd.equalsIgnoreCase("DROWSY")) {
-        Serial.println("[CMD] Simulated DROWSY from Pi");
-        startAlert();
-        state = SystemState::ALERTING;
-        strncpy(currentPiStatus, "drowsy", sizeof(currentPiStatus) - 1);
+        enterAlerting();
     } else if (cmd.equalsIgnoreCase("NOT_DROWSY")) {
-        Serial.println("[CMD] Simulated NOT_DROWSY from Pi");
-        stopAll();
-        state = SystemState::IDLE;
-        strncpy(currentPiStatus, "not_drowsy", sizeof(currentPiStatus) - 1);
+        piStatus = "not_drowsy";
+        enterIdle("simulated NOT_DROWSY");
+    } else if (cmd.equalsIgnoreCase("STOP")) {
+        enterIdle("manual STOP");
+    } else if (cmd.equalsIgnoreCase("BRAKE")) {
+        drivingTrigger.pushBrakeEvent(millis());
+        Serial.println("[CMD] Injected brake event");
+    } else if (cmd.equalsIgnoreCase("STATUS")) {
+        printStatus();
     }
 }
 
 void loop() {
-    uint32_t now = millis();
+    const uint32_t now = millis();
 
-    // 1. Check serial test commands
-    handleSerialCommands();
+    handleSerial();
 
-    // 2. Poll OBD-II CAN frames
-    obd.poll();
-
-    float rpm = obd.getRPM();
-    float speed = obd.getSpeed();
-    float throttle = obd.getThrottle();
-    float brake_decel = obd.getBrakeDecel();
-
-    // 3. Evaluate Driving Behavior
-    bool triggered = drivingTrigger.evaluate(rpm, speed, throttle, brake_decel, now);
-    TriggerSnapshot snap = drivingTrigger.getSnapshot();
-
-    if (triggered && state == SystemState::IDLE) {
-        Serial.printf("[TRIGGER] Anomaly detected: %s! Waking Pi...\n", snap.trigger_reason);
-        bleHub.wakePi();
-        state = SystemState::WAITING_PI;
-        stateStartTimeMs = now;
-        strncpy(currentPiStatus, "analyzing", sizeof(currentPiStatus) - 1);
-    }
-
-    // 4. Handle Pi Results from BLE
-    if (bleHub.hasNewResult()) {
-        String result = bleHub.popResult();
-        Serial.printf("[MAIN] Processing Pi result: %s\n", result.c_str());
-
-        if (result.equalsIgnoreCase("DROWSY")) {
-            startAlert();
-            state = SystemState::ALERTING;
-            strncpy(currentPiStatus, "drowsy", sizeof(currentPiStatus) - 1);
-        } else if (result.equalsIgnoreCase("NOT_DROWSY")) {
-            stopAll();
-            state = SystemState::IDLE;
-            strncpy(currentPiStatus, "not_drowsy", sizeof(currentPiStatus) - 1);
-            bleHub.setPiIdle();
+    // 1. Service the dongle link and feed any new reading into the trigger.
+    Obd.service();
+    ObdSlot slot;
+    while (Obd.takeFresh(&slot)) {
+        const ObdValues &v = Obd.values();
+        switch (slot) {
+            case SLOT_RPM:      drivingTrigger.pushRpm(v.rpm, v.ts_ms[SLOT_RPM]); break;
+            case SLOT_SPEED:    drivingTrigger.pushSpeed(v.speed_kph, v.ts_ms[SLOT_SPEED]); break;
+            case SLOT_THROTTLE: drivingTrigger.pushThrottle(v.throttle_pct, v.ts_ms[SLOT_THROTTLE]); break;
+            default: break;   // engine load is carried for context, not scored
         }
     }
 
-    // 5. Check timeout when waiting for Pi
-    if (state == SystemState::WAITING_PI && (now - stateStartTimeMs > PI_RESPONSE_TIMEOUT_MS)) {
-        Serial.println("[WARN] Pi response timed out; returning to IDLE");
-        state = SystemState::IDLE;
-        strncpy(currentPiStatus, "idle", sizeof(currentPiStatus) - 1);
+    // 2. Harsh braking comes from the accelerometer.
+    if (Motion.service(now)) {
+        drivingTrigger.pushBrakeEvent(now);
     }
 
-    // 6. Update Actuators (haptic motor & buzzer PWM phases)
+    // 3. Evaluate, and wake the Pi on a rising edge.
+    const bool fired = drivingTrigger.evaluate(now);
+    const TriggerSnapshot &snap = drivingTrigger.snapshot();
+
+    if (fired && state == SystemState::Idle) {
+        Serial.printf("[TRIGGER] %s -> waking Pi\n", snap.reason);
+        Hub.wakePi();
+        state = SystemState::WaitingPi;
+        stateStartMs = now;
+        piStatus = "analyzing";
+    }
+
+    // 4. Results from the Pi.
+    while (Hub.hasResult()) {
+        String result = Hub.popResult();
+        Serial.printf("[MAIN] Pi result: %s\n", result.c_str());
+
+        if (result.equalsIgnoreCase("DROWSY")) {
+            enterAlerting();
+        } else if (result.equalsIgnoreCase("NOT_DROWSY")) {
+            piStatus = "not_drowsy";
+            Hub.setPiIdle();
+            enterIdle("Pi reported NOT_DROWSY");
+        }
+    }
+
+    // 5. The Pi had its chance and did not answer.
+    if (state == SystemState::WaitingPi && now - stateStartMs > PI_RESPONSE_TIMEOUT_MS) {
+        enterIdle("Pi response timed out");
+    }
+
+    // 6. Fail-safe. Restored from v1, where it worked and where losing it
+    //    meant a crashed Pi left the motor and buzzer running indefinitely.
+    if (state == SystemState::Alerting) {
+        if (Hub.piSilentForMs(now) > FAILSAFE_MS) {
+            enterIdle("fail-safe: Pi silent");
+        } else if (now - stateStartMs > MAX_ALERT_MS) {
+            // An alert must not latch even if the Pi is alive but never
+            // sends NOT_DROWSY.
+            enterIdle("maximum alert duration reached");
+        }
+    }
+
     updateActuators();
+    digitalWrite(LED_PIN, Hub.isPiConnected() ? HIGH : LOW);
 
-    // 7. Update status LED (lit if Pi is connected)
-    digitalWrite(LED_PIN, bleHub.isPiConnected() ? HIGH : LOW);
-
-    // 8. Periodically push JSON status to Mobile App via Phone Link BLE service (~1 Hz)
-    if (now - lastPhoneUpdateMs >= 1000) {
-        lastPhoneUpdateMs = now;
-        const char *drvStatus = snap.triggered ? "TRIGGERED" : "OK";
-        bleHub.pushPhoneStatus(rpm, speed, throttle, drvStatus, currentPiStatus, isAlertActive());
+    // 7. Telemetry to the phone.
+    if (now - lastPhoneMs >= PHONE_UPDATE_MS) {
+        lastPhoneMs = now;
+        char json[224];
+        snprintf(json, sizeof(json),
+                 "{\"rpm\":%.0f,\"spd\":%.1f,\"thr\":%.1f,\"g\":%.2f,"
+                 "\"obd\":\"%s\",\"hz\":%.1f,\"gate\":%s,\"drv\":\"%s\","
+                 "\"pi\":\"%s\",\"alert\":%s}",
+                 snap.rpm, snap.speed, snap.throttle, Motion.longitudinalG(),
+                 Obd.stateName(), Obd.achievedHz(),
+                 snap.gate_open ? "true" : "false",
+                 snap.triggered ? "TRIGGERED" : "OK",
+                 piStatus, isAlertActive() ? "true" : "false");
+        Hub.pushPhoneStatus(json);
     }
 
-    delay(10);
+    delay(5);
 }
