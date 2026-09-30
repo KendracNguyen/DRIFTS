@@ -1,0 +1,23 @@
+# systemd unit for DRIFTS. install.sh fills in @USER@ and @REPO@.
+[Unit]
+Description=DRIFTS fatigue detection
+After=bluetooth.target
+Wants=bluetooth.target
+# Maintenance mode: if this file exists, the app does NOT start at boot.
+# Create it with `scripts/maint.sh on`, or by putting an empty file named
+# drifts-maintenance on the SD card's boot drive from any computer.
+ConditionPathExists=!/boot/firmware/drifts-maintenance
+# Keep retrying forever instead of giving up after a few crashes.
+StartLimitIntervalSec=0
+
+[Service]
+User=@USER@
+WorkingDirectory=@REPO@
+ExecStart=@REPO@/.venv/bin/python -m drifts
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

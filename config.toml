@@ -1,0 +1,43 @@
+# DRIFTS runtime configuration
+# Edit this file, redeploy (or edit it on the Pi), then: sudo systemctl restart drifts
+
+[sources]
+# Where the two fatigue inputs come from.
+#   eyes:     "sim" (fake data) or "camera" (PERCLOS pipeline - not built yet)
+#   steering: "sim" (fake data) or "imu"    (MPU6050 on I2C)
+eyes = "sim"
+steering = "sim"
+loop_hz = 10              # how often the score is recomputed
+
+[fatigue]
+# Score = 100 - (0.7 * PERCLOS + 0.3 * steering), both inputs normalised 0-100.
+warn_below = 70           # score below this -> WARN
+critical_below = 40       # score below this -> CRITICAL
+hysteresis = 5            # points the score must recover before dropping back a level
+
+[imu]
+i2c_bus = 1
+address = 0x68
+window_s = 10             # rolling window for steering RMS
+full_scale_dps = 30.0     # yaw-rate RMS (deg/s) that maps to steering = 100
+
+[ble]
+enabled = true
+device_name = "DRIFTS-ESP32"   # must match DEVICE_NAME in the ESP32 sketch
+address = ""                   # optional: ESP32 MAC (from tools/ble_scan.py) - faster than name lookup
+heartbeat_s = 1.0              # PING interval; ESP32 fails safe if pings stop
+reconnect_s = 3.0
+
+# What gets sent to the ESP32 at each level.
+# VIB  <duty 0-255> <on_ms> <off_ms>   (off_ms = 0 -> continuous)
+# BUZZ <freq_hz>    <on_ms> <off_ms>   (freq 0 -> silent)
+[alerts]
+ok       = ["STOP"]
+warn     = ["BUZZ 0 0 0", "VIB 160 400 600"]
+critical = ["VIB 255 500 300", "BUZZ 2700 300 300"]
+
+[api]
+# HTTP status endpoint polled by the mobile app's Live mode.
+enabled = true
+host = "0.0.0.0"
+port = 5000
