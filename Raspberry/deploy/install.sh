@@ -10,7 +10,7 @@ echo "==> Installing DRIFTS v2 from $REPO for user $USER_NAME"
 
 echo "==> System packages"
 sudo apt-get update -qq
-sudo apt-get install -y -qq python3-venv python3-picamera2 python3-opencv python3-numpy libncnn-dev bluez
+sudo apt-get install -y -qq python3-venv python3-picamera2 python3-opencv python3-numpy bluez
 
 echo "==> Enable Bluetooth and add user permissions"
 sudo systemctl enable --now bluetooth

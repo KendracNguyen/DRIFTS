@@ -121,7 +121,7 @@ bash deploy/install.sh
 ```
 
 That script does all of: apt packages (`python3-picamera2`, `python3-opencv`,
-`python3-numpy`, `libncnn-dev`, `bluez`), enables Bluetooth, adds the user to
+`python3-numpy`, `bluez`), enables Bluetooth, adds the user to
 `bluetooth,video,gpio`, creates `.venv` **with `--system-site-packages`**,
 installs `requirements.txt`, then templates and enables
 `deploy/drifts.service`.
@@ -140,12 +140,20 @@ journalctl -u drifts -f
 Expect in the log:
 
 ```
-Connected to ESP32 hub
-Subscribed to WAKE
 Heartbeat started (1.0 s interval)
+Scanning for ESP32 hub (DRIFTS-ESP32)...
+Connecting to DRIFTS-ESP32 (xx:xx:xx:xx:xx:xx)...
+Connected to ESP32 hub!
+Subscribed to WAKE characteristic (DF710002-...)
 ```
 
-**No heartbeat line means alerts will cut out after 3 seconds.** The ESP32
+`Heartbeat started` prints at startup whether or not the hub is reachable, so
+it proves nothing on its own. **`Connected to ESP32 hub!` is the line that
+matters.** On the ESP32 side, `STATUS` should then show `pi=1`. If the log
+loops on `ESP32 not found`, check the hub shows as DRIFTS-ESP32 in nRF Connect
+and that the Pi is on a commit with the `DF71...` UUIDs.
+
+**No heartbeat reaching the ESP32 means alerts will cut out after 3 seconds.** The ESP32
 fail-safe stops the alert if the Pi is silent longer than `FAILSAFE_MS`, and
 `heartbeat_s = 1.0` in `config.toml` is what keeps it satisfied.
 
