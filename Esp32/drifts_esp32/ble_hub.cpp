@@ -106,15 +106,14 @@ bool BleHub::init() {
     g_resultChar = piService->createCharacteristic(
         PI_RESULT_CHAR_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
     g_resultChar->setCallbacks(&g_resultCallbacks);
-    piService->start();
 
     NimBLEService *phoneService = g_server->createService(PHONE_SERVICE_UUID);
     g_statusChar = phoneService->createCharacteristic(PHONE_STATUS_CHAR_UUID, NIMBLE_PROPERTY::NOTIFY);
     g_statusChar->setCallbacks(&g_statusCallbacks);
-    phoneService->start();
 
-    // Both services must be started BEFORE advertising begins, or a later
-    // client connect() aborts advertising. See NimBLE-Arduino issue #298.
+    // NimBLE 2.4+ registers services when the server starts, and
+    // startAdvertising() starts the server first, so both services exist
+    // before any client can connect. NimBLEService::start() is a no-op now.
     NimBLEAdvertising *adv = NimBLEDevice::getAdvertising();
     adv->addServiceUUID(PI_SERVICE_UUID);
     adv->addServiceUUID(PHONE_SERVICE_UUID);
