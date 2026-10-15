@@ -72,7 +72,7 @@ nothing, because the host cannot exceed the controller.
 ```bash
 python3 Hardware/check_pins.py        # must print: OK: 5 pins agree
 cd Esp32/test && make                 # 28 assertions, runs on the laptop
-cd Tools && python -m pytest obd_sim/tests -q
+cd Tools && python -m pytest obd_sim/tests obd_link/tests -q
 ```
 
 Confirm nothing is wired to **GPIO 25 or 26**. On the C6 those are SPI flash
@@ -89,6 +89,31 @@ arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200
 
 On Windows the port is `COMn`. If the board is not enumerated, hold BOOT
 (GPIO 9) while plugging in.
+
+**Our dev kit (ESP32-C6-WROOM-1 N8, single USB-C)** has a USB hub on the
+board, so one cable shows up as two ports:
+
+| Port | `list_ports -v` shows | Use |
+| --- | --- | --- |
+| CH343 bridge | `USB-Enhanced-SERIAL CH343`, `1A86:55D3` | Flash and serial console. The firmware prints here |
+| Native C6 USB | `USB Serial Device`, `303A:1001` | Unused with `CDCOnBoot=default` |
+
+From Windows, without installing arduino-cli:
+
+```powershell
+pip install esptool
+python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_esp32.ino.merged.bin
+python -m serial.tools.miniterm --dtr 0 --rts 0 COM5 115200
+```
+
+Keep `--dtr 0 --rts 0`: DTR/RTS drive the auto-reset circuit, and leaving them
+asserted can hold the chip in reset or download mode with a silent console.
+
+**Pressing RESET drops the COM port** on this board (`Access is denied` in
+miniterm), even on a direct laptop port. The firmware keeps running; the port
+re-enumerates. Reopen the monitor, or use a script that reconnects, to see the
+boot banner. To check Bluetooth without serial at all, scan for
+**DRIFTS-ESP32** in nRF Connect.
 
 ### Confirming the outputs actually assert
 
@@ -121,7 +146,7 @@ bash deploy/install.sh
 ```
 
 That script does all of: apt packages (`python3-picamera2`, `python3-opencv`,
-`python3-numpy`, `libncnn-dev`, `bluez`), enables Bluetooth, adds the user to
+`python3-numpy`, `bluez`), enables Bluetooth, adds the user to
 `bluetooth,video,gpio`, creates `.venv` **with `--system-site-packages`**,
 installs `requirements.txt`, then templates and enables
 `deploy/drifts.service`.
@@ -140,14 +165,43 @@ journalctl -u drifts -f
 Expect in the log:
 
 ```
-Connected to ESP32 hub
-Subscribed to WAKE
 Heartbeat started (1.0 s interval)
+Scanning for ESP32 hub (DRIFTS-ESP32)...
+Connecting to DRIFTS-ESP32 (xx:xx:xx:xx:xx:xx)...
+Connected to ESP32 hub!
+Subscribed to WAKE characteristic (DF710002-...)
 ```
 
-**No heartbeat line means alerts will cut out after 3 seconds.** The ESP32
+`Heartbeat started` prints at startup whether or not the hub is reachable, so
+it proves nothing on its own. **`Connected to ESP32 hub!` is the line that
+matters.** On the ESP32 side, `STATUS` should then show `pi=1`. If the log
+loops on `ESP32 not found`, check the hub shows as DRIFTS-ESP32 in nRF Connect
+and that the Pi is on a commit with the `DF71...` UUIDs.
+
+**No heartbeat reaching the ESP32 means alerts will cut out after 3 seconds.** The ESP32
 fail-safe stops the alert if the Pi is silent longer than `FAILSAFE_MS`, and
 `heartbeat_s = 1.0` in `config.toml` is what keeps it satisfied.
+
+### Testing the OBD dongle link
+
+From a laptop over USB, no Pi needed:
+`cd Tools && python -m obd_link --port COM5 --mode car` —
+see [`obd-ble-link-test.md`](obd-ble-link-test.md).
+
+### Testing the alert chain
+
+To test the ESP32, motor and buzzer alone from a laptop over USB, see
+[Alert-chain test — ESP32 only](alert-chain-test.md#alert-chain-test--esp32-only).
+
+To check that a command from the Pi drives the motor and buzzer on the ESP32,
+use the menu-driven bench tool — walkthrough in
+[`alert-chain-test.md`](alert-chain-test.md), wiring cautions in
+[`../Hardware/wiring-check.md`](../Hardware/wiring-check.md).
+
+```bash
+sudo systemctl stop drifts
+.venv/bin/python -m drifts.alert_test        # --sim to rehearse without hardware
+```
 
 ### Maintenance mode
 

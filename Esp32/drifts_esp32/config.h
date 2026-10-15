@@ -174,9 +174,9 @@ constexpr uint32_t PI_PING_EXPECTED_MS = 1000;
 constexpr uint32_t PI_RESPONSE_TIMEOUT_MS = 15000;  // Pi has this long to answer a WAKE
 constexpr uint32_t PHONE_UPDATE_MS        = 1000;
 
-constexpr char PI_SERVICE_UUID[]     = "DFT10001-B5A3-F393-E0A9-E50E24DCCA9E";
-constexpr char PI_WAKE_CHAR_UUID[]   = "DFT10002-B5A3-F393-E0A9-E50E24DCCA9E";  // notify -> Pi
-constexpr char PI_RESULT_CHAR_UUID[] = "DFT10003-B5A3-F393-E0A9-E50E24DCCA9E";  // write  <- Pi
+constexpr char PI_SERVICE_UUID[]     = "DF710001-B5A3-F393-E0A9-E50E24DCCA9E";
+constexpr char PI_WAKE_CHAR_UUID[]   = "DF710002-B5A3-F393-E0A9-E50E24DCCA9E";  // notify -> Pi
+constexpr char PI_RESULT_CHAR_UUID[] = "DF710003-B5A3-F393-E0A9-E50E24DCCA9E";  // write  <- Pi
 
-constexpr char PHONE_SERVICE_UUID[]     = "DFT20001-B5A3-F393-E0A9-E50E24DCCA9E";
-constexpr char PHONE_STATUS_CHAR_UUID[] = "DFT20002-B5A3-F393-E0A9-E50E24DCCA9E";  // notify -> phone
+constexpr char PHONE_SERVICE_UUID[]     = "DF720001-B5A3-F393-E0A9-E50E24DCCA9E";
+constexpr char PHONE_STATUS_CHAR_UUID[] = "DF720002-B5A3-F393-E0A9-E50E24DCCA9E";  // notify -> phone

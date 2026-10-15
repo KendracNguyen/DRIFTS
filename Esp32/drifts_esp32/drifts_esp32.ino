@@ -15,6 +15,9 @@
     DROWSY        simulate a DROWSY result from the Pi
     NOT_DROWSY    simulate a NOT_DROWSY result
     STOP          stop the alert
+    TEST:m:b[:DC] drive motor m ms, buzzer b ms (DC = steady HIGH, silent)
+    WATCH         toggle a 1 Hz line of live OBD values
+    OBD RESTART   drop the dongle link and rescan from scratch
     BRAKE         inject one harsh-brake event
     STATUS        print the current state
 */
@@ -25,6 +28,7 @@
 #include "obd_ble.h"
 #include "trigger.h"
 #include "imu.h"
+#include "pin_test.h"
 
 static DrivingTrigger drivingTrigger;
 
@@ -33,10 +37,12 @@ enum class SystemState : uint8_t { Idle, WaitingPi, Alerting };
 static SystemState state = SystemState::Idle;
 static uint32_t stateStartMs = 0;
 static uint32_t lastPhoneMs = 0;
+static bool watchObd = false;
+static uint32_t lastWatchMs = 0;
 static const char *piStatus = "idle";
 
 static void enterIdle(const char *why) {
-    if (state == SystemState::Alerting) stopAll();
+    if (state == SystemState::Alerting || isPinTestActive()) stopAll();
     state = SystemState::Idle;
     stateStartMs = millis();
     piStatus = "idle";
@@ -89,7 +95,7 @@ void setup() {
                       MIN_SPEED_KPH, GATE_COVERAGE * 100.0f);
     }
 
-    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS");
+    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / OBD RESTART");
     Serial.println("==================================\n");
     stateStartMs = millis();
 }
@@ -108,6 +114,17 @@ static void printStatus() {
                   (int)Hub.isPiConnected(), (int)Hub.isPhoneConnected(),
                   (unsigned long)Obd.noDataCount(), (unsigned long)Obd.errorCount(),
                   (unsigned long)Obd.rxOverflows());
+}
+
+// Runs a TEST:<motor_ms>:<buzzer_ms>[:DC] command from either input.
+// Returns false if `cmd` is not a pin-test command.
+static bool tryPinTest(const String &cmd, const char *source) {
+    PinTestCmd t;
+    if (!parsePinTest(cmd.c_str(), MAX_ALERT_MS, &t)) return false;
+    if (state != SystemState::Idle) enterIdle("pin test requested");
+    Serial.printf("[TEST] Pin test from %s\n", source);
+    startPinTest(t.motorMs, t.buzzerMs, t.buzzerDc);
+    return true;
 }
 
 static void handleSerial() {
@@ -134,6 +151,16 @@ static void handleSerial() {
         Serial.println("[CMD] Injected brake event");
     } else if (cmd.equalsIgnoreCase("STATUS")) {
         printStatus();
+    } else if (cmd.equalsIgnoreCase("WATCH")) {
+        watchObd = !watchObd;
+        Serial.printf("[CMD] OBD watch %s\n", watchObd ? "ON (1 Hz)" : "OFF");
+    } else if (cmd.equalsIgnoreCase("OBD RESTART")) {
+        Serial.println("[CMD] Restarting the dongle link");
+        Obd.restart();
+    } else if (tryPinTest(cmd, "serial")) {
+        // handled
+    } else if (cmd.startsWith("TEST") || cmd.startsWith("test")) {
+        Serial.println("[CMD] Usage: TEST:<motor_ms>:<buzzer_ms>[:DC]   e.g. TEST:3000:3000");
     }
 }
 
@@ -184,6 +211,10 @@ void loop() {
             piStatus = "not_drowsy";
             Hub.setPiIdle();
             enterIdle("Pi reported NOT_DROWSY");
+        } else if (tryPinTest(result, "Pi")) {
+            // handled
+        } else {
+            Serial.printf("[MAIN] Ignored unknown Pi message: %s\n", result.c_str());
         }
     }
 
@@ -210,22 +241,36 @@ void loop() {
         }
     }
 
+    // Live OBD values for link testing (Tools/obd_link). Field names are
+    // parsed by that tool; change both together.
+    if (watchObd && now - lastWatchMs >= 1000) {
+        lastWatchMs = now;
+        const ObdValues &v = Obd.values();
+        Serial.printf("[WATCH] obd=%s layout=%s hz=%.1f rpm=%.0f spd=%.0f thr=%.1f load=%.1f "
+                      "nodata=%lu err=%lu ovf=%lu\n",
+                      Obd.stateName(), Obd.layoutName(), Obd.achievedHz(),
+                      v.rpm, v.speed_kph, v.throttle_pct, v.load_pct,
+                      (unsigned long)Obd.noDataCount(), (unsigned long)Obd.errorCount(),
+                      (unsigned long)Obd.rxOverflows());
+    }
+
     updateActuators();
     digitalWrite(LED_PIN, Hub.isPiConnected() ? HIGH : LOW);
 
     // 7. Telemetry to the phone.
     if (now - lastPhoneMs >= PHONE_UPDATE_MS) {
         lastPhoneMs = now;
-        char json[224];
+        char json[256];
         snprintf(json, sizeof(json),
                  "{\"rpm\":%.0f,\"spd\":%.1f,\"thr\":%.1f,\"g\":%.2f,"
                  "\"obd\":\"%s\",\"hz\":%.1f,\"gate\":\"%s\",\"drv\":\"%s\","
-                 "\"pi\":\"%s\",\"alert\":%s}",
+                 "\"pi\":\"%s\",\"alert\":%s,\"test\":%s}",
                  snap.rpm, snap.speed, snap.throttle, Motion.longitudinalG(),
                  Obd.stateName(), Obd.achievedHz(),
                  GATE_BENCH_MODE ? "BENCH" : (snap.gate_open ? "open" : "closed"),
                  snap.triggered ? "TRIGGERED" : "OK",
-                 piStatus, isAlertActive() ? "true" : "false");
+                 piStatus, isAlertActive() ? "true" : "false",
+                 isPinTestActive() ? "true" : "false");
         Hub.pushPhoneStatus(json);
     }
 

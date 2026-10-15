@@ -5,6 +5,14 @@ static Pulse vibPulse;
 static Pulse buzzPulse;
 static bool alertRunning = false;
 
+// Pin test state. Kept apart from the alert pulses: a test holds an output
+// steady, it does not pulse.
+static bool testMotorOn = false;
+static bool testBuzzOn = false;
+static bool testBuzzDc = false;
+static uint32_t testMotorEnd = 0;
+static uint32_t testBuzzEnd = 0;
+
 void setMotor(int duty) {
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
     ledcWrite(MOTOR_PIN, duty);
@@ -70,18 +78,91 @@ void updatePulse(Pulse &p, void (*out)(int)) {
     }
 }
 
+// Steady HIGH on the buzzer pin means taking it away from LEDC and driving it
+// as a plain GPIO; the tone path needs it handed back afterwards.
+static void buzzerPinDc(bool high) {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+    if (high) {
+        ledcDetach(BUZZER_PIN);
+        pinMode(BUZZER_PIN, OUTPUT);
+        digitalWrite(BUZZER_PIN, HIGH);
+    } else {
+        digitalWrite(BUZZER_PIN, LOW);
+        ledcAttach(BUZZER_PIN, 2000, 8);
+        setBuzzer(0);
+    }
+#else
+    ledcWrite(1, high ? 255 : 0);
+#endif
+}
+
+static void endTestMotor() {
+    if (!testMotorOn) return;
+    testMotorOn = false;
+    setMotor(0);
+    Serial.println("[TEST] Motor off");
+}
+
+static void endTestBuzzer() {
+    if (!testBuzzOn) return;
+    testBuzzOn = false;
+    if (testBuzzDc) {
+        buzzerPinDc(false);
+        testBuzzDc = false;
+    } else {
+        setBuzzer(0);
+    }
+    Serial.println("[TEST] Buzzer off");
+}
+
+void startPinTest(uint32_t motorMs, uint32_t buzzerMs, bool buzzerDc) {
+    stopAll();
+    const uint32_t now = millis();
+    if (motorMs > 0) {
+        testMotorOn = true;
+        testMotorEnd = now + motorMs;
+        setMotor(DROWSY_VIB_DUTY);
+    }
+    if (buzzerMs > 0) {
+        testBuzzOn = true;
+        testBuzzDc = buzzerDc;
+        testBuzzEnd = now + buzzerMs;
+        if (buzzerDc) {
+            buzzerPinDc(true);
+        } else {
+            setBuzzer(DROWSY_BUZZ_HZ);
+        }
+    }
+    Serial.printf("[TEST] Motor GPIO %d: %lu ms at duty %d/255 | Buzzer GPIO %d: %lu ms %s\n",
+                  MOTOR_PIN, (unsigned long)motorMs, DROWSY_VIB_DUTY,
+                  BUZZER_PIN, (unsigned long)buzzerMs,
+                  buzzerDc ? "steady HIGH (silent)" : "tone");
+}
+
+bool isPinTestActive() {
+    return testMotorOn || testBuzzOn;
+}
+
 void updateActuators() {
+    const uint32_t now = millis();
+    // Signed difference, so the comparison survives millis() wrapping.
+    if (testMotorOn && (int32_t)(now - testMotorEnd) >= 0) endTestMotor();
+    if (testBuzzOn && (int32_t)(now - testBuzzEnd) >= 0) endTestBuzzer();
     updatePulse(vibPulse, setMotor);
     updatePulse(buzzPulse, setBuzzer);
 }
 
 void startAlert() {
+    endTestMotor();
+    endTestBuzzer();
     alertRunning = true;
     startPulse(vibPulse, DROWSY_VIB_DUTY, DROWSY_VIB_ON_MS, DROWSY_VIB_OFF_MS, setMotor);
     startPulse(buzzPulse, DROWSY_BUZZ_HZ, DROWSY_BUZZ_ON_MS, DROWSY_BUZZ_OFF_MS, setBuzzer);
 }
 
 void stopAll() {
+    endTestMotor();
+    endTestBuzzer();
     alertRunning = false;
     startPulse(vibPulse, 0, 0, 0, setMotor);
     startPulse(buzzPulse, 0, 0, 0, setBuzzer);

@@ -37,7 +37,7 @@ void BleStream::ingest(const uint8_t *data, size_t len) {
         if (next == _tail) {
             // Full. Drop the byte rather than overwrite unread data: a
             // truncated response is detectable, a corrupted one is not.
-            _overflows++;
+            _overflows = _overflows + 1;  // ++ on volatile is deprecated in C++20
             break;
         }
         _rx[_head] = data[i];
