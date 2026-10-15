@@ -114,12 +114,24 @@ bool BleHub::init() {
     // NimBLE 2.4+ registers services when the server starts, and
     // startAdvertising() starts the server first, so both services exist
     // before any client can connect. NimBLEService::start() is a no-op now.
+    //
+    // A legacy advertisement holds 31 bytes. Flags (3) + one 128-bit UUID (18)
+    // fills most of the packet, so the name goes in the scan response and only
+    // the Pi service UUID is advertised. Two 128-bit UUIDs plus the name do not
+    // fit anywhere. NimBLE 2.x does not add the name on its own -- without
+    // setName() the hub shows as an unnamed device and the Pi, which finds it
+    // by name, never connects.
     NimBLEAdvertising *adv = NimBLEDevice::getAdvertising();
-    adv->addServiceUUID(PI_SERVICE_UUID);
-    adv->addServiceUUID(PHONE_SERVICE_UUID);
     adv->enableScanResponse(true);
-    NimBLEDevice::startAdvertising();
+    const bool nameOk = adv->setName(DEVICE_NAME);
+    const bool uuidOk = adv->addServiceUUID(PI_SERVICE_UUID);
+    const bool advOk  = NimBLEDevice::startAdvertising();
 
+    if (!nameOk || !uuidOk || !advOk) {
+        Serial.printf("[BLE] ADVERTISING FAILED (name %d, uuid %d, start %d)\n",
+                      nameOk, uuidOk, advOk);
+        return false;
+    }
     Serial.printf("[BLE] Hub up, advertising as %s\n", DEVICE_NAME);
     return true;
 }
