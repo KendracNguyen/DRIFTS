@@ -33,6 +33,7 @@ struct TriggerSnapshot {
     float speed_stddev = 0.0f;
     float throttle_stddev = 0.0f;
     int hard_brake_count = 0;
+    int steer_reversal_count = 0;   // gyro steering reversals in STEER_WINDOW_S
 
     int rpm_samples = 0;
     int speed_samples = 0;
@@ -40,6 +41,7 @@ struct TriggerSnapshot {
 
     bool gate_open = false;       // speed gate satisfied
     bool accel_available = false; // an IMU is feeding brake events
+    bool gyro_available = false;  // an IMU is feeding steering reversals
     bool triggered = false;
     char reason[24] = {0};
 };
@@ -56,10 +58,14 @@ public:
     // Feed a debounced harsh-deceleration event from the IMU.
     void pushBrakeEvent(uint32_t ts_ms);
 
+    // Feed one steering reversal from the IMU gyro (weave.h).
+    void pushSteeringReversal(uint32_t ts_ms);
+
     // Tell the trigger whether an accelerometer is actually present.
     // With no IMU the brake condition is disabled rather than silently
     // reporting zero events.
     void setAccelAvailable(bool available) { _accelAvailable = available; }
+    void setGyroAvailable(bool available) { _gyroAvailable = available; }
 
     // Returns true on the rising edge of a trigger.
     bool evaluate(uint32_t now_ms);
@@ -104,8 +110,10 @@ private:
     RollingBuffer _speed;
     RollingBuffer _throttle;
     EventRing _brakes;
+    EventRing _steer;
 
     bool _accelAvailable;
+    bool _gyroAvailable;
     uint32_t _lastTriggerMs;
     bool _wasTriggered;
     TriggerSnapshot _snap;

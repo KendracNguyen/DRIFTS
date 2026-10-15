@@ -17,6 +17,7 @@
     STOP          stop the alert
     TEST:m:b[:DC] drive motor m ms, buzzer b ms (DC = steady HIGH, silent)
     WATCH         toggle a 1 Hz line of live OBD values
+    GYRO          toggle a 5 Hz line of yaw rate and steering reversals
     OBD RESTART   drop the dongle link and rescan from scratch
     OBD MTU ON|OFF, OBD PHY 1M|ANY, OBD OPTIONS   dongle link options
     BRAKE         inject one harsh-brake event
@@ -75,6 +76,7 @@ void setup() {
     // disabled rather than silently reporting zero.
     const bool imuOk = Motion.begin();
     drivingTrigger.setAccelAvailable(imuOk);
+    drivingTrigger.setGyroAvailable(imuOk);
 
     // NimBLEDevice::init() happens inside the hub; the dongle client
     // reuses the same stack, so the hub must come first.
@@ -96,7 +98,7 @@ void setup() {
                       MIN_SPEED_KPH, GATE_COVERAGE * 100.0f);
     }
 
-    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / OBD RESTART");
+    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART");
     Serial.println("==================================\n");
     stateStartMs = millis();
 }
@@ -105,12 +107,13 @@ static void printStatus() {
     const TriggerSnapshot &s = drivingTrigger.snapshot();
     Serial.printf("[STATUS] obd=%s layout=%s %.1f Hz | rpm %.0f (sd %.0f, n %d) "
                   "spd %.0f (sd %.1f, n %d) thr %.0f (sd %.1f, n %d) | "
-                  "brakes %d accel=%d gate=%s | pi=%d phone=%d | nodata %lu err %lu ovf %lu\n",
+                  "brakes %d accel=%d steer %d yaw %+.1f | gate=%s | pi=%d phone=%d | nodata %lu err %lu ovf %lu\n",
                   Obd.stateName(), Obd.layoutName(), Obd.achievedHz(),
                   s.rpm, s.rpm_stddev, s.rpm_samples,
                   s.speed, s.speed_stddev, s.speed_samples,
                   s.throttle, s.throttle_stddev, s.throttle_samples,
                   s.hard_brake_count, (int)s.accel_available,
+                  s.steer_reversal_count, Motion.yawRateDps(),
                   GATE_BENCH_MODE ? "BENCH" : (s.gate_open ? "open" : "closed"),
                   (int)Hub.isPiConnected(), (int)Hub.isPhoneConnected(),
                   (unsigned long)Obd.noDataCount(), (unsigned long)Obd.errorCount(),
@@ -152,6 +155,9 @@ static void handleSerial() {
         Serial.println("[CMD] Injected brake event");
     } else if (cmd.equalsIgnoreCase("STATUS")) {
         printStatus();
+    } else if (cmd.equalsIgnoreCase("GYRO")) {
+        Motion.setWatch(!Motion.watching());
+        Serial.printf("[CMD] Gyro watch %s\n", Motion.watching() ? "ON (5 Hz)" : "OFF");
     } else if (cmd.equalsIgnoreCase("WATCH")) {
         watchObd = !watchObd;
         Serial.printf("[CMD] OBD watch %s\n", watchObd ? "ON (1 Hz)" : "OFF");
@@ -196,6 +202,11 @@ void loop() {
     // 2. Harsh braking comes from the accelerometer.
     if (Motion.service(now)) {
         drivingTrigger.pushBrakeEvent(now);
+    }
+    // Steering weave comes from the gyro, not OBD: no standard PID carries
+    // steering angle, and the gyro runs at 50 Hz against ~1 Hz per PID.
+    if (Motion.takeSteeringReversal()) {
+        drivingTrigger.pushSteeringReversal(now);
     }
 
     // 3. Evaluate, and wake the Pi on a rising edge.
@@ -281,10 +292,11 @@ void loop() {
         lastPhoneMs = now;
         char json[256];
         snprintf(json, sizeof(json),
-                 "{\"rpm\":%.0f,\"spd\":%.1f,\"thr\":%.1f,\"g\":%.2f,"
+                 "{\"rpm\":%.0f,\"spd\":%.1f,\"thr\":%.1f,\"g\":%.2f,\"yaw\":%.1f,\"steer\":%d,"
                  "\"obd\":\"%s\",\"hz\":%.1f,\"gate\":\"%s\",\"drv\":\"%s\","
                  "\"pi\":\"%s\",\"alert\":%s,\"test\":%s}",
                  snap.rpm, snap.speed, snap.throttle, Motion.longitudinalG(),
+                 Motion.yawRateDps(), snap.steer_reversal_count,
                  Obd.stateName(), Obd.achievedHz(),
                  GATE_BENCH_MODE ? "BENCH" : (snap.gate_open ? "open" : "closed"),
                  snap.triggered ? "TRIGGERED" : "OK",

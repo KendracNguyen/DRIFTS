@@ -128,6 +128,43 @@ int main() {
         CHECK(strcmp(t.snapshot().reason, "HARD_BRAKES") == 0, "brake reason reported");
     }
 
+    // 8b. Steering weave from the gyro: needs a gyro, enough reversals, and
+    //     only reversals inside the window count.
+    {
+        DrivingTrigger t;
+        uint32_t t0 = 100000;
+        t.setGyroAvailable(false);
+        for (int i = 0; i < 8; i++) t.pushSteeringReversal(t0 + i * 2000);
+        fillGate(t, t0, 100.0f);
+        CHECK(!t.evaluate(t0 + 30000), "steering condition disabled without a gyro");
+    }
+    {
+        DrivingTrigger t;
+        uint32_t t0 = 100000;
+        t.setGyroAvailable(true);
+        for (int i = 0; i < 5; i++) t.pushSteeringReversal(t0 + i * 2000);
+        fillGate(t, t0, 100.0f);
+        CHECK(!t.evaluate(t0 + 30000), "five reversals do not trigger (needs six)");
+        CHECK(t.snapshot().steer_reversal_count == 5, "reversal count reported in snapshot");
+    }
+    {
+        DrivingTrigger t;
+        uint32_t t0 = 100000;
+        t.setGyroAvailable(true);
+        for (int i = 0; i < 6; i++) t.pushSteeringReversal(t0 + i * 2000);
+        fillGate(t, t0, 100.0f);
+        CHECK(t.evaluate(t0 + 30000), "six reversals in 60 s trigger");
+        CHECK(strcmp(t.snapshot().reason, "STEERING_WEAVE") == 0, "steering reason reported");
+    }
+    {
+        DrivingTrigger t;
+        uint32_t t0 = 100000;
+        t.setGyroAvailable(true);
+        for (int i = 0; i < 6; i++) t.pushSteeringReversal(t0 + i * 2000);
+        fillGate(t, t0 + 61000, 100.0f);
+        CHECK(!t.evaluate(t0 + 91000), "reversals older than 60 s fall out of the window");
+    }
+
     // 9. Cooldown suppresses a re-trigger.
     {
         DrivingTrigger t;

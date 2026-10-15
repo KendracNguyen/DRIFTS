@@ -101,6 +101,10 @@ software. Keep C1 close to the motors, keep motor ground returns separate from
 the logic ground until the star point, and check the rail stays **≥ 4.75 V**
 during the DROWSY test.
 
+**⚠ Mount the MPU-6050 rigidly and flat.** It now measures steering (yaw) as
+well as braking. A loose board or soft foam turns vibration into false steering
+reversals. Flat = `IMU_YAW_AXIS = 2`; see `Docs/steering-weave.md`.
+
 **⚠ Keep motor wiring away from SDA/SCL.** Switching noise couples into the
 MPU-6050 lines and shows up as I2C errors or false harsh-brake events.
 

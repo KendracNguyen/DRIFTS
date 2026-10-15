@@ -88,12 +88,13 @@ int DrivingTrigger::EventRing::countInWindow(uint32_t now_ms, uint32_t window_ms
 // DrivingTrigger
 // ---------------------------------------------------------------
 DrivingTrigger::DrivingTrigger()
-    : _accelAvailable(false), _lastTriggerMs(0), _wasTriggered(false) {}
+    : _accelAvailable(false), _gyroAvailable(false), _lastTriggerMs(0), _wasTriggered(false) {}
 
 void DrivingTrigger::pushRpm(float rpm, uint32_t ts_ms)          { _rpm.push(ts_ms, rpm); }
 void DrivingTrigger::pushSpeed(float kph, uint32_t ts_ms)        { _speed.push(ts_ms, kph); }
 void DrivingTrigger::pushThrottle(float pct, uint32_t ts_ms)     { _throttle.push(ts_ms, pct); }
 void DrivingTrigger::pushBrakeEvent(uint32_t ts_ms)              { _brakes.push(ts_ms); }
+void DrivingTrigger::pushSteeringReversal(uint32_t ts_ms)        { _steer.push(ts_ms); }
 
 bool DrivingTrigger::isInCooldown(uint32_t now_ms) const {
     if (_lastTriggerMs == 0) return false;
@@ -110,7 +111,9 @@ bool DrivingTrigger::evaluate(uint32_t now_ms) {
     _snap.throttle_stddev =
         _throttle.stddev(now_ms, (uint32_t)THROTTLE_WINDOW_S * 1000, &_snap.throttle_samples);
     _snap.hard_brake_count = _brakes.countInWindow(now_ms, (uint32_t)BRAKE_WINDOW_S * 1000);
+    _snap.steer_reversal_count = _steer.countInWindow(now_ms, (uint32_t)STEER_WINDOW_S * 1000);
     _snap.accel_available = _accelAvailable;
+    _snap.gyro_available = _gyroAvailable;
     _snap.triggered = false;
     _snap.reason[0] = '\0';
 
@@ -129,6 +132,8 @@ bool DrivingTrigger::evaluate(uint32_t now_ms) {
 
     if (_accelAvailable && _snap.hard_brake_count >= BRAKE_EVENT_TRIGGER) {
         reason = "HARD_BRAKES";
+    } else if (_gyroAvailable && _snap.steer_reversal_count >= STEER_REVERSAL_TRIGGER) {
+        reason = "STEERING_WEAVE";
     } else if (_snap.speed_samples >= MIN_SAMPLES_FOR_STAT &&
                _snap.speed_stddev >= SPEED_STDDEV_TRIGGER) {
         reason = "SPEED_DRIFT";
