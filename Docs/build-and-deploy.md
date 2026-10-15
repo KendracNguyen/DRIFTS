@@ -182,6 +182,18 @@ and that the Pi is on a commit with the `DF71...` UUIDs.
 fail-safe stops the alert if the Pi is silent longer than `FAILSAFE_MS`, and
 `heartbeat_s = 1.0` in `config.toml` is what keeps it satisfied.
 
+### Testing the alert chain
+
+To check that a command from the Pi drives the motor and buzzer on the ESP32,
+use the menu-driven bench tool — walkthrough in
+[`alert-chain-test.md`](alert-chain-test.md), wiring cautions in
+[`../Hardware/wiring-check.md`](../Hardware/wiring-check.md).
+
+```bash
+sudo systemctl stop drifts
+.venv/bin/python -m drifts.alert_test        # --sim to rehearse without hardware
+```
+
 ### Maintenance mode
 
 The unit has `ConditionPathExists=!/boot/firmware/drifts-maintenance`, so it

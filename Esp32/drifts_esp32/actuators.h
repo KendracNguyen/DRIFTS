@@ -21,3 +21,9 @@ void updateActuators();
 void startAlert();
 void stopAll();
 bool isAlertActive();
+
+// Pin test: hold the motor at DROWSY_VIB_DUTY for motorMs and the buzzer on
+// for buzzerMs (alert tone, or steady HIGH when buzzerDc). Cancels any alert
+// or earlier test. Ends on its own; stopAll() and startAlert() also end it.
+void startPinTest(uint32_t motorMs, uint32_t buzzerMs, bool buzzerDc);
+bool isPinTestActive();

@@ -245,4 +245,5 @@ pedals and airbag deployment paths.
 | `pinout.csv` | Pin map as data, for diffing against `config.h` |
 | `reserved_pins.csv` | Pins that must not be assigned, as data |
 | `check_pins.py` | Fails if the pin docs and `config.h` disagree |
+| `wiring-check.md` | Pre-power checklist and cautions for the motor and buzzer drivers |
 | `falstad/` | Falstad circuit simulations of every driver circuit, with the numbers to expect — see `falstad/README.md` |
