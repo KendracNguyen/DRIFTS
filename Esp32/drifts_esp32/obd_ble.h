@@ -53,6 +53,10 @@ public:
     // Non-blocking; call every loop().
     void service();
 
+    // Drop any dongle link and start again from a fresh scan. Used by the
+    // OBD RESTART serial command so a link test always starts from zero.
+    void restart();
+
     bool isLinkUp() const;                 // connected to the dongle
     bool isPolling() const { return _state == ObdState::Polling; }
     ObdState state() const { return _state; }

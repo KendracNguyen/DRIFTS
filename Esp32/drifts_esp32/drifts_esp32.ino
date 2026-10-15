@@ -16,6 +16,8 @@
     NOT_DROWSY    simulate a NOT_DROWSY result
     STOP          stop the alert
     TEST:m:b[:DC] drive motor m ms, buzzer b ms (DC = steady HIGH, silent)
+    WATCH         toggle a 1 Hz line of live OBD values
+    OBD RESTART   drop the dongle link and rescan from scratch
     BRAKE         inject one harsh-brake event
     STATUS        print the current state
 */
@@ -35,6 +37,8 @@ enum class SystemState : uint8_t { Idle, WaitingPi, Alerting };
 static SystemState state = SystemState::Idle;
 static uint32_t stateStartMs = 0;
 static uint32_t lastPhoneMs = 0;
+static bool watchObd = false;
+static uint32_t lastWatchMs = 0;
 static const char *piStatus = "idle";
 
 static void enterIdle(const char *why) {
@@ -91,7 +95,7 @@ void setup() {
                       MIN_SPEED_KPH, GATE_COVERAGE * 100.0f);
     }
 
-    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC]");
+    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / OBD RESTART");
     Serial.println("==================================\n");
     stateStartMs = millis();
 }
@@ -147,6 +151,12 @@ static void handleSerial() {
         Serial.println("[CMD] Injected brake event");
     } else if (cmd.equalsIgnoreCase("STATUS")) {
         printStatus();
+    } else if (cmd.equalsIgnoreCase("WATCH")) {
+        watchObd = !watchObd;
+        Serial.printf("[CMD] OBD watch %s\n", watchObd ? "ON (1 Hz)" : "OFF");
+    } else if (cmd.equalsIgnoreCase("OBD RESTART")) {
+        Serial.println("[CMD] Restarting the dongle link");
+        Obd.restart();
     } else if (tryPinTest(cmd, "serial")) {
         // handled
     } else if (cmd.startsWith("TEST") || cmd.startsWith("test")) {
@@ -229,6 +239,19 @@ void loop() {
             // sends NOT_DROWSY.
             enterIdle("maximum alert duration reached");
         }
+    }
+
+    // Live OBD values for link testing (Tools/obd_link). Field names are
+    // parsed by that tool; change both together.
+    if (watchObd && now - lastWatchMs >= 1000) {
+        lastWatchMs = now;
+        const ObdValues &v = Obd.values();
+        Serial.printf("[WATCH] obd=%s layout=%s hz=%.1f rpm=%.0f spd=%.0f thr=%.1f load=%.1f "
+                      "nodata=%lu err=%lu ovf=%lu\n",
+                      Obd.stateName(), Obd.layoutName(), Obd.achievedHz(),
+                      v.rpm, v.speed_kph, v.throttle_pct, v.load_pct,
+                      (unsigned long)Obd.noDataCount(), (unsigned long)Obd.errorCount(),
+                      (unsigned long)Obd.rxOverflows());
     }
 
     updateActuators();

@@ -346,6 +346,12 @@ void ObdBle::pollOnce() {
     }
 }
 
+void ObdBle::restart() {
+    NimBLEScan *scan = NimBLEDevice::getScan();
+    if (scan->isScanning()) scan->stop();
+    dropLink("manual restart", 500);
+}
+
 void ObdBle::service() {
     const uint32_t now = millis();
 

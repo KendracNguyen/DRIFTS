@@ -72,7 +72,7 @@ nothing, because the host cannot exceed the controller.
 ```bash
 python3 Hardware/check_pins.py        # must print: OK: 5 pins agree
 cd Esp32/test && make                 # 28 assertions, runs on the laptop
-cd Tools && python -m pytest obd_sim/tests -q
+cd Tools && python -m pytest obd_sim/tests obd_link/tests -q
 ```
 
 Confirm nothing is wired to **GPIO 25 or 26**. On the C6 those are SPI flash
@@ -181,6 +181,12 @@ and that the Pi is on a commit with the `DF71...` UUIDs.
 **No heartbeat reaching the ESP32 means alerts will cut out after 3 seconds.** The ESP32
 fail-safe stops the alert if the Pi is silent longer than `FAILSAFE_MS`, and
 `heartbeat_s = 1.0` in `config.toml` is what keeps it satisfied.
+
+### Testing the OBD dongle link
+
+From a laptop over USB, no Pi needed:
+`cd Tools && python -m obd_link --port COM5 --mode car` —
+see [`obd-ble-link-test.md`](obd-ble-link-test.md).
 
 ### Testing the alert chain
 

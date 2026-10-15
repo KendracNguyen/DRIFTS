@@ -6,6 +6,9 @@ This is the diagnostic path for the physical dongle. It assumes the
 architecture decided on Oct 14: **the ESP32-C6 is the BLE central to the
 dongle. The Pi never talks to it.**
 
+> **Quick automated check:** [`obd-ble-link-test.md`](obd-ble-link-test.md) runs the
+> same stages from a laptop and prints PASS/FAIL. Use this page when a stage fails.
+
 ---
 
 ## Read this first — `rfcomm` will not work
