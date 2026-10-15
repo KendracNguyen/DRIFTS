@@ -24,12 +24,14 @@ arduino-cli core list
 ```
 
 ```bash
-arduino-cli lib install "NimBLE-Arduino@2.3.9"
+arduino-cli lib install "NimBLE-Arduino@2.5.1"
 arduino-cli lib install "ELMduino"
 arduino-cli lib list
 ```
 
-**NimBLE-Arduino must be 2.3.9 or newer.** Earlier versions crash when
+**NimBLE-Arduino 2.5.1 is the version this firmware was first compiled with**
+(against esp32 core 3.3.12). 2.3.9 compiles but fails to link on core 3.3.x
+(`undefined reference to r_os_memblock_get`). Versions before 2.3.9 crash when
 scanning on the C6, which is the first thing this firmware does — so the
 symptom is a reboot loop at startup with nothing pointing at the library.
 
@@ -50,7 +52,7 @@ Set three things from that list:
 | Option | Value | Why |
 | --- | --- | --- |
 | Flash Size | **8MB** | Default is 4MB and silently wastes half the part |
-| Partition Scheme | **8M with spiffs**, or Huge APP | The dual-role BLE build does not fit the default |
+| Partition Scheme | **8M with spiffs**, or Huge APP | Uses the 8MB part. First build measured 770 KB, which would also fit the default 1.2MB app partition |
 | USB CDC On Boot | Enabled | Otherwise the serial console is silent over native USB |
 
 Then build the FQBN from the IDs that command printed, for example:

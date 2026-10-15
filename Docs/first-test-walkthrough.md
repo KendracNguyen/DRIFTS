@@ -39,8 +39,8 @@ produce confusing failures rather than clear errors.
 - [ ] Arduino IDE with **arduino-esp32 core 3.x** (C6 support starts at 3.0.0)
 - [ ] Board: **ESP32C6 Dev Module**
 - [ ] **Flash Size: 8MB** (default is 4MB and silently wastes half the part)
-- [ ] **Partition Scheme: `8M with spiffs`** or **Huge APP** — the dual-role BLE build does not fit the default
-- [ ] **NimBLE-Arduino 2.3.9 or newer.** Older versions *crash when scanning on the C6*, which is the first thing this firmware does. Do not skip this.
+- [ ] **Partition Scheme: `8M with spiffs`** or **Huge APP** — uses the full 8MB part (first build measured 770 KB)
+- [ ] **NimBLE-Arduino 2.5.1** (2.3.9 fails to link on esp32 core 3.3.x). Older versions *crash when scanning on the C6*, which is the first thing this firmware does. Do not skip this.
 - [ ] **ELMduino** (PowerBroker2) from Library Manager
 - [ ] Leave `MYNEWT_VAL_BLE_MAX_CONNECTIONS` alone. The C6 controller caps at 3, which is exactly what we use.
 

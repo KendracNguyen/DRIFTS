@@ -8,3 +8,6 @@ captures/
 # host test binaries
 Esp32/test/test_trigger
 Esp32/test/test_stream
+
+# arduino-cli build output
+Esp32/drifts_esp32/build/
