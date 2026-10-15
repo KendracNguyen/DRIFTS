@@ -57,6 +57,11 @@ public:
     // OBD RESTART serial command so a link test always starts from zero.
     void restart();
 
+    // Link options for diagnosing dongles that drop the connection.
+    void setMtuExchange(bool on);
+    void setPhy1mOnly(bool on);
+    void printLinkOptions() const;
+
     bool isLinkUp() const;                 // connected to the dongle
     bool isPolling() const { return _state == ObdState::Polling; }
     ObdState state() const { return _state; }

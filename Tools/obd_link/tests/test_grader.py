@@ -211,3 +211,19 @@ def test_watch_line_without_age_still_parses():
     g = LinkGrader("car", poll_seconds=1)
     g.feed(watch())
     assert g.verdict() == PASS
+
+
+def test_reports_link_options_and_drop_rate():
+    g = LinkGrader("car", poll_seconds=1)
+    for _ in range(2):
+        feed(g, "[OBD] Link options: MTU exchange OFF (23), PHY 1M only, settle 400 ms\n"
+                "[OBD] Candidate: VEEPEAK (66:1e:87:c6:2c:63)\n"
+                "[OBD] Connected, MTU 23\n"
+                "[OBD] Dongle disconnected (reason 520 = HCI 0x08, connection timeout: radio contact lost)\n"
+                "[OBD] Lost the dongle during connect/discovery; not a layout problem.\n")
+    feed(g, "[OBD] Connected, MTU 23\n" + BRINGUP.split("[OBD] Connected, MTU 247\n")[1])
+    g.feed(watch())
+    r = g.report()
+    assert g.verdict() == PASS
+    assert "MTU exchange OFF (23), PHY 1M only" in r
+    assert "3 connection(s), 2 dropped" in r

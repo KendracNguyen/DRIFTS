@@ -64,6 +64,15 @@ static volatile bool g_linkDropped = false;
 
 static ELM327 g_elm;
 
+// Link options, switchable from the serial console (OBD MTU / OBD PHY) so a
+// dongle that drops the link can be diagnosed in the car without reflashing.
+// Defaults are the conservative ones a phone app tends to end up with:
+// cheap ELM327 BLE chips have been seen to stop answering after an MTU
+// exchange or a 2M PHY switch, which surfaces as HCI 0x08.
+static bool g_mtuExchange = false;   // false: stay at the default 23-byte MTU
+static bool g_phy1mOnly = true;      // true: never negotiate 2M or Coded PHY
+static constexpr uint32_t OBD_SETTLE_MS = 400;   // connect -> discovery pause
+
 static void notifyCallback(NimBLERemoteCharacteristic *, uint8_t *data, size_t len, bool) {
     Obd.onNotifyBytes(data, len);
 }
@@ -176,7 +185,20 @@ void ObdBle::onDongleDisconnected() {
     g_linkDropped = true;
 }
 
+void ObdBle::setMtuExchange(bool on) { g_mtuExchange = on; }
+void ObdBle::setPhy1mOnly(bool on) {
+    g_phy1mOnly = on;
+    NimBLEDevice::setDefaultPhy(on ? BLE_GAP_LE_PHY_1M_MASK : BLE_GAP_LE_PHY_ANY_MASK,
+                                on ? BLE_GAP_LE_PHY_1M_MASK : BLE_GAP_LE_PHY_ANY_MASK);
+}
+void ObdBle::printLinkOptions() const {
+    Serial.printf("[OBD] Link options: MTU exchange %s, PHY %s, settle %lu ms\n",
+                  g_mtuExchange ? "ON (247)" : "OFF (23)", g_phy1mOnly ? "1M only" : "any",
+                  (unsigned long)OBD_SETTLE_MS);
+}
+
 void ObdBle::begin() {
+    setPhy1mOnly(g_phy1mOnly);
     NimBLEScan *scan = NimBLEDevice::getScan();
     scan->setScanCallbacks(&g_scanCallbacks, false);
     scan->setActiveScan(true);   // needed to read advertised names
@@ -229,7 +251,8 @@ bool ObdBle::connectToDongle() {
     // radio is not splitting its time. Resumed in discoverCharacteristics().
     NimBLEDevice::stopAdvertising();
 
-    if (!g_client->connect(g_foundAddress)) {
+    printLinkOptions();
+    if (!g_client->connect(g_foundAddress, true, false, g_mtuExchange)) {
         Serial.printf("[OBD] connect() failed (error %d)\n", g_client->getLastError());
         NimBLEDevice::startAdvertising();
         return false;
@@ -436,9 +459,19 @@ void ObdBle::service() {
             break;
 
         case ObdState::Discovering:
+            // Let the dongle finish its own post-connect setup (parameter
+            // update requests and the like) before asking for its services.
+            if (now - _stateSince < OBD_SETTLE_MS) {
+                if (g_linkDropped) dropLink("lost before discovery", OBD_RECONNECT_DELAY_MS);
+                break;
+            }
             if (discoverCharacteristics()) {
                 _state = ObdState::Initialising;
                 _stateSince = now;
+            } else if (g_linkDropped || !isLinkUp()) {
+                // A dropped link is worth retrying promptly; a genuinely
+                // unknown layout will not fix itself, so back off longer.
+                dropLink("lost during discovery", OBD_RECONNECT_DELAY_MS);
             } else {
                 dropLink("discovery failed", OBD_RECONNECT_DELAY_MS * 3);
             }

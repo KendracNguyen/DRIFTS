@@ -18,6 +18,7 @@
     TEST:m:b[:DC] drive motor m ms, buzzer b ms (DC = steady HIGH, silent)
     WATCH         toggle a 1 Hz line of live OBD values
     OBD RESTART   drop the dongle link and rescan from scratch
+    OBD MTU ON|OFF, OBD PHY 1M|ANY, OBD OPTIONS   dongle link options
     BRAKE         inject one harsh-brake event
     STATUS        print the current state
 */
@@ -157,6 +158,16 @@ static void handleSerial() {
     } else if (cmd.equalsIgnoreCase("OBD RESTART")) {
         Serial.println("[CMD] Restarting the dongle link");
         Obd.restart();
+    } else if (cmd.equalsIgnoreCase("OBD MTU ON") || cmd.equalsIgnoreCase("OBD MTU OFF")) {
+        Obd.setMtuExchange(cmd.endsWith("ON") || cmd.endsWith("on"));
+        Obd.printLinkOptions();
+        Serial.println("[CMD] Applies to the next connection. Use OBD RESTART to reconnect now.");
+    } else if (cmd.equalsIgnoreCase("OBD PHY 1M") || cmd.equalsIgnoreCase("OBD PHY ANY")) {
+        Obd.setPhy1mOnly(cmd.endsWith("1M") || cmd.endsWith("1m"));
+        Obd.printLinkOptions();
+        Serial.println("[CMD] Applies to the next connection. Use OBD RESTART to reconnect now.");
+    } else if (cmd.equalsIgnoreCase("OBD OPTIONS")) {
+        Obd.printLinkOptions();
     } else if (tryPinTest(cmd, "serial")) {
         // handled
     } else if (cmd.startsWith("TEST") || cmd.startsWith("test")) {

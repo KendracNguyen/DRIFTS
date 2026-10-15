@@ -59,6 +59,7 @@ _RE = {
     "disconnect": re.compile(r"\[OBD\] Dongle disconnected \(reason (?P<reason>\d+)"),
     "lost_after_connect": re.compile(r"\[OBD\] Lost the dongle (right after connecting|during connect/discovery)"),
     "restart": re.compile(r"\[CMD\] Restarting the dongle link"),
+    "options": re.compile(r"\[OBD\] Link options: (?P<opts>.+)"),
     "watch": re.compile(
         r"\[WATCH\] obd=(?P<obd>\w+) layout=(?P<layout>.*?) hz=(?P<hz>[\d.]+) rpm=(?P<rpm>-?[\d.]+) "
         r"spd=(?P<spd>-?[\d.]+) thr=(?P<thr>-?[\d.]+) load=(?P<load>-?[\d.]+) "
@@ -80,6 +81,8 @@ class Facts:
     probed_services: list = field(default_factory=list)
     disconnects: list = field(default_factory=list)
     before_restart: str = ""
+    link_options: str = ""
+    connects: int = 0
 
 
 class LinkGrader:
@@ -114,6 +117,8 @@ class LinkGrader:
             if not (self.mode == "desk" and k in ("pids", "polling")):
                 self.status[k] = PENDING
         f.hz.clear()
+        f.connects = 0
+        f.disconnects.clear()
         self._good_polls = 0
         self._failed_at = None
         self._dropped_before_layout = False
@@ -131,8 +136,12 @@ class LinkGrader:
         if m := _RE["found"].search(line):
             f.name, f.mac = m["name"], m["mac"]
             return self._pass("found", "scan")
+        if m := _RE["options"].search(line):
+            f.link_options = m["opts"].strip()
+            return None
         if m := _RE["connect"].search(line):
             f.mtu = int(m["mtu"])
+            f.connects += 1
             self._dropped_before_layout = False
             return self._pass("connect", "scan", "found")
         if _RE["connect_fail"].search(line):
@@ -271,6 +280,10 @@ class LinkGrader:
         lines.append(f"  MTU        {f.mtu if f.mtu is not None else '-'}")
         lines.append(f"  layout     {f.layout or '-'}")
         lines.append(f"  protocol   {f.protocol or '-'}")
+        if f.link_options:
+            lines.append(f"  options    {f.link_options}")
+        if f.connects:
+            lines.append(f"  attempts   {f.connects} connection(s), {len(f.disconnects)} dropped by the dongle")
         if f.pids:
             lines.append("  PIDs       " + "  ".join(f"{k.upper()}={'yes' if v else 'no'}" for k, v in f.pids.items()))
         if f.hz:

@@ -52,7 +52,7 @@ later car failure is the vehicle side (ignition, protocol), not Bluetooth.
 
 | Item | Notes |
 | --- | --- |
-| ESP32-C6 flashed with **v6** firmware (`WATCH`, `OBD RESTART`, steadier dongle connection, stale-value marking) | `drifts_c6_8M_uartchip_v6.bin` |
+| ESP32-C6 flashed with **v7** firmware (`WATCH`, `OBD RESTART`, conservative dongle link options, stale-value marking) | `drifts_c6_8M_uartchip_v7.bin` |
 | BLE OBD-II dongle | Veepeak OBDCheck **BLE+** or Vgate iCar Pro **BLE**. A Classic-only ELM327 cannot work — the C6 has no Classic radio |
 | Laptop with Python 3 and the repo | `pip install pyserial` (already there if you installed esptool) |
 | USB cable to the ESP32 | The CH343 port (COM5 on Kendra's laptop) |
@@ -64,10 +64,10 @@ later car failure is the vehicle side (ignition, protocol), not Bluetooth.
 
 ---
 
-## 1. Flash v6 firmware
+## 1. Flash v7 firmware
 
 ```powershell
-python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_c6_8M_uartchip_v6.bin
+python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_c6_8M_uartchip_v7.bin
 ```
 
 Optional check in the serial monitor — the ready line now ends with
@@ -189,6 +189,23 @@ The same checks by hand in the serial monitor:
 | `OBD RESTART` | Drop the dongle link and rescan from scratch |
 | `WATCH` | Toggle a 1 Hz `[WATCH]` line: state, layout, hz, rpm, speed, throttle, load, counters |
 | `STATUS` | One-shot full status, including the trigger windows and Pi/phone links |
+| `OBD OPTIONS` | Print the dongle link options in use |
+| `OBD MTU ON` / `OFF` | Exchange a 247-byte MTU after connecting, or stay at 23 (v7 default **OFF**) |
+| `OBD PHY ANY` / `1M` | Allow 2M PHY, or stay on 1M (v7 default **1M**) |
+
+### Narrowing down a dongle that keeps dropping (HCI 0x08)
+
+v7 connects conservatively: no MTU exchange, 1M PHY only, and a 400 ms pause
+before discovery. If the Veepeak now holds the link, find which option it
+objects to by turning them back on **one at a time**, each followed by
+`OBD RESTART` and a few minutes of watching:
+
+1. `OBD MTU ON` → `OBD RESTART`. Drops return → the dongle mishandles MTU exchange. Set `OBD MTU OFF` back.
+2. `OBD PHY ANY` → `OBD RESTART`. Drops return → it mishandles 2M PHY.
+
+The `obd_link` report lists the options in use and how many connections dropped
+(`attempts  5 connection(s), 4 dropped`), so two runs can be compared directly.
+Options reset to the defaults on power-up.
 
 ---
 
