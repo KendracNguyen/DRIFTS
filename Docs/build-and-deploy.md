@@ -53,13 +53,13 @@ Set three things from that list:
 | --- | --- | --- |
 | Flash Size | **8MB** | Default is 4MB and silently wastes half the part |
 | Partition Scheme | **8M with spiffs**, or Huge APP | Uses the 8MB part. First build measured 770 KB, which would also fit the default 1.2MB app partition |
-| USB CDC On Boot | Enabled | Otherwise the serial console is silent over native USB |
+| USB CDC On Boot | **Disabled** (`CDCOnBoot=default`) on our board | Our N8 dev kit's single USB-C goes through a CH343 USB-serial chip, so `Serial` must stay on the UART. Enable it (`CDCOnBoot=cdc`) only on a board whose port is the C6's native USB (shows as *USB JTAG/serial debug unit*, VID 303A). The wrong setting flashes fine and then prints nothing |
 
 Then build the FQBN from the IDs that command printed, for example:
 
 ```bash
 arduino-cli compile \
-  --fqbn esp32:esp32:esp32c6:FlashSize=8M,PartitionScheme=<id from board details> \
+  --fqbn esp32:esp32:esp32c6:FlashSize=8M,PartitionScheme=default_8MB,CDCOnBoot=default \
   Esp32/drifts_esp32
 ```
 
