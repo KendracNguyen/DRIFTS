@@ -256,6 +256,100 @@ journalctl -u drifts -f          # look for: Connected to ESP32 hub!
 
 ---
 
+## 6. Automated tests for the alert-chain tool (no hardware)
+
+`Raspberry/tests/test_alert_test.py` checks the Pi-side tool
+(`drifts/alert_test.py`) without a Pi, an ESP32 or Bluetooth. Run it after
+changing the tool, and before every commit — it is part of
+`cd Raspberry && python3 -m pytest -q`.
+
+### Run it
+
+On the Pi (from `~/drifts/Raspberry`):
+
+```bash
+.venv/bin/python -m pytest tests/test_alert_test.py -v
+```
+
+On a laptop (Python 3.11 or newer — it uses `tomllib`):
+
+```powershell
+cd <repo>\Raspberry
+pip install pytest
+python -m pytest tests\test_alert_test.py -v
+```
+
+Expected:
+
+```
+tests/test_alert_test.py::test_make_test_command_matches_firmware_format PASSED
+tests/test_alert_test.py::test_make_test_command_fits_esp32_result_buffer PASSED
+tests/test_alert_test.py::test_make_test_command_rejects_out_of_range[-1] PASSED
+tests/test_alert_test.py::test_make_test_command_rejects_out_of_range[20.1] PASSED
+tests/test_alert_test.py::test_parse_seconds PASSED
+tests/test_alert_test.py::test_sim_hub_test_timing_and_stop PASSED
+tests/test_alert_test.py::test_sim_hub_drowsy_then_not_drowsy PASSED
+tests/test_alert_test.py::test_session_records_results_and_saves PASSED
+============================== 8 passed in 0.07s ==============================
+```
+
+### What each test proves
+
+The tool has three layers. The tests cover each one, from the bytes sent to
+the ESP32 up to the whole menu session:
+
+```mermaid
+flowchart LR
+  A["make_test_command()<br/>parse_seconds()"] --> B["SimHub<br/>pretend ESP32"] --> C["Session<br/>the D/N/T/S/Q menu"]
+  A -. "tests 1-4" .- A
+  B -. "tests 5-6" .- B
+  C -. "test 7" .- C
+```
+
+| # | Test | Proves | Why it matters |
+| --- | --- | --- | --- |
+| 1 | `test_make_test_command_matches_firmware_format` | 3 s / 2 s becomes `TEST:3000:2000`; 0.5 s becomes `500`; DC mode adds `:DC` | Must match exactly what `pin_test.h` on the ESP32 parses, or option **T** silently does nothing |
+| 2 | `test_make_test_command_fits_esp32_result_buffer` | The longest command (`TEST:20000:20000:DC`, 19 chars) is under 24 bytes | The ESP32 copies Pi messages into a 24-byte buffer (`RESULT_MAX` in `ble_hub.cpp`). Longer would be cut off and rejected |
+| 3 | `test_make_test_command_rejects_out_of_range` | −1 s and 20.1 s are refused, for both motor and buzzer | The 20 s cap protects 3 V motors from being held at 5 V. Runs twice (`[-1]`, `[20.1]`) |
+| 4 | `test_parse_seconds` | Enter = default 3 s; spaces trimmed; `0` allowed; `-1`, `21`, `abc` refused | What the tester types at the prompts is validated before anything is sent |
+| 5 | `test_sim_hub_test_timing_and_stop` | `TEST:2000:500` keeps the test active at 1 s (motor still on) and ends it by 2.5 s; logs `GPIO 10 HIGH for 2000 ms` | The pretend ESP32 used by `--sim` times each output separately, like the real firmware |
+| 6 | `test_sim_hub_drowsy_then_not_drowsy` | `DROWSY` starts an alert that stops on its own after 20 s, and `NOT_DROWSY` stops it at once | Mirrors `MAX_ALERT_MS` and the stop path on the ESP32 |
+| 7 | `test_session_records_results_and_saves` | Plays a full menu session: **T**, motor `2`, buzzer `1`, mode **d** (DC), answers **y** then **n**, **Q**. Checks `TEST:2000:1000:DC` was sent, results are `PASS, FAIL`, and the log file says `1 pass, 1 fail` | The whole tool end to end: prompts, command, recorded answers, saved log |
+
+### How the tests avoid hardware and waiting
+
+| Trick | Used in | What it replaces |
+| --- | --- | --- |
+| `SimHub` | 5, 6, 7 | The ESP32 over Bluetooth. Same `send()` / `status()` as the real `BleHub` |
+| `FakeClock` | 5, 6 | Real time. The test moves the clock forward (`clock.t += 21`) instead of sleeping 21 s |
+| Scripted `ask()` | 7 | A person typing. Answers come from a list: `["T", "2", "1", "d", "y", "n", "Q"]` |
+| `no_sleep` | 7 | The tool's `asyncio.sleep` pauses, so the session finishes instantly |
+| `spy` around `hub.send` | 7 | Records every message the tool sends, to check the exact command |
+| `tmp_path` | 7 | A throwaway folder for the log file, so tests never write to `~/drifts_test_logs` |
+
+### What these tests do **not** prove
+
+- That Bluetooth works, that GPIO 10 / 11 switch, or that the motor and buzzer
+  are wired correctly — that is §5 (Pi) or the ESP32-only section, on hardware.
+- That the firmware accepts the command — that is `Esp32/test/test_pin_test.cpp`
+  (`cd Esp32/test && make`), which tests the same `TEST:` format from the ESP32 side.
+
+Tests 1–2 here and `test_pin_test.cpp` together pin the format from both ends.
+If either side changes `TEST:<motor_ms>:<buzzer_ms>[:DC]`, one of them fails.
+
+### When a test fails
+
+| Fails | Likely cause |
+| --- | --- |
+| 1 or 2 | Someone changed the command format or `MAX_TEST_S`. Update `pin_test.h`, `ble_hub.cpp` `RESULT_MAX` and this tool together |
+| 3 or 4 | Input validation changed; check the 0–20 s limits still hold |
+| 5 or 6 | `SimHub` timing no longer matches the firmware's behaviour |
+| 7 | The menu prompts or their order changed; update the scripted answers to match |
+| `ModuleNotFoundError: drifts` | Run from the `Raspberry` folder, not `Raspberry/tests` |
+| `ModuleNotFoundError: tomllib` | Python older than 3.11 |
+
+---
+
 ## Troubleshooting
 
 | Symptom | Likely cause |
