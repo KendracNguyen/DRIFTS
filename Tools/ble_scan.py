@@ -1,6 +1,6 @@
 """List nearby BLE devices and flag any ESP32 running the DRIFTS sketch.
 
-Usage:  python tools/ble_scan.py
+Usage:  python Tools/ble_scan.py
 Works on the Pi and on Windows. Copy the address into config.toml [ble] address.
 """
 

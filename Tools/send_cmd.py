@@ -1,9 +1,9 @@
 """Send results or test commands to the DRIFTS-ESP32 BLE hub.
 
 Usage:
-  python tools/send_cmd.py                      # interactive prompt
-  python tools/send_cmd.py DROWSY               # send DROWSY result
-  python tools/send_cmd.py NOT_DROWSY           # send NOT_DROWSY result
+  python Tools/send_cmd.py                      # interactive prompt
+  python Tools/send_cmd.py DROWSY               # send DROWSY result
+  python Tools/send_cmd.py NOT_DROWSY           # send NOT_DROWSY result
 """
 
 from __future__ import annotations

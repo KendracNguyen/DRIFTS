@@ -177,7 +177,7 @@ Do these in order; each one isolates a failure the next would hide.
 The logic that does not need an ESP32 is tested on the host:
 
 ```bash
-cd esp32/test && make
+cd Esp32/test && make
 ```
 
 This covers the rolling-window statistics (window length, stale-sample

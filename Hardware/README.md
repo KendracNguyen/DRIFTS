@@ -3,7 +3,7 @@
 **Target MCU:** ESP32-C6-WROOM-1 (ESP32-C6-DevKitC-1)
 **Revision:** BLE dongle data path · 2026-09-30
 
-This folder is the authority for pin assignments. `esp32/drifts_esp32/config.h`
+This folder is the authority for pin assignments. `Esp32/drifts_esp32/config.h`
 must match the table below — if they disagree, one of them is a bug.
 
 ---
@@ -199,7 +199,7 @@ future addition.
 
 ### 5.7 IMU mounting — decide the axis before you glue anything
 
-`IMU_LONG_AXIS` and `IMU_LONG_SIGN` in `esp32/drifts_esp32/imu.h` define which
+`IMU_LONG_AXIS` and `IMU_LONG_SIGN` in `Esp32/drifts_esp32/imu.h` define which
 accelerometer axis points along the vehicle and which direction counts as
 braking.
 
@@ -243,3 +243,6 @@ pedals and airbag deployment paths.
 | `schematic.md` | Driver circuits, power tree, connector detail |
 | `BOM.csv` | Bill of materials |
 | `pinout.csv` | Pin map as data, for diffing against `config.h` |
+| `reserved_pins.csv` | Pins that must not be assigned, as data |
+| `check_pins.py` | Fails if the pin docs and `config.h` disagree |
+| `falstad/` | Falstad circuit simulations of every driver circuit, with the numbers to expect — see `falstad/README.md` |
