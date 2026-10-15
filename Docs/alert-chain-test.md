@@ -35,6 +35,86 @@ flowchart LR
 
 ---
 
+## Alert-chain test — ESP32 only
+
+The v3 firmware accepts the same commands over USB serial, so you can test the
+ESP32, motor and buzzer from your laptop with the serial monitor. **No Pi, no
+Bluetooth.** Use this first: it isolates the ESP32 → driver → load half of the
+chain, so if it passes, any later failure is on the Pi / BLE side.
+
+```mermaid
+flowchart LR
+  PC["Laptop<br/>serial monitor"] -- "USB: TEST / DROWSY / STOP" --> ESP["ESP32-C6"]
+  ESP -- "GPIO 10" --> Q1["Q1"] --> M["Motors"]
+  ESP -- "GPIO 11" --> Q2["Q2"] --> B["Buzzer"]
+```
+
+**Before powering the motor branch**, do the power-off checks in
+[`Hardware/wiring-check.md`](../Hardware/wiring-check.md) §1 — D1 orientation
+above all. For the first motor run use a current-limited bench supply
+(5 V, 1 A limit) if you have one.
+
+### 1. Flash v3 and open the monitor
+
+From the folder holding the `.bin` (Windows; on macOS/Linux the port is
+`/dev/cu.usbserial-*` or `/dev/ttyUSB0`):
+
+```powershell
+pip install esptool
+python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_c6_8M_uartchip_v3.bin
+python -m serial.tools.miniterm --dtr 0 --rts 0 COM5 115200
+```
+
+Find the port with `python -m serial.tools.list_ports -v` — use the **CH343**
+entry. Keep `--dtr 0 --rts 0`. Type `STATUS` + Enter to confirm the board answers.
+
+### 2. Run the commands
+
+Type each line and press Enter:
+
+| # | Command | Expect | ☐ |
+| --- | --- | --- | --- |
+| 1 | `TEST:2000:0` | Motor runs 2 s, then `[TEST] Motor off` | ☐ |
+| 2 | `TEST:0:2000` | Buzzer 2.7 kHz tone for 2 s | ☐ |
+| 3 | `TEST:5000:5000:DC` | Motor runs 5 s; meter on GPIO 11 (black probe on GND) ≈ **3.3 V**, buzzer silent | ☐ |
+| 4 | `DROWSY` | Full alert: motor 0.5 s on / 0.3 s off, buzzer beeping | ☐ |
+| 5 | `STOP` | Both stop immediately | ☐ |
+| 6 | `DROWSY`, then wait | Stops on its own at 20 s (safety cap) | ☐ |
+
+Command format: `TEST:<motor_ms>:<buzzer_ms>[:DC]`
+
+- `0` leaves that output off
+- `:DC` holds the buzzer pin steady HIGH (silent, for a meter) instead of the tone
+- Anything above `20000` ms is clamped to 20 s, so a typo cannot hold 5 V on 3 V motors
+
+Every command echoes in the serial log, e.g.:
+
+```
+[TEST] Pin test from serial
+[TEST] Motor GPIO 10: 2000 ms at duty 255/255 | Buzzer GPIO 11: 0 ms tone
+[TEST] Motor off
+```
+
+### Without the Pi, two things differ
+
+- The 3-second fail-safe applies **only while a Pi is connected**, so `DROWSY`
+  runs the full 20 s here. That is expected, not a bug.
+- This proves only the ESP32 half. The Pi → Bluetooth half is tested with
+  `drifts.alert_test` in §5.
+
+### If a step fails
+
+| Serial shows | But | Look at |
+| --- | --- | --- |
+| `[TEST] Motor GPIO 10 ...` | motor does not run | Meter GPIO 10: ~3.3 V → driver (Q1, D1, motor rail). 0 V → wrong header pin |
+| `[TEST] ... Buzzer ... tone` | silent | GPIO 11 ~1.6 V average → Q2 / piezo wiring. Sounds in DC but not tone → active buzzer, swap for passive |
+| nothing after typing `TEST:...` | | Firmware older than v3, or the port/baud is wrong |
+| board resets when the motor starts | | 5 V rail sag — `wiring-check.md` §2 |
+
+Full fault table: [`Hardware/wiring-check.md`](../Hardware/wiring-check.md) §4.
+
+---
+
 ## 1. Flash the ESP32 with the test-capable firmware
 
 The `TEST:` command was added after the first flash. Re-flash first, or

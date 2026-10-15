@@ -184,6 +184,9 @@ fail-safe stops the alert if the Pi is silent longer than `FAILSAFE_MS`, and
 
 ### Testing the alert chain
 
+To test the ESP32, motor and buzzer alone from a laptop over USB, see
+[Alert-chain test — ESP32 only](alert-chain-test.md#alert-chain-test--esp32-only).
+
 To check that a command from the Pi drives the motor and buzzer on the ESP32,
 use the menu-driven bench tool — walkthrough in
 [`alert-chain-test.md`](alert-chain-test.md), wiring cautions in
