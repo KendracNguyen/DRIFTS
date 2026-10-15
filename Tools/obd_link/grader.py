@@ -221,7 +221,7 @@ class LinkGrader:
         for k in implied:                     # a later stage proves the earlier ones
             if self.status[k] == PENDING:
                 self.status[k] = PASS
-        if self.status[key] in (PENDING, FAIL):
+        if self.status[key] in (PENDING, FAIL, SKIP):
             self.status[key] = PASS
         return key
 

@@ -52,7 +52,7 @@ later car failure is the vehicle side (ignition, protocol), not Bluetooth.
 
 | Item | Notes |
 | --- | --- |
-| ESP32-C6 flashed with **v7** firmware (`WATCH`, `OBD RESTART`, conservative dongle link options, stale-value marking) | `drifts_c6_8M_uartchip_v7.bin` |
+| ESP32-C6 flashed with **v8** firmware (`WATCH`, `OBD RESTART`, conservative dongle link options, stale-value marking, PID support from live replies) | `drifts_c6_8M_uartchip_v8.bin` |
 | BLE OBD-II dongle | Veepeak OBDCheck **BLE+** or Vgate iCar Pro **BLE**. A Classic-only ELM327 cannot work — the C6 has no Classic radio |
 | Laptop with Python 3 and the repo | `pip install pyserial` (already there if you installed esptool) |
 | USB cable to the ESP32 | The CH343 port (COM5 on Kendra's laptop) |
@@ -64,10 +64,10 @@ later car failure is the vehicle side (ignition, protocol), not Bluetooth.
 
 ---
 
-## 1. Flash v7 firmware
+## 1. Flash v8 firmware
 
 ```powershell
-python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_c6_8M_uartchip_v7.bin
+python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_c6_8M_uartchip_v8.bin
 ```
 
 Optional check in the serial monitor — the ready line now ends with
@@ -141,7 +141,24 @@ four PIDs.
 
 ---
 
-### Reference run: 2023 Audi A5 (Oct 15)
+### ✅ Reference vehicle: 2023 Audi A5 + Veepeak OBDCheck BLE+ — PASS (Oct 15)
+
+| | Measured |
+| --- | --- |
+| Result | **PASS, 2 of 2 runs**, firmware v7, from a cold restart |
+| Dongle | VEEPEAK `66:1e:87:c6:2c:63`, layout **FFF0 (generic ELM327 BLE)** |
+| Protocol | `6` — ISO 15765-4 CAN 11-bit 500 kbaud |
+| Rate | **4–5 Hz total** across the four PIDs (≈ 1 Hz per signal) |
+| PIDs | RPM, speed, throttle, load all live (RPM tracked revs 848 → 3434 → idle) |
+| Drops | 0 × HCI 0x08 with v7 options. Only disconnect was the test's own restart (0x16) |
+| ovf | 0 |
+| MTU | 247 — the **dongle** requests it; ours was off. So the fix was 1M PHY and/or the 400 ms settle, not MTU |
+
+Notes for analysis: engine load reads 0 % while revs fall (deceleration fuel
+cut), and RPM drops to 0 at stops (start-stop). Both are real, not faults.
+Design the trigger around ~1 Hz per signal on this car.
+
+### History: how the A5 link was fixed
 
 The Veepeak connected and returned live data (`rpm=903 thr=12.9 load=13.7` at
 idle). The tool's `OBD RESTART` then reconnected after only 0.5 s, the dongle

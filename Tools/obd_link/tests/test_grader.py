@@ -227,3 +227,15 @@ def test_reports_link_options_and_drop_rate():
     assert g.verdict() == PASS
     assert "MTU exchange OFF (23), PHY 1M only" in r
     assert "3 connection(s), 2 dropped" in r
+
+
+def test_v8_pid_line_after_polling_upgrades_skip():
+    """v8 reports PIDs from live replies, after [WATCH] already shows polling."""
+    g = LinkGrader("car", poll_seconds=3)
+    g.feed("[CMD] Restarting the dongle link")
+    feed(g, BRINGUP.split("[OBD] supported")[0])
+    g.feed(watch(hz=4.0))
+    g.feed("[OBD] supported: RPM=1 SPEED=1 THROTTLE=1 LOAD=1 (from live replies)")
+    g.feed(watch(hz=4.0)); g.feed(watch(hz=5.0))
+    assert g.status["pids"] == PASS and g.verdict() == PASS
+    assert not any("does not support" in w for w in g.warnings())

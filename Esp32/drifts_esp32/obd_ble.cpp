@@ -158,7 +158,7 @@ ObdBle::ObdBle()
     : _state(ObdState::Idle), _slot(0), _fresh(false), _freshSlot(SLOT_RPM),
       _stateSince(0), _backoffUntil(0), _lastSuccessMs(0), _lastPollMs(0),
       _windowStart(0), _windowCount(0), _hz(0.0f),
-      _noData(0), _errors(0), _layoutName("none") {}
+      _noData(0), _errors(0), _pidSeen{0, 0, 0, 0}, _pidReported(false), _layoutName("none") {}
 
 const char *ObdBle::stateName() const {
     switch (_state) {
@@ -369,11 +369,14 @@ bool ObdBle::initialiseElm() {
     }
     Serial.println("[OBD] ELM327 ready");
 
-    // Report which PIDs the vehicle actually answers. Throttle (0x11) is
-    // missing on some diesels; do not assume.
-    Serial.printf("[OBD] supported: RPM=%d SPEED=%d THROTTLE=%d LOAD=%d\n",
-                  g_elm.isPidSupported(0x0C), g_elm.isPidSupported(0x0D),
-                  g_elm.isPidSupported(0x11), g_elm.isPidSupported(0x04));
+    // Which PIDs the vehicle answers is reported from the live replies in
+    // pollOnce(), not asked up front. ELMduino's isPidSupported() is
+    // non-blocking: its first call only starts the 0100 query and returns
+    // false, so it printed "no" for all four on the A5 while all four were
+    // arriving -- and left that query in flight to collide with the first
+    // real request (err=1 and a ~4 s stall on every connect).
+    for (int i = 0; i < SLOT_COUNT; i++) _pidSeen[i] = 0;
+    _pidReported = false;
     return true;
 }
 
@@ -397,11 +400,13 @@ void ObdBle::pollOnce() {
             case SLOT_LOAD:     _values.load_pct = value; break;
         }
         _values.ts_ms[_slot] = now;
+        _pidSeen[_slot] = 1;
         _freshSlot = (ObdSlot)_slot;
         _fresh = true;
         _lastSuccessMs = now;
         _windowCount++;
         _slot = (_slot + 1) % SLOT_COUNT;
+        reportPidsOnce();
 
     } else if (g_elm.nb_rx_state == ELM_GETTING_MSG) {
         // Still waiting on this one. One request in flight at a time:
@@ -411,10 +416,28 @@ void ObdBle::pollOnce() {
     } else {
         // NO DATA is the ordinary reply to a PID this vehicle does not
         // support. It is not a fault and must not tear the link down.
-        if (g_elm.nb_rx_state == ELM_NO_DATA) _noData++;
-        else _errors++;
+        if (g_elm.nb_rx_state == ELM_NO_DATA) {
+            _noData++;
+            _pidSeen[_slot] = 2;
+        } else {
+            _errors++;
+        }
         _slot = (_slot + 1) % SLOT_COUNT;
+        reportPidsOnce();
     }
+}
+
+// Once every PID has either answered or said NO DATA, log which ones the
+// vehicle supports. Same line format as before, so tools keep parsing it.
+void ObdBle::reportPidsOnce() {
+    if (_pidReported) return;
+    for (int i = 0; i < SLOT_COUNT; i++) {
+        if (_pidSeen[i] == 0) return;
+    }
+    _pidReported = true;
+    Serial.printf("[OBD] supported: RPM=%d SPEED=%d THROTTLE=%d LOAD=%d (from live replies)\n",
+                  _pidSeen[SLOT_RPM] == 1, _pidSeen[SLOT_SPEED] == 1,
+                  _pidSeen[SLOT_THROTTLE] == 1, _pidSeen[SLOT_LOAD] == 1);
 }
 
 void ObdBle::restart() {
@@ -428,7 +451,13 @@ void ObdBle::restart() {
 void ObdBle::service() {
     const uint32_t now = millis();
 
-    if (g_linkDropped && _state != ObdState::Backoff) {
+    // The disconnect callback for a link we already tore down (OBD RESTART,
+    // or a drop handled in discovery) can arrive after the new scan starts.
+    // With no client there is nothing to drop; doing it anyway cost an extra
+    // 3 s backoff after every restart on the A5.
+    if (g_linkDropped && g_client == nullptr) {
+        g_linkDropped = false;
+    } else if (g_linkDropped && _state != ObdState::Backoff) {
         dropLink("notified by NimBLE", OBD_RECONNECT_DELAY_MS);
         return;
     }

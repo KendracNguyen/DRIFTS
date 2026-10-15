@@ -93,6 +93,7 @@ private:
     void pollOnce();
     void dropLink(const char *why, uint32_t backoffMs);
     void startScan();
+    void reportPidsOnce();
 
     ObdState _state;
     BleStream _stream;
@@ -114,6 +115,8 @@ private:
 
     uint32_t _noData;
     uint32_t _errors;
+    uint8_t _pidSeen[SLOT_COUNT];   // 0 unknown, 1 answered, 2 NO DATA
+    bool _pidReported;
 
     const char *_layoutName;
 };
