@@ -37,14 +37,14 @@ flowchart LR
 
 ## Alert-chain test — ESP32 only
 
-The v3 firmware accepts the same commands over USB serial, so you can test the
-ESP32, motor and buzzer from your laptop with the serial monitor. **No Pi, no
+The firmware (v3 and later) accepts the same commands over USB serial, so you can test the
+ESP32, motor and buzzer from your laptop — guided by the same tool the Pi uses, or by hand. **No Pi, no
 Bluetooth.** Use this first: it isolates the ESP32 → driver → load half of the
 chain, so if it passes, any later failure is on the Pi / BLE side.
 
 ```mermaid
 flowchart LR
-  PC["Laptop<br/>serial monitor"] -- "USB: TEST / DROWSY / STOP" --> ESP["ESP32-C6"]
+  PC["Laptop<br/>alert_test --serial<br/>or serial monitor"] -- "USB: TEST / DROWSY / STOP" --> ESP["ESP32-C6"]
   ESP -- "GPIO 10" --> Q1["Q1"] --> M["Motors"]
   ESP -- "GPIO 11" --> Q2["Q2"] --> B["Buzzer"]
 ```
@@ -54,23 +54,112 @@ flowchart LR
 above all. For the first motor run use a current-limited bench supply
 (5 V, 1 A limit) if you have one.
 
-### 1. Flash v3 and open the monitor
+### Walkthrough — guided test from your laptop
 
-From the folder holding the `.bin` (Windows; on macOS/Linux the port is
-`/dev/cu.usbserial-*` or `/dev/ttyUSB0`):
+The same menu tool the Pi uses, pointed at the ESP32 over USB. It sends the
+commands, shows what the ESP32 reports, asks you what happened, and saves a
+pass/fail log. Allow 10 minutes.
+
+**What you need on the laptop:** Python 3.11+, the repo (§*Get the repo* below),
+the ESP32 on USB, and nothing else holding the COM port.
+
+#### Step 1 — Flash the current firmware
+
+From the folder holding the `.bin`:
 
 ```powershell
 pip install esptool
-python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_c6_8M_uartchip_v3.bin
-python -m serial.tools.miniterm --dtr 0 --rts 0 COM5 115200
+python -m serial.tools.list_ports -v          # find the CH343 entry, e.g. COM5
+python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_c6_8M_uartchip_v9.bin
 ```
 
-Find the port with `python -m serial.tools.list_ports -v` — use the **CH343**
-entry. Keep `--dtr 0 --rts 0`. Type `STATUS` + Enter to confirm the board answers.
+Wait for `Hash of data verified.` Any firmware from v3 on has the `TEST:`
+command; use the newest.
 
-### 2. Run the commands
+#### Step 2 — Get the repo (once)
 
-Type each line and press Enter:
+```powershell
+cd C:\Users\<you>\Documents
+Invoke-WebRequest -Uri https://github.com/KendracNguyen/DRIFTS/archive/refs/heads/esp32-first-compile.zip -OutFile drifts-repo.zip
+Expand-Archive drifts-repo.zip -DestinationPath . -Force
+cd DRIFTS-esp32-first-compile\Raspberry
+```
+
+Or `git clone -b esp32-first-compile https://github.com/KendracNguyen/DRIFTS.git`.
+Re-run the two download lines whenever the code changes.
+
+#### Step 3 — Rehearse with no hardware (optional, 1 minute)
+
+```powershell
+python -m drifts.alert_test --sim
+```
+
+Same menu against a pretend ESP32. Press **Q** to leave.
+
+#### Step 4 — Start the guided test on the real ESP32
+
+Close miniterm first — only one program can hold the port. Then:
+
+```powershell
+python -m drifts.alert_test --serial COM5
+```
+
+You should see the ESP32 answer:
+
+```
+Connected to the ESP32 on COM5 (USB serial). No Pi involved.
+    ESP32| [STATUS] obd=scanning ... | pi=0 phone=0 | ...
+```
+
+Lines starting `ESP32|` are the board's own log.
+
+#### Step 5 — Work through the menu in this order
+
+| # | Press | Then type | You should see / feel | Answer |
+| --- | --- | --- | --- | --- |
+| 1 | **S** | — | `ESP32 status: alert=False test=False` | — |
+| 2 | **T** | motor `2`, buzzer `0`, Enter | `ESP32\| [TEST] Motor GPIO 10: 2000 ms ...`; motor runs 2 s, then `Motor off` | `y` if it ran |
+| 3 | **T** | motor `0`, buzzer `2`, Enter (tone) | 2.7 kHz tone for 2 s | `y` if heard |
+| 4 | **T** | motor `0`, buzzer `5`, `d` (DC) | Silent. Meter: black probe on GND, red on GPIO 11 → **≈ 3.3 V** for 5 s | `y` if ~3.3 V |
+| 5 | **D** | — | `ESP32\| [MAIN] -> ALERTING`; motor pulses 0.5 s on / 0.3 s off, buzzer beeps | `y`, `y` |
+| 6 | **N** | — | `ESP32\| [MAIN] -> IDLE`; both stop at once | `y` |
+| 7 | **Q** | — | Sends `STOP`, closes the port, prints and saves the log | — |
+
+No motor wired yet? Skip rows 2 and 5's motor question with Enter (recorded as
+SKIP), or watch **GPIO 10 with a meter** instead: ≈ 3.3 V while on.
+**Never connect the motor straight to GPIO 10** — always through Q1 with D1
+(`Hardware/wiring-check.md`).
+
+#### Step 6 — Read the result
+
+```
+Results saved to C:\Users\<you>\drifts_test_logs\alert_test_20261015_183457.log
+DRIFTS alert-chain test 2026-10-15 18:34
+hub: SerialHub
+
+18:34:54  PASS  TEST: motor ran for about 2 s, then stopped?
+18:35:10  PASS  TEST: buzzer sounded for about 2 s, then stopped?
+18:35:31  PASS  TEST: meter read ~3.3 V on GPIO 11 for about 5 s, then stopped?
+18:35:40  PASS  DROWSY: motor pulsing?
+18:35:41  PASS  DROWSY: buzzer beeping?
+18:35:50  PASS  NOT_DROWSY: both outputs stopped?
+
+6 pass, 0 fail, 0 skipped
+```
+
+`hub: SerialHub` records that this was the USB test, not the Pi one. Keep the
+log with the team's test records. A **FAIL** prints a pointer to
+`Hardware/wiring-check.md`; the table under *If a step fails* below says where
+to look.
+
+### Manual alternative — type the commands yourself
+
+If you would rather not install the repo, the same checks by hand in the
+serial monitor:
+
+```powershell
+python -m serial.tools.miniterm --dtr 0 --rts 0 COM5 115200
+```
 
 | # | Command | Expect | ☐ |
 | --- | --- | --- | --- |
@@ -87,20 +176,13 @@ Command format: `TEST:<motor_ms>:<buzzer_ms>[:DC]`
 - `:DC` holds the buzzer pin steady HIGH (silent, for a meter) instead of the tone
 - Anything above `20000` ms is clamped to 20 s, so a typo cannot hold 5 V on 3 V motors
 
-Every command echoes in the serial log, e.g.:
-
-```
-[TEST] Pin test from serial
-[TEST] Motor GPIO 10: 2000 ms at duty 255/255 | Buzzer GPIO 11: 0 ms tone
-[TEST] Motor off
-```
-
 ### Without the Pi, two things differ
 
 - The 3-second fail-safe applies **only while a Pi is connected**, so `DROWSY`
   runs the full 20 s here. That is expected, not a bug.
-- This proves only the ESP32 half. The Pi → Bluetooth half is tested with
-  `drifts.alert_test` in §5.
+- This proves only the ESP32 half. The Pi → Bluetooth half is the same tool
+  run on the Pi without `--serial` (§5).
+- There is no heartbeat over USB, and none is needed.
 
 ### If a step fails
 
@@ -290,12 +372,16 @@ tests/test_alert_test.py::test_parse_seconds PASSED
 tests/test_alert_test.py::test_sim_hub_test_timing_and_stop PASSED
 tests/test_alert_test.py::test_sim_hub_drowsy_then_not_drowsy PASSED
 tests/test_alert_test.py::test_session_records_results_and_saves PASSED
-============================== 8 passed in 0.07s ==============================
+tests/test_alert_test.py::test_serial_hub_tracks_pin_test_from_firmware_log PASSED
+tests/test_alert_test.py::test_serial_hub_tracks_alert_state PASSED
+tests/test_alert_test.py::test_serial_hub_sends_lines_and_skips_ping PASSED
+tests/test_alert_test.py::test_serial_session_end_to_end PASSED
+============================== 12 passed in 0.5s ===============================
 ```
 
 ### What each test proves
 
-The tool has three layers. The tests cover each one, from the bytes sent to
+The tool has three layers (plus the USB transport, tests 8–11). The tests cover each one, from the bytes sent to
 the ESP32 up to the whole menu session:
 
 ```mermaid
@@ -314,6 +400,10 @@ flowchart LR
 | 4 | `test_parse_seconds` | Enter = default 3 s; spaces trimmed; `0` allowed; `-1`, `21`, `abc` refused | What the tester types at the prompts is validated before anything is sent |
 | 5 | `test_sim_hub_test_timing_and_stop` | `TEST:2000:500` keeps the test active at 1 s (motor still on) and ends it by 2.5 s; logs `GPIO 10 HIGH for 2000 ms` | The pretend ESP32 used by `--sim` times each output separately, like the real firmware |
 | 6 | `test_sim_hub_drowsy_then_not_drowsy` | `DROWSY` starts an alert that stops on its own after 20 s, and `NOT_DROWSY` stops it at once | Mirrors `MAX_ALERT_MS` and the stop path on the ESP32 |
+| 8 | `test_serial_hub_tracks_pin_test_from_firmware_log` | Reads the firmware's own `[TEST] Motor GPIO 10: 2000 ms ...` / `Motor off` / `Buzzer off` lines and tracks which output is on | `--serial` mode knows when a test is running from the ESP32's log, the same lines a person reads |
+| 9 | `test_serial_hub_tracks_alert_state` | `[MAIN] -> ALERTING` / `-> IDLE` switch the alert flag | **S** over USB reports the real alert state |
+| 10 | `test_serial_hub_sends_lines_and_skips_ping` | Commands go out as `TEST:3000:0\n`; the BLE heartbeat `PING` is not sent over USB; quitting sends `STOP` | The ESP32 console is line-based, and quitting always leaves the outputs off |
+| 11 | `test_serial_session_end_to_end` | Full USB session: **T** (1 s motor), **D**, **N**, **Q** against a fake port that answers like the firmware; log says `hub: SerialHub`, `4 pass, 0 fail` | The ESP32-only walkthrough, end to end |
 | 7 | `test_session_records_results_and_saves` | Plays a full menu session: **T**, motor `2`, buzzer `1`, mode **d** (DC), answers **y** then **n**, **Q**. Checks `TEST:2000:1000:DC` was sent, results are `PASS, FAIL`, and the log file says `1 pass, 1 fail` | The whole tool end to end: prompts, command, recorded answers, saved log |
 
 ### How the tests avoid hardware and waiting
