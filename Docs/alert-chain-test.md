@@ -400,11 +400,11 @@ flowchart LR
 | 4 | `test_parse_seconds` | Enter = default 3 s; spaces trimmed; `0` allowed; `-1`, `21`, `abc` refused | What the tester types at the prompts is validated before anything is sent |
 | 5 | `test_sim_hub_test_timing_and_stop` | `TEST:2000:500` keeps the test active at 1 s (motor still on) and ends it by 2.5 s; logs `GPIO 10 HIGH for 2000 ms` | The pretend ESP32 used by `--sim` times each output separately, like the real firmware |
 | 6 | `test_sim_hub_drowsy_then_not_drowsy` | `DROWSY` starts an alert that stops on its own after 20 s, and `NOT_DROWSY` stops it at once | Mirrors `MAX_ALERT_MS` and the stop path on the ESP32 |
+| 7 | `test_session_records_results_and_saves` | Plays a full menu session: **T**, motor `2`, buzzer `1`, mode **d** (DC), answers **y** then **n**, **Q**. Checks `TEST:2000:1000:DC` was sent, results are `PASS, FAIL`, and the log file says `1 pass, 1 fail` | The whole tool end to end: prompts, command, recorded answers, saved log |
 | 8 | `test_serial_hub_tracks_pin_test_from_firmware_log` | Reads the firmware's own `[TEST] Motor GPIO 10: 2000 ms ...` / `Motor off` / `Buzzer off` lines and tracks which output is on | `--serial` mode knows when a test is running from the ESP32's log, the same lines a person reads |
 | 9 | `test_serial_hub_tracks_alert_state` | `[MAIN] -> ALERTING` / `-> IDLE` switch the alert flag | **S** over USB reports the real alert state |
 | 10 | `test_serial_hub_sends_lines_and_skips_ping` | Commands go out as `TEST:3000:0\n`; the BLE heartbeat `PING` is not sent over USB; quitting sends `STOP` | The ESP32 console is line-based, and quitting always leaves the outputs off |
 | 11 | `test_serial_session_end_to_end` | Full USB session: **T** (1 s motor), **D**, **N**, **Q** against a fake port that answers like the firmware; log says `hub: SerialHub`, `4 pass, 0 fail` | The ESP32-only walkthrough, end to end |
-| 7 | `test_session_records_results_and_saves` | Plays a full menu session: **T**, motor `2`, buzzer `1`, mode **d** (DC), answers **y** then **n**, **Q**. Checks `TEST:2000:1000:DC` was sent, results are `PASS, FAIL`, and the log file says `1 pass, 1 fail` | The whole tool end to end: prompts, command, recorded answers, saved log |
 
 ### How the tests avoid hardware and waiting
 
