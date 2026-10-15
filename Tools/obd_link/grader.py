@@ -15,7 +15,7 @@ from typing import Optional
 STAGES = [
     ("scan", "ESP32 scanning for a dongle"),
     ("found", "Dongle found (name + MAC)"),
-    ("connect", "BLE connected to dongle"),
+    ("connect", "BLE connected (and stayed up)"),
     ("layout", "GATT data channel matched"),
     ("elm", "ELM327 initialised"),
     ("pids", "Vehicle PIDs reported"),
@@ -29,8 +29,10 @@ HINTS = {
     "found": "Dongle not seen. Is it powered (in the car, ignition on, or on 12 V)? Close Torque / Car Scanner / "
              "nRF Connect -- a BLE dongle serves one central at a time. If it advertises an unusual name, add it "
              "to OBD_NAME_HINTS or set OBD_MAC_ADDRESS in config.h.",
-    "connect": "Found but would not connect. Another phone/app is probably connected to it. Close them and "
-               "power-cycle the dongle.",
+    "connect": "Found, but the link would not come up or dropped straight after connecting. HCI 0x08 (reason "
+               "520) means radio contact was lost: move the ESP32 within ~2 m of the dongle, make sure the dongle "
+               "is properly powered (in the car with ignition on), close every phone OBD app, and power-cycle the "
+               "dongle. Needs firmware v5 or later, which waits longer before giving up on the link.",
     "layout": "Connected but the data channel is unknown. Copy the '[OBD]   <uuid>: n notify, n write' lines from "
               "the log into LAYOUTS[] in obd_ble.cpp (see Docs/dongle-bringup.md Phase A).",
     "elm": "The dongle answered BLE but ELM327 init failed. In a car: ignition ON, then try ELM_PROTOCOL '0' "
@@ -54,6 +56,8 @@ _RE = {
     "elm_fail": re.compile(r"\[OBD\] ELM327 init failed"),
     "pids": re.compile(r"\[OBD\] supported: RPM=(?P<rpm>\d) SPEED=(?P<spd>\d) THROTTLE=(?P<thr>\d) LOAD=(?P<load>\d)"),
     "link_down": re.compile(r"\[OBD\] Link down: (?P<why>.+)"),
+    "disconnect": re.compile(r"\[OBD\] Dongle disconnected \(reason (?P<reason>\d+)"),
+    "lost_after_connect": re.compile(r"\[OBD\] Lost the dongle right after connecting"),
     "watch": re.compile(
         r"\[WATCH\] obd=(?P<obd>\w+) layout=(?P<layout>.*?) hz=(?P<hz>[\d.]+) rpm=(?P<rpm>-?[\d.]+) "
         r"spd=(?P<spd>-?[\d.]+) thr=(?P<thr>-?[\d.]+) load=(?P<load>-?[\d.]+) "
@@ -73,6 +77,7 @@ class Facts:
     last_watch: dict = field(default_factory=dict)
     link_downs: list = field(default_factory=list)
     probed_services: list = field(default_factory=list)
+    disconnects: list = field(default_factory=list)
 
 
 class LinkGrader:
@@ -90,6 +95,7 @@ class LinkGrader:
         self.facts = Facts()
         self._good_polls = 0
         self._failed_at: Optional[str] = None
+        self._dropped_before_layout = False
         if mode == "desk":
             self.status["pids"] = self.status["polling"] = SKIP
 
@@ -105,6 +111,7 @@ class LinkGrader:
             return self._pass("found", "scan")
         if m := _RE["connect"].search(line):
             f.mtu = int(m["mtu"])
+            self._dropped_before_layout = False
             return self._pass("connect", "scan", "found")
         if _RE["connect_fail"].search(line):
             self._fail("connect")
@@ -119,8 +126,26 @@ class LinkGrader:
             f.probed_services.append(f"{m['uuid']}: {m['n']} notify, {m['w']} write")
             return None
         if _RE["layout_fail"].search(line):
+            # Firmware before v5 blamed the layout when the link had already
+            # dropped; that is a connection failure, not an unknown dongle.
+            if self._dropped_before_layout:
+                self._fail("connect")
+                return "connect"
             self._fail("layout")
             return "layout"
+        if m := _RE["disconnect"].search(line):
+            reason = int(m["reason"])
+            f.disconnects.append(f"{reason} (HCI 0x{reason & 0xFF:02X})")
+            if self.status["connect"] == PASS and self.status["layout"] != PASS:
+                self._dropped_before_layout = True
+                self.status["connect"] = FAIL
+                self._failed_at = self._failed_at or "connect"
+                return "connect"
+            return None
+        if _RE["lost_after_connect"].search(line):
+            self._dropped_before_layout = True
+            self.status["connect"] = FAIL
+            return "connect"
         if m := _RE["elm_init"].search(line):
             f.protocol = m["proto"]
             return None
@@ -206,6 +231,8 @@ class LinkGrader:
         if p and not all(p.values()):
             missing = [k.upper() for k, v in p.items() if not v]
             w.append(f"Vehicle does not support: {', '.join(missing)}. Not a link fault; the trigger uses the rest.")
+        if self.facts.disconnects:
+            w.append("Dongle disconnected: reason " + ", ".join(self.facts.disconnects[-3:]))
         if self.facts.link_downs:
             w.append("Link dropped during the run: " + "; ".join(self.facts.link_downs[-3:]))
         return w

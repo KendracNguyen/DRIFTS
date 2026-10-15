@@ -104,6 +104,7 @@ fault.
 | --- | --- | --- |
 | `Scanning`, no candidate | Name not matched | Add to `OBD_NAME_HINTS`, or set `OBD_MAC_ADDRESS` |
 | `Connecting` forever | Another central holds it | Close the phone app; power-cycle the dongle |
+| `Connected`, then `Dongle disconnected (reason 520)` | HCI 0x08: radio contact lost before discovery. Not a layout problem, whatever older firmware printed next | Firmware v5+; dongle powered and within ~2 m; no phone apps |
 | `Discovering`, no layout | Unknown GATT family | The log lists every service with notify/write counts. Add it to `LAYOUTS[]` |
 | `Matched layout`, then drops | MTU or notify subscription | Note the MTU in the log; try the fallback layout entry |
 

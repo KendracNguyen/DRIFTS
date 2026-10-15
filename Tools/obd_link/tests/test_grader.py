@@ -144,3 +144,40 @@ def test_runner_times_out_cleanly():
     port = FakePort(["[OBD] Scanning for a BLE OBD dongle..."])
     r = Runner(port, LinkGrader("car"), out=lambda *_: None, clock=StepClock())
     assert r.run(timeout_s=2) == FAIL
+
+
+KENDRA_VEEPEAK_2026_10_15 = """\
+[OBD] Scanning for a BLE OBD dongle...
+[OBD] Candidate: VEEPEAK (66:1e:87:c6:2c:63)
+[OBD] Connected, MTU 247
+[OBD] Dongle disconnected (reason 520)
+[OBD] No known layout matched; probing services...
+[OBD] Could not identify the dongle's data channel.
+[OBD] Add its UUIDs to LAYOUTS[] in obd_ble.cpp.
+[OBD] Link down: discovery failed
+"""
+
+
+def test_drop_after_connect_is_blamed_on_connection_not_layout():
+    """The first real Veepeak run: v4 firmware blamed the layout for a dropped link."""
+    g = LinkGrader("desk")
+    feed(g, KENDRA_VEEPEAK_2026_10_15)
+    assert g.status["found"] == PASS
+    assert g.status["connect"] == FAIL
+    assert g.status["layout"] == PENDING
+    assert g.first_problem() == "connect"
+    report = g.report()
+    assert "HCI 0x08" in report and "520" in report
+    assert "LAYOUTS" not in report.split("Look first at")[1]
+
+
+def test_v5_lost_after_connect_line_and_later_recovery():
+    g = LinkGrader("desk")
+    feed(g, "[OBD] Candidate: VEEPEAK (66:1e:87:c6:2c:63)\n"
+            "[OBD] Connected, MTU 247\n"
+            "[OBD] Dongle disconnected (reason 520 = HCI 0x08, connection timeout: radio contact lost)\n"
+            "[OBD] Lost the dongle right after connecting; not a layout problem.\n")
+    assert g.status["connect"] == FAIL
+    feed(g, "[OBD] Connected, MTU 247\n[OBD] Matched layout: FFF0 (generic ELM327 BLE)\n")
+    assert g.status["connect"] == PASS and g.status["layout"] == PASS
+    assert g.verdict() == PASS

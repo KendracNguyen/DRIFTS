@@ -52,7 +52,7 @@ later car failure is the vehicle side (ignition, protocol), not Bluetooth.
 
 | Item | Notes |
 | --- | --- |
-| ESP32-C6 flashed with **v4** firmware (adds `WATCH` and `OBD RESTART`) | `drifts_c6_8M_uartchip_v4.bin` |
+| ESP32-C6 flashed with **v5** firmware (`WATCH`, `OBD RESTART`, steadier dongle connection) | `drifts_c6_8M_uartchip_v5.bin` |
 | BLE OBD-II dongle | Veepeak OBDCheck **BLE+** or Vgate iCar Pro **BLE**. A Classic-only ELM327 cannot work — the C6 has no Classic radio |
 | Laptop with Python 3 and the repo | `pip install pyserial` (already there if you installed esptool) |
 | USB cable to the ESP32 | The CH343 port (COM5 on Kendra's laptop) |
@@ -64,10 +64,10 @@ later car failure is the vehicle side (ignition, protocol), not Bluetooth.
 
 ---
 
-## 1. Flash v4 firmware
+## 1. Flash v5 firmware
 
 ```powershell
-python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_c6_8M_uartchip_v4.bin
+python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_c6_8M_uartchip_v5.bin
 ```
 
 Optional check in the serial monitor — the ready line now ends with
@@ -151,6 +151,7 @@ pass, with the likely cause. Summary:
 | 1 Scanning | No `[OBD]` output | Wrong port, old firmware, or the monitor still holds the port |
 | 2 Found | Dongle not advertising or not recognised | Power it (ignition on). Close phone OBD apps. Unusual name → add to `OBD_NAME_HINTS`, or set `OBD_MAC_ADDRESS` in `config.h` |
 | 3 Connected | Another central holds it | Close every phone app, power-cycle the dongle |
+| 3 Connected, then `Dongle disconnected (reason 520)` | **HCI 0x08 — radio contact lost** right after connecting. Seen on the team's Veepeak on Oct 15 with v4 firmware, which then wrongly reported an unknown layout | Flash **v5** (longer link timeout, pauses advertising while connecting). ESP32 within ~2 m of the dongle, dongle properly powered, no phone apps |
 | 4 Layout | Unknown GATT layout | The report lists the probed services — copy them into `LAYOUTS[]` in `obd_ble.cpp` |
 | 5 ELM init (car) | ECU not answering | Ignition ON. Try `ELM_PROTOCOL = '0'` once with `--timeout 180` |
 | 7 Live data, hz = 0 | Connected, no answers | Check `nodata`: climbing on every PID → wrong protocol |

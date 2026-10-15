@@ -77,9 +77,25 @@ static bool bleWriteSink(const uint8_t *data, size_t len, void *) {
     return g_writeChar->writeValue(data, len, withResponse);
 }
 
+// NimBLE reports HCI disconnect reasons as BLE_HS_ERR_HCI_BASE (0x200) + code.
+// Naming the common ones saves a trip to the Bluetooth spec mid-test.
+static const char *hciReasonName(int reason) {
+    switch (reason & 0xFF) {
+        case 0x08: return "connection timeout: radio contact lost";
+        case 0x13: return "dongle closed the connection";
+        case 0x16: return "closed by the ESP32";
+        case 0x22: return "link-layer response timeout";
+        case 0x3B: return "unacceptable connection parameters";
+        case 0x3D: return "MIC failure (pairing/encryption)";
+        case 0x3E: return "connection failed to be established";
+        default:   return "see Bluetooth Core spec, HCI error codes";
+    }
+}
+
 class DongleClientCallbacks : public NimBLEClientCallbacks {
     void onDisconnect(NimBLEClient *, int reason) override {
-        Serial.printf("[OBD] Dongle disconnected (reason %d)\n", reason);
+        Serial.printf("[OBD] Dongle disconnected (reason %d = HCI 0x%02X, %s)\n",
+                      reason, reason & 0xFF, hciReasonName(reason));
         g_linkDropped = true;
     }
 };
@@ -203,9 +219,19 @@ bool ObdBle::connectToDongle() {
     g_client = NimBLEDevice::createClient();
     g_client->setClientCallbacks(&g_clientCallbacks, false);
     g_client->setConnectTimeout(OBD_CONNECT_TIMEOUT_MS);
+    // 30-60 ms interval, 6 s supervision timeout. NimBLE's default gives up
+    // after 2.56 s of missed connection events; on the single-radio C6,
+    // which is also advertising to the Pi and phone, that dropped the
+    // Veepeak with HCI 0x08 straight after the MTU exchange.
+    g_client->setConnectionParams(24, 48, 0, 600);
+
+    // Pause the hub's advertising while the dongle link comes up, so the
+    // radio is not splitting its time. Resumed in discoverCharacteristics().
+    NimBLEDevice::stopAdvertising();
 
     if (!g_client->connect(g_foundAddress)) {
-        Serial.println("[OBD] connect() failed");
+        Serial.printf("[OBD] connect() failed (error %d)\n", g_client->getLastError());
+        NimBLEDevice::startAdvertising();
         return false;
     }
     // NimBLE 2.x has no per-client setMTU(). connect() exchanges the MTU
@@ -217,6 +243,20 @@ bool ObdBle::connectToDongle() {
 }
 
 bool ObdBle::discoverCharacteristics() {
+    const bool ok = discoverOnConnectedLink();
+    NimBLEDevice::startAdvertising();   // paused in connectToDongle()
+    return ok;
+}
+
+bool ObdBle::discoverOnConnectedLink() {
+    // A link that dropped after connect() returned cannot be discovered,
+    // and its empty service list must not be blamed on an unknown layout.
+    if (g_linkDropped || !g_client->isConnected()) {
+        Serial.println("[OBD] Lost the dongle right after connecting; not a layout problem.");
+        Serial.println("[OBD] Check: dongle powered (ignition on), within ~2 m, no phone app connected.");
+        return false;
+    }
+
     // 1. Try the known layouts in order.
     for (size_t i = 0; i < LAYOUT_COUNT; i++) {
         NimBLERemoteService *svc = g_client->getService(NimBLEUUID(LAYOUTS[i].service));

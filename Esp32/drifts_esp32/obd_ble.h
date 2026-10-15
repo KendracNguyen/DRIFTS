@@ -83,6 +83,7 @@ public:
 private:
     bool connectToDongle();
     bool discoverCharacteristics();
+    bool discoverOnConnectedLink();
     bool initialiseElm();
     void pollOnce();
     void dropLink(const char *why, uint32_t backoffMs);
