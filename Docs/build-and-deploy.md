@@ -90,6 +90,31 @@ arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200
 On Windows the port is `COMn`. If the board is not enumerated, hold BOOT
 (GPIO 9) while plugging in.
 
+**Our dev kit (ESP32-C6-WROOM-1 N8, single USB-C)** has a USB hub on the
+board, so one cable shows up as two ports:
+
+| Port | `list_ports -v` shows | Use |
+| --- | --- | --- |
+| CH343 bridge | `USB-Enhanced-SERIAL CH343`, `1A86:55D3` | Flash and serial console. The firmware prints here |
+| Native C6 USB | `USB Serial Device`, `303A:1001` | Unused with `CDCOnBoot=default` |
+
+From Windows, without installing arduino-cli:
+
+```powershell
+pip install esptool
+python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_esp32.ino.merged.bin
+python -m serial.tools.miniterm --dtr 0 --rts 0 COM5 115200
+```
+
+Keep `--dtr 0 --rts 0`: DTR/RTS drive the auto-reset circuit, and leaving them
+asserted can hold the chip in reset or download mode with a silent console.
+
+**Pressing RESET drops the COM port** on this board (`Access is denied` in
+miniterm), even on a direct laptop port. The firmware keeps running; the port
+re-enumerates. Reopen the monitor, or use a script that reconnects, to see the
+boot banner. To check Bluetooth without serial at all, scan for
+**DRIFTS-ESP32** in nRF Connect.
+
 ### Confirming the outputs actually assert
 
 The alert path is driven by LEDC, so a multimeter on a PWM pin reads an
