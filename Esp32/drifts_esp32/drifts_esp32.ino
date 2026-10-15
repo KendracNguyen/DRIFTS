@@ -246,12 +246,20 @@ void loop() {
     if (watchObd && now - lastWatchMs >= 1000) {
         lastWatchMs = now;
         const ObdValues &v = Obd.values();
+        // age = ms since the newest reading. Values are kept after the link
+        // drops, so without this a frozen rpm looks like live data.
+        uint32_t newest = 0;
+        for (int i = 0; i < SLOT_COUNT; i++) newest = max(newest, v.ts_ms[i]);
+        char age[16];
+        if (newest == 0) snprintf(age, sizeof(age), "none");
+        else snprintf(age, sizeof(age), "%lu", (unsigned long)(now - newest));
         Serial.printf("[WATCH] obd=%s layout=%s hz=%.1f rpm=%.0f spd=%.0f thr=%.1f load=%.1f "
-                      "nodata=%lu err=%lu ovf=%lu\n",
+                      "nodata=%lu err=%lu ovf=%lu age=%s%s\n",
                       Obd.stateName(), Obd.layoutName(), Obd.achievedHz(),
                       v.rpm, v.speed_kph, v.throttle_pct, v.load_pct,
                       (unsigned long)Obd.noDataCount(), (unsigned long)Obd.errorCount(),
-                      (unsigned long)Obd.rxOverflows());
+                      (unsigned long)Obd.rxOverflows(), age,
+                      Obd.isPolling() ? "" : " STALE");
     }
 
     updateActuators();

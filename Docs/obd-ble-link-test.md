@@ -52,7 +52,7 @@ later car failure is the vehicle side (ignition, protocol), not Bluetooth.
 
 | Item | Notes |
 | --- | --- |
-| ESP32-C6 flashed with **v5** firmware (`WATCH`, `OBD RESTART`, steadier dongle connection) | `drifts_c6_8M_uartchip_v5.bin` |
+| ESP32-C6 flashed with **v6** firmware (`WATCH`, `OBD RESTART`, steadier dongle connection, stale-value marking) | `drifts_c6_8M_uartchip_v6.bin` |
 | BLE OBD-II dongle | Veepeak OBDCheck **BLE+** or Vgate iCar Pro **BLE**. A Classic-only ELM327 cannot work — the C6 has no Classic radio |
 | Laptop with Python 3 and the repo | `pip install pyserial` (already there if you installed esptool) |
 | USB cable to the ESP32 | The CH343 port (COM5 on Kendra's laptop) |
@@ -64,10 +64,10 @@ later car failure is the vehicle side (ignition, protocol), not Bluetooth.
 
 ---
 
-## 1. Flash v5 firmware
+## 1. Flash v6 firmware
 
 ```powershell
-python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_c6_8M_uartchip_v5.bin
+python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_c6_8M_uartchip_v6.bin
 ```
 
 Optional check in the serial monitor — the ready line now ends with
@@ -105,7 +105,7 @@ Options:
 | --- | --- | --- |
 | `--timeout` | 120 | Seconds before giving up. Raise to 180 if `ELM_PROTOCOL` is `'0'` (auto-detect can stall ~20 s) |
 | `--poll-seconds` | 10 | Seconds of live data required to pass `car` mode |
-| `--no-restart` | off | Grade the link as it already is, without forcing a reconnect |
+| `--no-restart` | off | Grade the link as it already is, without forcing a reconnect. **Use this if the link is already polling** — see the A5 note below |
 | `--log-dir` | `obd_test_logs` | Where reports go |
 
 Exit code is `0` on PASS and `1` on FAIL, so it can be scripted.
@@ -140,6 +140,19 @@ quote it rather than a datasheet number. Expect **2–11 Hz** total across the
 four PIDs.
 
 ---
+
+### Reference run: 2023 Audi A5 (Oct 15)
+
+The Veepeak connected and returned live data (`rpm=903 thr=12.9 load=13.7` at
+idle). The tool's `OBD RESTART` then reconnected after only 0.5 s, the dongle
+had not reset yet, and the reconnect failed with **reason 520 (HCI 0x08)**
+during discovery. v6 waits 3 s before reconnecting after a restart.
+
+- If the link is already polling when you start, run with `--no-restart` and
+  `--timeout 180` — that grades the working link without disturbing it.
+- `[WATCH]` keeps the last values after a drop. v6 adds `age=<ms>` and a
+  `STALE` flag; a frozen rpm while accelerating is a stale value, not a sensor
+  fault.
 
 ## 3. Reading a failure
 

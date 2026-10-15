@@ -248,14 +248,20 @@ bool ObdBle::discoverCharacteristics() {
     return ok;
 }
 
+// The disconnect callback runs on the NimBLE host task, so a drop can land
+// at any point during discovery. Checked before every conclusion, so an
+// empty service list on a dead link is never reported as an unknown layout.
+static bool linkLostDuringDiscovery() {
+    if (!g_linkDropped && g_client != nullptr && g_client->isConnected()) return false;
+    Serial.println("[OBD] Lost the dongle during connect/discovery; not a layout problem.");
+    Serial.println("[OBD] Check: dongle powered (ignition on), within ~2 m, no phone app connected.");
+    return true;
+}
+
 bool ObdBle::discoverOnConnectedLink() {
     // A link that dropped after connect() returned cannot be discovered,
     // and its empty service list must not be blamed on an unknown layout.
-    if (g_linkDropped || !g_client->isConnected()) {
-        Serial.println("[OBD] Lost the dongle right after connecting; not a layout problem.");
-        Serial.println("[OBD] Check: dongle powered (ignition on), within ~2 m, no phone app connected.");
-        return false;
-    }
+    if (linkLostDuringDiscovery()) return false;
 
     // 1. Try the known layouts in order.
     for (size_t i = 0; i < LAYOUT_COUNT; i++) {
@@ -279,6 +285,7 @@ bool ObdBle::discoverOnConnectedLink() {
     //    characteristic and exactly one writable one. Anything more
     //    ambiguous is refused rather than guessed at.
     if (g_notifyChar == nullptr) {
+        if (linkLostDuringDiscovery()) return false;
         Serial.println("[OBD] No known layout matched; probing services...");
         const std::vector<NimBLERemoteService *> &services = g_client->getServices(true);
         for (NimBLERemoteService *svc : services) {
@@ -307,6 +314,7 @@ bool ObdBle::discoverOnConnectedLink() {
     }
 
     if (g_notifyChar == nullptr || g_writeChar == nullptr) {
+        if (linkLostDuringDiscovery()) return false;
         Serial.println("[OBD] Could not identify the dongle's data channel.");
         Serial.println("[OBD] Add its UUIDs to LAYOUTS[] in obd_ble.cpp.");
         return false;
@@ -389,7 +397,9 @@ void ObdBle::pollOnce() {
 void ObdBle::restart() {
     NimBLEScan *scan = NimBLEDevice::getScan();
     if (scan->isScanning()) scan->stop();
-    dropLink("manual restart", 500);
+    // Give the dongle time to notice the disconnect before we come back.
+    // Reconnecting after 0.5 s hit HCI 0x08 on the Veepeak every time.
+    dropLink("manual restart", OBD_RECONNECT_DELAY_MS);
 }
 
 void ObdBle::service() {

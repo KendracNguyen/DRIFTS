@@ -57,11 +57,12 @@ _RE = {
     "pids": re.compile(r"\[OBD\] supported: RPM=(?P<rpm>\d) SPEED=(?P<spd>\d) THROTTLE=(?P<thr>\d) LOAD=(?P<load>\d)"),
     "link_down": re.compile(r"\[OBD\] Link down: (?P<why>.+)"),
     "disconnect": re.compile(r"\[OBD\] Dongle disconnected \(reason (?P<reason>\d+)"),
-    "lost_after_connect": re.compile(r"\[OBD\] Lost the dongle right after connecting"),
+    "lost_after_connect": re.compile(r"\[OBD\] Lost the dongle (right after connecting|during connect/discovery)"),
+    "restart": re.compile(r"\[CMD\] Restarting the dongle link"),
     "watch": re.compile(
         r"\[WATCH\] obd=(?P<obd>\w+) layout=(?P<layout>.*?) hz=(?P<hz>[\d.]+) rpm=(?P<rpm>-?[\d.]+) "
         r"spd=(?P<spd>-?[\d.]+) thr=(?P<thr>-?[\d.]+) load=(?P<load>-?[\d.]+) "
-        r"nodata=(?P<nodata>\d+) err=(?P<err>\d+) ovf=(?P<ovf>\d+)"),
+        r"nodata=(?P<nodata>\d+) err=(?P<err>\d+) ovf=(?P<ovf>\d+)(?: age=(?P<age>\d+|none))?"),
 }
 
 
@@ -78,6 +79,7 @@ class Facts:
     link_downs: list = field(default_factory=list)
     probed_services: list = field(default_factory=list)
     disconnects: list = field(default_factory=list)
+    before_restart: str = ""
 
 
 class LinkGrader:
@@ -99,11 +101,31 @@ class LinkGrader:
         if mode == "desk":
             self.status["pids"] = self.status["polling"] = SKIP
 
+    def _restart(self) -> None:
+        """OBD RESTART acknowledged: grade the link from a cold start from here on,
+        but remember whether it was already working before."""
+        f = self.facts
+        if f.hz:
+            f.before_restart = (f"was polling before the restart at avg {sum(f.hz) / len(f.hz):.1f} Hz "
+                                f"(rpm {f.last_watch.get('rpm', '?')})")
+        elif f.last_watch.get("obd") == "polling":
+            f.before_restart = "was connected (polling, hz 0) before the restart"
+        for k, _ in STAGES:
+            if not (self.mode == "desk" and k in ("pids", "polling")):
+                self.status[k] = PENDING
+        f.hz.clear()
+        self._good_polls = 0
+        self._failed_at = None
+        self._dropped_before_layout = False
+
     # -- feeding ------------------------------------------------------------------
     def feed(self, line: str) -> Optional[str]:
         """Consume one log line. Returns the stage key it advanced, if any."""
         line = line.strip()
         f = self.facts
+        if _RE["restart"].search(line):
+            self._restart()
+            return None
         if _RE["scan"].search(line):
             return self._pass("scan")
         if m := _RE["found"].search(line):
@@ -169,7 +191,7 @@ class LinkGrader:
 
     def _watch(self, m) -> Optional[str]:
         f = self.facts
-        f.last_watch = {k: m[k] for k in ("obd", "layout", "hz", "rpm", "spd", "thr", "load", "nodata", "err", "ovf")}
+        f.last_watch = {k: m[k] for k in ("obd", "layout", "hz", "rpm", "spd", "thr", "load", "nodata", "err", "ovf", "age")}
         if self.mode == "desk" or m["obd"] != "polling":
             return None
         hz = float(m["hz"])
@@ -256,11 +278,14 @@ class LinkGrader:
                          f"over {len(f.hz)} s")
         if f.last_watch:
             w = f.last_watch
-            lines.append(f"  last       rpm {w['rpm']}  speed {w['spd']} km/h  throttle {w['thr']}%  load {w['load']}%")
+            stale = "" if w["obd"] == "polling" else "  (STALE: last values before the link dropped)"
+            lines.append(f"  last       rpm {w['rpm']}  speed {w['spd']} km/h  throttle {w['thr']}%  load {w['load']}%{stale}")
             lines.append(f"  counters   nodata {w['nodata']}  err {w['err']}  ovf {w['ovf']}")
         if f.probed_services:
             lines += ["", "Services probed (copy into LAYOUTS[] if no layout matched):"]
             lines += [f"  {s}" for s in f.probed_services]
+        if f.before_restart:
+            lines.append(f"  note       {f.before_restart}")
         warns = self.warnings()
         if warns:
             lines += ["", "Warnings:"] + [f"  ! {x}" for x in warns]

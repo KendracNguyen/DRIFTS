@@ -181,3 +181,33 @@ def test_v5_lost_after_connect_line_and_later_recovery():
     feed(g, "[OBD] Connected, MTU 247\n[OBD] Matched layout: FFF0 (generic ELM327 BLE)\n")
     assert g.status["connect"] == PASS and g.status["layout"] == PASS
     assert g.verdict() == PASS
+
+
+def test_a5_run_restart_resets_and_drop_blames_connection():
+    """Oct 15, Audi A5: polling worked, OBD RESTART reconnected too fast, 520 during discovery."""
+    g = LinkGrader("car", poll_seconds=10)
+    g.feed(watch(hz=6.0))                                  # live before the tool's restart
+    g.feed(watch(hz=6.0))
+    g.feed("[CMD] Restarting the dongle link")
+    assert all(v == PENDING for v in g.status.values())
+    feed(g, "[OBD] Link down: manual restart\n"
+            "[OBD] Scanning for a BLE OBD dongle...\n"
+            "[OBD] Candidate: VEEPEAK (66:1e:87:c6:2c:63)\n"
+            "[OBD] Connected, MTU 247\n"
+            "[OBD] Dongle disconnected (reason 520 = HCI 0x08, connection timeout: radio contact lost)\n"
+            "[OBD] No known layout matched; probing services...\n"
+            "[OBD] Could not identify the dongle's data channel.\n"
+            "[OBD] Link down: discovery failed\n")
+    g.feed("[WATCH] obd=backoff layout=none hz=0.0 rpm=903 spd=0 thr=12.9 load=13.7 nodata=0 err=0 ovf=0 age=4210 STALE")
+    assert g.status["found"] == PASS and g.status["connect"] == FAIL
+    assert g.status["layout"] == PENDING
+    report = g.report()
+    assert "was polling before the restart" in report
+    assert "STALE" in report
+    assert "Look first at: BLE connected" in report
+
+
+def test_watch_line_without_age_still_parses():
+    g = LinkGrader("car", poll_seconds=1)
+    g.feed(watch())
+    assert g.verdict() == PASS
