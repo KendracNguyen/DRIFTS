@@ -140,7 +140,7 @@ python -m pytest
 
 1. Open Arduino IDE or PlatformIO.
 2. Select **ESP32 Dev Module** (ESP32 Arduino core 3.x or 2.x).
-3. Open `esp32/drifts_esp32/drifts_esp32.ino`.
+3. Open `Esp32/drifts_esp32/drifts_esp32.ino`.
 4. Verify pin configurations in `config.h`:
    - `MOTOR_PIN = 26`
    - `BUZZER_PIN = 25`

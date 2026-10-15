@@ -208,9 +208,10 @@ bool ObdBle::connectToDongle() {
         Serial.println("[OBD] connect() failed");
         return false;
     }
-    // A larger MTU does not speed up short PID replies much, but it costs
-    // nothing to ask and helps the multi-frame cases.
-    g_client->setMTU(247);
+    // NimBLE 2.x has no per-client setMTU(). connect() exchanges the MTU
+    // itself, asking for the preferred value BleHub::init() sets with
+    // NimBLEDevice::setMTU(247). A larger MTU does not speed up short PID
+    // replies much, but it helps the multi-frame cases.
     Serial.printf("[OBD] Connected, MTU %u\n", (unsigned)g_client->getMTU());
     return true;
 }

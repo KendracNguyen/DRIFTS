@@ -2,6 +2,12 @@
 
 Companion to `README.md`. Reference designators match the BOM.
 
+Every circuit below is also a runnable Falstad simulation in
+[`falstad/`](falstad/README.md), with the current and voltage to expect at each
+point. Open `falstad/01_motor_driver.txt` and `falstad/05_motor_driver_no_flyback.txt`
+side by side before soldering the motor branch — the second one shows what the
+missing flyback diode in §2 actually does to the MOSFET.
+
 ---
 
 ## 1. Power tree

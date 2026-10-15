@@ -73,7 +73,7 @@ a cosmetic difference:
 1. **Arduino-ESP32 core 3.x** (C6 support starts at 3.0.0; use the latest
    3.3.x). Pin the version and don't upgrade mid-semester.
 2. **Board: "ESP32C6 Dev Module"**, FQBN `esp32:esp32:esp32c6`.
-3. **NimBLE-Arduino 2.3.9 minimum**, 2.5.0 preferred. Versions before 2.3.9
+3. **NimBLE-Arduino 2.5.1** (2.3.9 fails to link on esp32 core 3.3.x). Versions before 2.3.9
    have a documented **crash when scanning on the C6** — which is exactly what
    dongle discovery does. 2.3.0 is the first version with C6 support at all;
    2.3.3 fixed multiple-definition errors on core 3.3+, and 2.3.8 fixed a
@@ -86,7 +86,7 @@ a cosmetic difference:
    ELMduino never knows the difference.
 6. **Flash size 8MB** on a DevKitC-1 (the default menu setting is 4MB and
    wastes half the part), **partition scheme `default_8MB`** — or `huge_app`
-   on a 4MB board. The dual-role BLE build does not fit the default partition.
+   on a 4MB board. First build measured 770 KB of flash.
 
 > NimBLE-Arduino 2.x takes scan durations in **milliseconds**; 1.4.x took
 > seconds. `obd_ble.cpp` assumes 2.x. If you downgrade, fix `startScan()`.
@@ -177,7 +177,7 @@ Do these in order; each one isolates a failure the next would hide.
 The logic that does not need an ESP32 is tested on the host:
 
 ```bash
-cd esp32/test && make
+cd Esp32/test && make
 ```
 
 This covers the rolling-window statistics (window length, stale-sample

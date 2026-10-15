@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify hardware/pinout.csv agrees with esp32/drifts_esp32/config.h.
+"""Verify Hardware/pinout.csv agrees with Esp32/drifts_esp32/config.h.
 
 Two documents describing the same pins will drift. This makes the drift an
 error instead of a discovery during bring-up.
@@ -9,7 +9,7 @@ which catches the specific mistake that motivated this file: GPIO 25 and 26
 are SPI flash lines on the C6, and assigning them produces no compiler error
 and no runtime error -- just flash corruption.
 
-    python3 hardware/check_pins.py
+    python3 Hardware/check_pins.py
 
 Exit code 0 if everything agrees, 1 otherwise.
 """
@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-CONFIG_H = REPO / "esp32" / "drifts_esp32" / "config.h"
+CONFIG_H = REPO / "Esp32" / "drifts_esp32" / "config.h"
 PINOUT = Path(__file__).resolve().parent / "pinout.csv"
 RESERVED = Path(__file__).resolve().parent / "reserved_pins.csv"
 

@@ -13,7 +13,7 @@ wakes the Pi, the Pi answers, the alert fires and stops.
 
 **What this session cannot prove:** that the system detects drowsiness.
 
-There are no trained model weights in the repo. `raspberry/model/` contains only
+There are no trained model weights in the repo. `Raspberry/model/` contains only
 `README.md` and `labels.txt`. `detector.py` therefore runs in its `fallback`
 backend, which returns **`Open` at 0.85 confidence for every input** — verified
 against dataset images and synthetic frames alike. The Pi will answer
@@ -39,15 +39,15 @@ produce confusing failures rather than clear errors.
 - [ ] Arduino IDE with **arduino-esp32 core 3.x** (C6 support starts at 3.0.0)
 - [ ] Board: **ESP32C6 Dev Module**
 - [ ] **Flash Size: 8MB** (default is 4MB and silently wastes half the part)
-- [ ] **Partition Scheme: `8M with spiffs`** or **Huge APP** — the dual-role BLE build does not fit the default
-- [ ] **NimBLE-Arduino 2.3.9 or newer.** Older versions *crash when scanning on the C6*, which is the first thing this firmware does. Do not skip this.
+- [ ] **Partition Scheme: `8M with spiffs`** or **Huge APP** — uses the full 8MB part (first build measured 770 KB)
+- [ ] **NimBLE-Arduino 2.5.1** (2.3.9 fails to link on esp32 core 3.3.x). Older versions *crash when scanning on the C6*, which is the first thing this firmware does. Do not skip this.
 - [ ] **ELMduino** (PowerBroker2) from Library Manager
 - [ ] Leave `MYNEWT_VAL_BLE_MAX_CONNECTIONS` alone. The C6 controller caps at 3, which is exactly what we use.
 
 **Pin check before you power anything:**
 
 ```bash
-python3 hardware/check_pins.py
+python3 Hardware/check_pins.py
 ```
 
 Must print `OK: 5 pins agree`. Confirm nothing is wired to **GPIO 25 or 26** —
@@ -57,8 +57,8 @@ message.
 **Host tests, on your laptop, no hardware:**
 
 ```bash
-cd esp32/test && make        # expect ALL PASS twice
-cd raspberry && python3 -m pytest tests/ -q
+cd Esp32/test && make        # expect ALL PASS twice
+cd Raspberry && python3 -m pytest tests/ -q
 ```
 
 Note the Pi tests pass against the broken detector — they check the result is
@@ -149,7 +149,7 @@ the IMU sign.
 
 ## Phase 4 — Full chain with the Pi (30 min)
 
-1. Start the Pi app: `cd raspberry && python3 -m drifts --debug`
+1. Start the Pi app: `cd Raspberry && python3 -m drifts --debug`
 2. Confirm on the Pi: `Connected to ESP32 hub`, `Subscribed to WAKE`, and
    `Heartbeat started (1.0 s interval)`.
    - **No heartbeat line → alerts will cut out after 3 s.** Pull latest.
