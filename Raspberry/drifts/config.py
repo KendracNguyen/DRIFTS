@@ -2,9 +2,25 @@
 
 from __future__ import annotations
 
-import tomllib
 from dataclasses import dataclass, field, fields
 from pathlib import Path
+
+def _toml():
+    """tomllib is Python 3.11+. Imported only when a config file is read, so
+    tools that never read one (alert_test --serial on a laptop) still start on
+    the Python 3.9 that ships with macOS."""
+    try:
+        import tomllib
+        return tomllib
+    except ModuleNotFoundError:
+        try:
+            import tomli
+            return tomli
+        except ModuleNotFoundError:
+            raise RuntimeError(
+                "Reading config.toml needs Python 3.11+, or: python3 -m pip install tomli"
+            ) from None
+
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = REPO_ROOT / "config.toml"
@@ -68,7 +84,7 @@ def load_config(path: str | Path | None = None) -> Config:
     if not path.exists():
         return Config()
     with open(path, "rb") as f:
-        raw = tomllib.load(f)
+        raw = _toml().load(f)
     cfg = Config()
     for section in fields(Config):
         if section.name in raw:
