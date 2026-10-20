@@ -7,8 +7,9 @@ fail-safe heartbeat going, and reads back what the ESP32 reports. You confirm
 the physical end (motor felt, buzzer heard, meter reading) and the answers are
 saved to a log.
 
-    python -m drifts.alert_test            # real hardware
-    python -m drifts.alert_test --sim      # no hardware: simulated ESP32
+    python -m drifts.alert_test                 # on the Pi, over BLE
+    python -m drifts.alert_test --serial COM5   # laptop -> ESP32 over USB, no Pi
+    python -m drifts.alert_test --sim           # no hardware: simulated ESP32
 
 Stop the service first on the Pi (sudo systemctl stop drifts): the Pi can
 hold only one BLE link to the ESP32.
@@ -21,6 +22,7 @@ import asyncio
 import datetime as dt
 import json
 import logging
+import re
 import subprocess
 import sys
 import time
@@ -118,6 +120,100 @@ class SimHub:
 
     async def close(self) -> None:
         pass
+
+
+_TEST_LINE = re.compile(r"\[TEST\] Motor GPIO \d+: (?P<motor>\d+) ms.*Buzzer GPIO \d+: (?P<buzzer>\d+) ms")
+
+
+class SerialHub:
+    """The real ESP32 over USB serial, no Pi and no Bluetooth.
+
+    Sends the same commands the Pi would send over BLE (the firmware accepts
+    them on both inputs) and follows the ESP32's own log to know whether an
+    alert or a pin test is running. ESP32 log lines are echoed with an
+    "ESP32|" prefix so the tester sees exactly what the board reports.
+    """
+
+    def __init__(self, port_name: str, out=print, port=None):
+        self.port_name = port_name
+        self.out = out
+        self.port = port               # injectable for tests
+        self.alert = False
+        self.motor_on = False
+        self.buzzer_on = False
+        self.seen_lines = 0
+        self._reader: Optional[asyncio.Task] = None
+
+    async def connect(self) -> None:
+        if self.port is None:
+            try:
+                import serial
+            except ImportError as exc:
+                raise ConnectionError("pyserial is missing: pip install pyserial") from exc
+            port = serial.Serial()
+            port.port, port.baudrate, port.timeout = self.port_name, 115200, 0.1
+            port.dtr = False             # DTR/RTS drive reset/BOOT on the CH343 board
+            port.rts = False
+            try:
+                port.open()
+            except serial.SerialException as exc:
+                raise ConnectionError(f"cannot open {self.port_name}: {exc}. Close miniterm first.") from exc
+            self.port = port
+        self._reader = asyncio.create_task(self._read_loop())
+        self.out(f"Connected to the ESP32 on {self.port_name} (USB serial). No Pi involved.")
+        await self.send("STATUS")
+
+    async def _read_loop(self) -> None:
+        loop = asyncio.get_running_loop()
+        while True:
+            raw = await loop.run_in_executor(None, self.port.readline)
+            if raw:
+                self.on_line(raw.decode("utf-8", "replace").strip())
+            else:
+                await asyncio.sleep(0.05)
+
+    def on_line(self, line: str) -> None:
+        """Track output state from the firmware's log lines."""
+        if not line:
+            return
+        self.seen_lines += 1
+        if line.startswith(("[MAIN]", "[TEST]", "[CMD]", "[STATUS]")):
+            self.out(f"    ESP32| {line}")
+        if "-> ALERTING" in line:
+            self.alert = True
+        elif "-> IDLE" in line:
+            self.alert = False
+        elif m := _TEST_LINE.search(line):
+            # "[TEST] Motor GPIO 10: 2000 ms at duty 255/255 | Buzzer GPIO 11: 0 ms tone"
+            self.motor_on = int(m["motor"]) > 0
+            self.buzzer_on = int(m["buzzer"]) > 0
+        elif line.startswith("[TEST] Motor off"):
+            self.motor_on = False
+        elif line.startswith("[TEST] Buzzer off"):
+            self.buzzer_on = False
+
+    async def send(self, msg: str) -> None:
+        if msg == "PING":                # heartbeat only matters on the BLE link
+            return
+        self.port.write((msg + "\n").encode())
+
+    def status(self) -> Optional[dict]:
+        if self.seen_lines == 0:
+            return None
+        return {"alert": self.alert, "test": self.motor_on or self.buzzer_on, "pi": "none (USB)"}
+
+    async def close(self) -> None:
+        try:
+            await self.send("STOP")
+            await asyncio.sleep(0.3)
+        except Exception:
+            pass
+        if self._reader:
+            self._reader.cancel()
+        try:
+            self.port.close()
+        except Exception:
+            pass
 
 
 class BleHub:
@@ -327,6 +423,8 @@ async def _ask(prompt: str) -> str:
 def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m drifts.alert_test", description=__doc__.split("\n")[0])
     ap.add_argument("--sim", action="store_true", help="simulated ESP32, no hardware needed")
+    ap.add_argument("--serial", metavar="PORT",
+                    help="drive the ESP32 directly over USB (e.g. COM5), no Pi or Bluetooth")
     ap.add_argument("--config", "-c", metavar="PATH", help="config.toml to read BLE settings from")
     ap.add_argument("--log-dir", default=str(Path.home() / "drifts_test_logs"), help="where to save results")
     ap.add_argument("--debug", action="store_true")
@@ -335,6 +433,8 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.sim:
         hub = SimHub()
+    elif args.serial:
+        hub = SerialHub(args.serial)
     else:
         if service_running():
             print("The drifts service is running and already holds the BLE link to the ESP32.\n"

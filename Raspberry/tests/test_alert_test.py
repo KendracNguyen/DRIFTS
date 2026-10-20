@@ -104,3 +104,104 @@ def test_session_records_results_and_saves(tmp_path):
     logs = list(tmp_path.glob("alert_test_*.log"))
     assert len(logs) == 1
     assert "1 pass, 1 fail" in logs[0].read_text()
+
+
+# --------------------------------------------------------------------------- #
+# SerialHub: the ESP32 over USB, no Pi. Lines below are copied from the
+# firmware's Serial.printf formats in actuators.cpp and drifts_esp32.ino.
+# --------------------------------------------------------------------------- #
+from drifts.alert_test import SerialHub
+
+
+class FakeSerial:
+    def __init__(self):
+        self.written = []
+        self.closed = False
+
+    def write(self, data):
+        self.written.append(data.decode())
+
+    def readline(self):
+        return b""
+
+    def close(self):
+        self.closed = True
+
+
+def test_serial_hub_tracks_pin_test_from_firmware_log():
+    hub = SerialHub("COM5", out=lambda *_: None, port=FakeSerial())
+    assert hub.status() is None                      # nothing heard yet
+    hub.on_line("[TEST] Pin test from serial")
+    hub.on_line("[TEST] Motor GPIO 10: 2000 ms at duty 255/255 | Buzzer GPIO 11: 0 ms tone")
+    assert hub.motor_on and not hub.buzzer_on and hub.status()["test"] is True
+    hub.on_line("[TEST] Motor off")
+    assert hub.status()["test"] is False
+    hub.on_line("[TEST] Motor GPIO 10: 0 ms at duty 255/255 | Buzzer GPIO 11: 5000 ms steady HIGH (silent)")
+    assert hub.buzzer_on and not hub.motor_on
+    hub.on_line("[TEST] Buzzer off")
+    assert hub.status()["test"] is False
+
+
+def test_serial_hub_tracks_alert_state():
+    hub = SerialHub("COM5", out=lambda *_: None, port=FakeSerial())
+    hub.on_line("[MAIN] -> ALERTING")
+    assert hub.status()["alert"] is True
+    hub.on_line("[MAIN] -> IDLE (manual STOP)")
+    assert hub.status()["alert"] is False
+
+
+def test_serial_hub_sends_lines_and_skips_ping():
+    port = FakeSerial()
+    hub = SerialHub("COM5", out=lambda *_: None, port=port)
+    asyncio.run(hub.send("PING"))
+    asyncio.run(hub.send("TEST:3000:0"))
+    asyncio.run(hub.close())
+    assert port.written == ["TEST:3000:0\n", "STOP\n"]
+    assert port.closed
+
+
+def test_serial_session_end_to_end(tmp_path):
+    """A full menu session over USB: the fake port answers like the firmware."""
+    class EchoingSerial(FakeSerial):
+        def __init__(self):
+            super().__init__()
+            self.pending = []
+
+        def write(self, data):
+            super().write(data)
+            cmd = data.decode().strip()
+            if cmd.startswith("TEST:"):
+                m, b = cmd.split(":")[1:3]
+                self.pending.append(f"[TEST] Motor GPIO 10: {m} ms at duty 255/255 | Buzzer GPIO 11: {b} ms tone")
+            elif cmd == "DROWSY":
+                self.pending.append("[MAIN] -> ALERTING")
+            elif cmd in ("NOT_DROWSY", "STOP"):
+                self.pending.append("[MAIN] -> IDLE (manual STOP)")
+
+        def readline(self):
+            return (self.pending.pop(0) + "\n").encode() if self.pending else b""
+
+    answers = iter(["T", "1", "0", "", "y", "D", "y", "y", "N", "y", "Q"])
+
+    async def ask(_prompt):
+        return next(answers)
+
+    port = EchoingSerial()
+    hub = SerialHub("COM5", out=lambda *_: None, port=port)
+    real_sleep = asyncio.sleep
+
+    async def short_sleep(_s):
+        await real_sleep(0.01)                      # let the reader task run
+
+    asyncio.sleep = short_sleep
+    try:
+        asyncio.run(Session(hub, ask, tmp_path).run())
+    finally:
+        asyncio.sleep = real_sleep
+
+    sent = [w.strip() for w in port.written]
+    assert sent[0] == "STATUS"
+    assert "TEST:1000:0" in sent and "DROWSY" in sent and "NOT_DROWSY" in sent
+    assert sent[-1] == "STOP"                        # outputs stopped on quit
+    log = next(tmp_path.glob("alert_test_*.log")).read_text()
+    assert "hub: SerialHub" in log and "4 pass, 0 fail" in log

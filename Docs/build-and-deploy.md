@@ -182,6 +182,11 @@ and that the Pi is on a commit with the `DF71...` UUIDs.
 fail-safe stops the alert if the Pi is silent longer than `FAILSAFE_MS`, and
 `heartbeat_s = 1.0` in `config.toml` is what keeps it satisfied.
 
+### Steering weave (gyro)
+
+Steering comes from the MPU-6050 gyro, not OBD — desk test and road
+calibration in [`steering-weave.md`](steering-weave.md). Serial: `GYRO`.
+
 ### Testing the OBD dongle link
 
 From a laptop over USB, no Pi needed:

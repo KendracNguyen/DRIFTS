@@ -52,7 +52,7 @@ later car failure is the vehicle side (ignition, protocol), not Bluetooth.
 
 | Item | Notes |
 | --- | --- |
-| ESP32-C6 flashed with **v4** firmware (adds `WATCH` and `OBD RESTART`) | `drifts_c6_8M_uartchip_v4.bin` |
+| ESP32-C6 flashed with **v8** firmware (`WATCH`, `OBD RESTART`, conservative dongle link options, stale-value marking, PID support from live replies) | `drifts_c6_8M_uartchip_v8.bin` |
 | BLE OBD-II dongle | Veepeak OBDCheck **BLE+** or Vgate iCar Pro **BLE**. A Classic-only ELM327 cannot work — the C6 has no Classic radio |
 | Laptop with Python 3 and the repo | `pip install pyserial` (already there if you installed esptool) |
 | USB cable to the ESP32 | The CH343 port (COM5 on Kendra's laptop) |
@@ -64,10 +64,10 @@ later car failure is the vehicle side (ignition, protocol), not Bluetooth.
 
 ---
 
-## 1. Flash v4 firmware
+## 1. Flash v8 firmware
 
 ```powershell
-python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_c6_8M_uartchip_v4.bin
+python -m esptool --chip esp32c6 -p COM5 write-flash 0x0 drifts_c6_8M_uartchip_v8.bin
 ```
 
 Optional check in the serial monitor — the ready line now ends with
@@ -105,7 +105,7 @@ Options:
 | --- | --- | --- |
 | `--timeout` | 120 | Seconds before giving up. Raise to 180 if `ELM_PROTOCOL` is `'0'` (auto-detect can stall ~20 s) |
 | `--poll-seconds` | 10 | Seconds of live data required to pass `car` mode |
-| `--no-restart` | off | Grade the link as it already is, without forcing a reconnect |
+| `--no-restart` | off | Grade the link as it already is, without forcing a reconnect. **Use this if the link is already polling** — see the A5 note below |
 | `--log-dir` | `obd_test_logs` | Where reports go |
 
 Exit code is `0` on PASS and `1` on FAIL, so it can be scripted.
@@ -141,6 +141,36 @@ four PIDs.
 
 ---
 
+### ✅ Reference vehicle: 2023 Audi A5 + Veepeak OBDCheck BLE+ — PASS (Oct 15)
+
+| | Measured |
+| --- | --- |
+| Result | **PASS, 2 of 2 runs**, firmware v7, from a cold restart |
+| Dongle | VEEPEAK `66:1e:87:c6:2c:63`, layout **FFF0 (generic ELM327 BLE)** |
+| Protocol | `6` — ISO 15765-4 CAN 11-bit 500 kbaud |
+| Rate | **4–5 Hz total** across the four PIDs (≈ 1 Hz per signal) |
+| PIDs | RPM, speed, throttle, load all live (RPM tracked revs 848 → 3434 → idle) |
+| Drops | 0 × HCI 0x08 with v7 options. Only disconnect was the test's own restart (0x16) |
+| ovf | 0 |
+| MTU | 247 — the **dongle** requests it; ours was off. So the fix was 1M PHY and/or the 400 ms settle, not MTU |
+
+Notes for analysis: engine load reads 0 % while revs fall (deceleration fuel
+cut), and RPM drops to 0 at stops (start-stop). Both are real, not faults.
+Design the trigger around ~1 Hz per signal on this car.
+
+### History: how the A5 link was fixed
+
+The Veepeak connected and returned live data (`rpm=903 thr=12.9 load=13.7` at
+idle). The tool's `OBD RESTART` then reconnected after only 0.5 s, the dongle
+had not reset yet, and the reconnect failed with **reason 520 (HCI 0x08)**
+during discovery. v6 waits 3 s before reconnecting after a restart.
+
+- If the link is already polling when you start, run with `--no-restart` and
+  `--timeout 180` — that grades the working link without disturbing it.
+- `[WATCH]` keeps the last values after a drop. v6 adds `age=<ms>` and a
+  `STALE` flag; a frozen rpm while accelerating is a stale value, not a sensor
+  fault.
+
 ## 3. Reading a failure
 
 The report ends with **"Look first at:"** — the earliest stage that did not
@@ -151,6 +181,7 @@ pass, with the likely cause. Summary:
 | 1 Scanning | No `[OBD]` output | Wrong port, old firmware, or the monitor still holds the port |
 | 2 Found | Dongle not advertising or not recognised | Power it (ignition on). Close phone OBD apps. Unusual name → add to `OBD_NAME_HINTS`, or set `OBD_MAC_ADDRESS` in `config.h` |
 | 3 Connected | Another central holds it | Close every phone app, power-cycle the dongle |
+| 3 Connected, then `Dongle disconnected (reason 520)` | **HCI 0x08 — radio contact lost** right after connecting. Seen on the team's Veepeak on Oct 15 with v4 firmware, which then wrongly reported an unknown layout | Flash **v5** (longer link timeout, pauses advertising while connecting). ESP32 within ~2 m of the dongle, dongle properly powered, no phone apps |
 | 4 Layout | Unknown GATT layout | The report lists the probed services — copy them into `LAYOUTS[]` in `obd_ble.cpp` |
 | 5 ELM init (car) | ECU not answering | Ignition ON. Try `ELM_PROTOCOL = '0'` once with `--timeout 180` |
 | 7 Live data, hz = 0 | Connected, no answers | Check `nodata`: climbing on every PID → wrong protocol |
@@ -175,6 +206,23 @@ The same checks by hand in the serial monitor:
 | `OBD RESTART` | Drop the dongle link and rescan from scratch |
 | `WATCH` | Toggle a 1 Hz `[WATCH]` line: state, layout, hz, rpm, speed, throttle, load, counters |
 | `STATUS` | One-shot full status, including the trigger windows and Pi/phone links |
+| `OBD OPTIONS` | Print the dongle link options in use |
+| `OBD MTU ON` / `OFF` | Exchange a 247-byte MTU after connecting, or stay at 23 (v7 default **OFF**) |
+| `OBD PHY ANY` / `1M` | Allow 2M PHY, or stay on 1M (v7 default **1M**) |
+
+### Narrowing down a dongle that keeps dropping (HCI 0x08)
+
+v7 connects conservatively: no MTU exchange, 1M PHY only, and a 400 ms pause
+before discovery. If the Veepeak now holds the link, find which option it
+objects to by turning them back on **one at a time**, each followed by
+`OBD RESTART` and a few minutes of watching:
+
+1. `OBD MTU ON` → `OBD RESTART`. Drops return → the dongle mishandles MTU exchange. Set `OBD MTU OFF` back.
+2. `OBD PHY ANY` → `OBD RESTART`. Drops return → it mishandles 2M PHY.
+
+The `obd_link` report lists the options in use and how many connections dropped
+(`attempts  5 connection(s), 4 dropped`), so two runs can be compared directly.
+Options reset to the defaults on power-up.
 
 ---
 

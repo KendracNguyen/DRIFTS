@@ -15,7 +15,7 @@ from typing import Optional
 STAGES = [
     ("scan", "ESP32 scanning for a dongle"),
     ("found", "Dongle found (name + MAC)"),
-    ("connect", "BLE connected to dongle"),
+    ("connect", "BLE connected (and stayed up)"),
     ("layout", "GATT data channel matched"),
     ("elm", "ELM327 initialised"),
     ("pids", "Vehicle PIDs reported"),
@@ -29,8 +29,10 @@ HINTS = {
     "found": "Dongle not seen. Is it powered (in the car, ignition on, or on 12 V)? Close Torque / Car Scanner / "
              "nRF Connect -- a BLE dongle serves one central at a time. If it advertises an unusual name, add it "
              "to OBD_NAME_HINTS or set OBD_MAC_ADDRESS in config.h.",
-    "connect": "Found but would not connect. Another phone/app is probably connected to it. Close them and "
-               "power-cycle the dongle.",
+    "connect": "Found, but the link would not come up or dropped straight after connecting. HCI 0x08 (reason "
+               "520) means radio contact was lost: move the ESP32 within ~2 m of the dongle, make sure the dongle "
+               "is properly powered (in the car with ignition on), close every phone OBD app, and power-cycle the "
+               "dongle. Needs firmware v5 or later, which waits longer before giving up on the link.",
     "layout": "Connected but the data channel is unknown. Copy the '[OBD]   <uuid>: n notify, n write' lines from "
               "the log into LAYOUTS[] in obd_ble.cpp (see Docs/dongle-bringup.md Phase A).",
     "elm": "The dongle answered BLE but ELM327 init failed. In a car: ignition ON, then try ELM_PROTOCOL '0' "
@@ -54,10 +56,14 @@ _RE = {
     "elm_fail": re.compile(r"\[OBD\] ELM327 init failed"),
     "pids": re.compile(r"\[OBD\] supported: RPM=(?P<rpm>\d) SPEED=(?P<spd>\d) THROTTLE=(?P<thr>\d) LOAD=(?P<load>\d)"),
     "link_down": re.compile(r"\[OBD\] Link down: (?P<why>.+)"),
+    "disconnect": re.compile(r"\[OBD\] Dongle disconnected \(reason (?P<reason>\d+)"),
+    "lost_after_connect": re.compile(r"\[OBD\] Lost the dongle (right after connecting|during connect/discovery)"),
+    "restart": re.compile(r"\[CMD\] Restarting the dongle link"),
+    "options": re.compile(r"\[OBD\] Link options: (?P<opts>.+)"),
     "watch": re.compile(
         r"\[WATCH\] obd=(?P<obd>\w+) layout=(?P<layout>.*?) hz=(?P<hz>[\d.]+) rpm=(?P<rpm>-?[\d.]+) "
         r"spd=(?P<spd>-?[\d.]+) thr=(?P<thr>-?[\d.]+) load=(?P<load>-?[\d.]+) "
-        r"nodata=(?P<nodata>\d+) err=(?P<err>\d+) ovf=(?P<ovf>\d+)"),
+        r"nodata=(?P<nodata>\d+) err=(?P<err>\d+) ovf=(?P<ovf>\d+)(?: age=(?P<age>\d+|none))?"),
 }
 
 
@@ -73,6 +79,10 @@ class Facts:
     last_watch: dict = field(default_factory=dict)
     link_downs: list = field(default_factory=list)
     probed_services: list = field(default_factory=list)
+    disconnects: list = field(default_factory=list)
+    before_restart: str = ""
+    link_options: str = ""
+    connects: int = 0
 
 
 class LinkGrader:
@@ -90,21 +100,49 @@ class LinkGrader:
         self.facts = Facts()
         self._good_polls = 0
         self._failed_at: Optional[str] = None
+        self._dropped_before_layout = False
         if mode == "desk":
             self.status["pids"] = self.status["polling"] = SKIP
+
+    def _restart(self) -> None:
+        """OBD RESTART acknowledged: grade the link from a cold start from here on,
+        but remember whether it was already working before."""
+        f = self.facts
+        if f.hz:
+            f.before_restart = (f"was polling before the restart at avg {sum(f.hz) / len(f.hz):.1f} Hz "
+                                f"(rpm {f.last_watch.get('rpm', '?')})")
+        elif f.last_watch.get("obd") == "polling":
+            f.before_restart = "was connected (polling, hz 0) before the restart"
+        for k, _ in STAGES:
+            if not (self.mode == "desk" and k in ("pids", "polling")):
+                self.status[k] = PENDING
+        f.hz.clear()
+        f.connects = 0
+        f.disconnects.clear()
+        self._good_polls = 0
+        self._failed_at = None
+        self._dropped_before_layout = False
 
     # -- feeding ------------------------------------------------------------------
     def feed(self, line: str) -> Optional[str]:
         """Consume one log line. Returns the stage key it advanced, if any."""
         line = line.strip()
         f = self.facts
+        if _RE["restart"].search(line):
+            self._restart()
+            return None
         if _RE["scan"].search(line):
             return self._pass("scan")
         if m := _RE["found"].search(line):
             f.name, f.mac = m["name"], m["mac"]
             return self._pass("found", "scan")
+        if m := _RE["options"].search(line):
+            f.link_options = m["opts"].strip()
+            return None
         if m := _RE["connect"].search(line):
             f.mtu = int(m["mtu"])
+            f.connects += 1
+            self._dropped_before_layout = False
             return self._pass("connect", "scan", "found")
         if _RE["connect_fail"].search(line):
             self._fail("connect")
@@ -119,8 +157,26 @@ class LinkGrader:
             f.probed_services.append(f"{m['uuid']}: {m['n']} notify, {m['w']} write")
             return None
         if _RE["layout_fail"].search(line):
+            # Firmware before v5 blamed the layout when the link had already
+            # dropped; that is a connection failure, not an unknown dongle.
+            if self._dropped_before_layout:
+                self._fail("connect")
+                return "connect"
             self._fail("layout")
             return "layout"
+        if m := _RE["disconnect"].search(line):
+            reason = int(m["reason"])
+            f.disconnects.append(f"{reason} (HCI 0x{reason & 0xFF:02X})")
+            if self.status["connect"] == PASS and self.status["layout"] != PASS:
+                self._dropped_before_layout = True
+                self.status["connect"] = FAIL
+                self._failed_at = self._failed_at or "connect"
+                return "connect"
+            return None
+        if _RE["lost_after_connect"].search(line):
+            self._dropped_before_layout = True
+            self.status["connect"] = FAIL
+            return "connect"
         if m := _RE["elm_init"].search(line):
             f.protocol = m["proto"]
             return None
@@ -144,7 +200,7 @@ class LinkGrader:
 
     def _watch(self, m) -> Optional[str]:
         f = self.facts
-        f.last_watch = {k: m[k] for k in ("obd", "layout", "hz", "rpm", "spd", "thr", "load", "nodata", "err", "ovf")}
+        f.last_watch = {k: m[k] for k in ("obd", "layout", "hz", "rpm", "spd", "thr", "load", "nodata", "err", "ovf", "age")}
         if self.mode == "desk" or m["obd"] != "polling":
             return None
         hz = float(m["hz"])
@@ -165,7 +221,7 @@ class LinkGrader:
         for k in implied:                     # a later stage proves the earlier ones
             if self.status[k] == PENDING:
                 self.status[k] = PASS
-        if self.status[key] in (PENDING, FAIL):
+        if self.status[key] in (PENDING, FAIL, SKIP):
             self.status[key] = PASS
         return key
 
@@ -206,6 +262,8 @@ class LinkGrader:
         if p and not all(p.values()):
             missing = [k.upper() for k, v in p.items() if not v]
             w.append(f"Vehicle does not support: {', '.join(missing)}. Not a link fault; the trigger uses the rest.")
+        if self.facts.disconnects:
+            w.append("Dongle disconnected: reason " + ", ".join(self.facts.disconnects[-3:]))
         if self.facts.link_downs:
             w.append("Link dropped during the run: " + "; ".join(self.facts.link_downs[-3:]))
         return w
@@ -222,6 +280,10 @@ class LinkGrader:
         lines.append(f"  MTU        {f.mtu if f.mtu is not None else '-'}")
         lines.append(f"  layout     {f.layout or '-'}")
         lines.append(f"  protocol   {f.protocol or '-'}")
+        if f.link_options:
+            lines.append(f"  options    {f.link_options}")
+        if f.connects:
+            lines.append(f"  attempts   {f.connects} connection(s), {len(f.disconnects)} dropped by the dongle")
         if f.pids:
             lines.append("  PIDs       " + "  ".join(f"{k.upper()}={'yes' if v else 'no'}" for k, v in f.pids.items()))
         if f.hz:
@@ -229,11 +291,14 @@ class LinkGrader:
                          f"over {len(f.hz)} s")
         if f.last_watch:
             w = f.last_watch
-            lines.append(f"  last       rpm {w['rpm']}  speed {w['spd']} km/h  throttle {w['thr']}%  load {w['load']}%")
+            stale = "" if w["obd"] == "polling" else "  (STALE: last values before the link dropped)"
+            lines.append(f"  last       rpm {w['rpm']}  speed {w['spd']} km/h  throttle {w['thr']}%  load {w['load']}%{stale}")
             lines.append(f"  counters   nodata {w['nodata']}  err {w['err']}  ovf {w['ovf']}")
         if f.probed_services:
             lines += ["", "Services probed (copy into LAYOUTS[] if no layout matched):"]
             lines += [f"  {s}" for s in f.probed_services]
+        if f.before_restart:
+            lines.append(f"  note       {f.before_restart}")
         warns = self.warnings()
         if warns:
             lines += ["", "Warnings:"] + [f"  ! {x}" for x in warns]

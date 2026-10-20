@@ -64,6 +64,15 @@ static volatile bool g_linkDropped = false;
 
 static ELM327 g_elm;
 
+// Link options, switchable from the serial console (OBD MTU / OBD PHY) so a
+// dongle that drops the link can be diagnosed in the car without reflashing.
+// Defaults are the conservative ones a phone app tends to end up with:
+// cheap ELM327 BLE chips have been seen to stop answering after an MTU
+// exchange or a 2M PHY switch, which surfaces as HCI 0x08.
+static bool g_mtuExchange = false;   // false: stay at the default 23-byte MTU
+static bool g_phy1mOnly = true;      // true: never negotiate 2M or Coded PHY
+static constexpr uint32_t OBD_SETTLE_MS = 400;   // connect -> discovery pause
+
 static void notifyCallback(NimBLERemoteCharacteristic *, uint8_t *data, size_t len, bool) {
     Obd.onNotifyBytes(data, len);
 }
@@ -77,9 +86,25 @@ static bool bleWriteSink(const uint8_t *data, size_t len, void *) {
     return g_writeChar->writeValue(data, len, withResponse);
 }
 
+// NimBLE reports HCI disconnect reasons as BLE_HS_ERR_HCI_BASE (0x200) + code.
+// Naming the common ones saves a trip to the Bluetooth spec mid-test.
+static const char *hciReasonName(int reason) {
+    switch (reason & 0xFF) {
+        case 0x08: return "connection timeout: radio contact lost";
+        case 0x13: return "dongle closed the connection";
+        case 0x16: return "closed by the ESP32";
+        case 0x22: return "link-layer response timeout";
+        case 0x3B: return "unacceptable connection parameters";
+        case 0x3D: return "MIC failure (pairing/encryption)";
+        case 0x3E: return "connection failed to be established";
+        default:   return "see Bluetooth Core spec, HCI error codes";
+    }
+}
+
 class DongleClientCallbacks : public NimBLEClientCallbacks {
     void onDisconnect(NimBLEClient *, int reason) override {
-        Serial.printf("[OBD] Dongle disconnected (reason %d)\n", reason);
+        Serial.printf("[OBD] Dongle disconnected (reason %d = HCI 0x%02X, %s)\n",
+                      reason, reason & 0xFF, hciReasonName(reason));
         g_linkDropped = true;
     }
 };
@@ -133,7 +158,7 @@ ObdBle::ObdBle()
     : _state(ObdState::Idle), _slot(0), _fresh(false), _freshSlot(SLOT_RPM),
       _stateSince(0), _backoffUntil(0), _lastSuccessMs(0), _lastPollMs(0),
       _windowStart(0), _windowCount(0), _hz(0.0f),
-      _noData(0), _errors(0), _layoutName("none") {}
+      _noData(0), _errors(0), _pidSeen{0, 0, 0, 0}, _pidReported(false), _layoutName("none") {}
 
 const char *ObdBle::stateName() const {
     switch (_state) {
@@ -160,7 +185,20 @@ void ObdBle::onDongleDisconnected() {
     g_linkDropped = true;
 }
 
+void ObdBle::setMtuExchange(bool on) { g_mtuExchange = on; }
+void ObdBle::setPhy1mOnly(bool on) {
+    g_phy1mOnly = on;
+    NimBLEDevice::setDefaultPhy(on ? BLE_GAP_LE_PHY_1M_MASK : BLE_GAP_LE_PHY_ANY_MASK,
+                                on ? BLE_GAP_LE_PHY_1M_MASK : BLE_GAP_LE_PHY_ANY_MASK);
+}
+void ObdBle::printLinkOptions() const {
+    Serial.printf("[OBD] Link options: MTU exchange %s, PHY %s, settle %lu ms\n",
+                  g_mtuExchange ? "ON (247)" : "OFF (23)", g_phy1mOnly ? "1M only" : "any",
+                  (unsigned long)OBD_SETTLE_MS);
+}
+
 void ObdBle::begin() {
+    setPhy1mOnly(g_phy1mOnly);
     NimBLEScan *scan = NimBLEDevice::getScan();
     scan->setScanCallbacks(&g_scanCallbacks, false);
     scan->setActiveScan(true);   // needed to read advertised names
@@ -203,9 +241,20 @@ bool ObdBle::connectToDongle() {
     g_client = NimBLEDevice::createClient();
     g_client->setClientCallbacks(&g_clientCallbacks, false);
     g_client->setConnectTimeout(OBD_CONNECT_TIMEOUT_MS);
+    // 30-60 ms interval, 6 s supervision timeout. NimBLE's default gives up
+    // after 2.56 s of missed connection events; on the single-radio C6,
+    // which is also advertising to the Pi and phone, that dropped the
+    // Veepeak with HCI 0x08 straight after the MTU exchange.
+    g_client->setConnectionParams(24, 48, 0, 600);
 
-    if (!g_client->connect(g_foundAddress)) {
-        Serial.println("[OBD] connect() failed");
+    // Pause the hub's advertising while the dongle link comes up, so the
+    // radio is not splitting its time. Resumed in discoverCharacteristics().
+    NimBLEDevice::stopAdvertising();
+
+    printLinkOptions();
+    if (!g_client->connect(g_foundAddress, true, false, g_mtuExchange)) {
+        Serial.printf("[OBD] connect() failed (error %d)\n", g_client->getLastError());
+        NimBLEDevice::startAdvertising();
         return false;
     }
     // NimBLE 2.x has no per-client setMTU(). connect() exchanges the MTU
@@ -217,6 +266,26 @@ bool ObdBle::connectToDongle() {
 }
 
 bool ObdBle::discoverCharacteristics() {
+    const bool ok = discoverOnConnectedLink();
+    NimBLEDevice::startAdvertising();   // paused in connectToDongle()
+    return ok;
+}
+
+// The disconnect callback runs on the NimBLE host task, so a drop can land
+// at any point during discovery. Checked before every conclusion, so an
+// empty service list on a dead link is never reported as an unknown layout.
+static bool linkLostDuringDiscovery() {
+    if (!g_linkDropped && g_client != nullptr && g_client->isConnected()) return false;
+    Serial.println("[OBD] Lost the dongle during connect/discovery; not a layout problem.");
+    Serial.println("[OBD] Check: dongle powered (ignition on), within ~2 m, no phone app connected.");
+    return true;
+}
+
+bool ObdBle::discoverOnConnectedLink() {
+    // A link that dropped after connect() returned cannot be discovered,
+    // and its empty service list must not be blamed on an unknown layout.
+    if (linkLostDuringDiscovery()) return false;
+
     // 1. Try the known layouts in order.
     for (size_t i = 0; i < LAYOUT_COUNT; i++) {
         NimBLERemoteService *svc = g_client->getService(NimBLEUUID(LAYOUTS[i].service));
@@ -239,6 +308,7 @@ bool ObdBle::discoverCharacteristics() {
     //    characteristic and exactly one writable one. Anything more
     //    ambiguous is refused rather than guessed at.
     if (g_notifyChar == nullptr) {
+        if (linkLostDuringDiscovery()) return false;
         Serial.println("[OBD] No known layout matched; probing services...");
         const std::vector<NimBLERemoteService *> &services = g_client->getServices(true);
         for (NimBLERemoteService *svc : services) {
@@ -267,6 +337,7 @@ bool ObdBle::discoverCharacteristics() {
     }
 
     if (g_notifyChar == nullptr || g_writeChar == nullptr) {
+        if (linkLostDuringDiscovery()) return false;
         Serial.println("[OBD] Could not identify the dongle's data channel.");
         Serial.println("[OBD] Add its UUIDs to LAYOUTS[] in obd_ble.cpp.");
         return false;
@@ -298,11 +369,14 @@ bool ObdBle::initialiseElm() {
     }
     Serial.println("[OBD] ELM327 ready");
 
-    // Report which PIDs the vehicle actually answers. Throttle (0x11) is
-    // missing on some diesels; do not assume.
-    Serial.printf("[OBD] supported: RPM=%d SPEED=%d THROTTLE=%d LOAD=%d\n",
-                  g_elm.isPidSupported(0x0C), g_elm.isPidSupported(0x0D),
-                  g_elm.isPidSupported(0x11), g_elm.isPidSupported(0x04));
+    // Which PIDs the vehicle answers is reported from the live replies in
+    // pollOnce(), not asked up front. ELMduino's isPidSupported() is
+    // non-blocking: its first call only starts the 0100 query and returns
+    // false, so it printed "no" for all four on the A5 while all four were
+    // arriving -- and left that query in flight to collide with the first
+    // real request (err=1 and a ~4 s stall on every connect).
+    for (int i = 0; i < SLOT_COUNT; i++) _pidSeen[i] = 0;
+    _pidReported = false;
     return true;
 }
 
@@ -326,11 +400,13 @@ void ObdBle::pollOnce() {
             case SLOT_LOAD:     _values.load_pct = value; break;
         }
         _values.ts_ms[_slot] = now;
+        _pidSeen[_slot] = 1;
         _freshSlot = (ObdSlot)_slot;
         _fresh = true;
         _lastSuccessMs = now;
         _windowCount++;
         _slot = (_slot + 1) % SLOT_COUNT;
+        reportPidsOnce();
 
     } else if (g_elm.nb_rx_state == ELM_GETTING_MSG) {
         // Still waiting on this one. One request in flight at a time:
@@ -340,22 +416,48 @@ void ObdBle::pollOnce() {
     } else {
         // NO DATA is the ordinary reply to a PID this vehicle does not
         // support. It is not a fault and must not tear the link down.
-        if (g_elm.nb_rx_state == ELM_NO_DATA) _noData++;
-        else _errors++;
+        if (g_elm.nb_rx_state == ELM_NO_DATA) {
+            _noData++;
+            _pidSeen[_slot] = 2;
+        } else {
+            _errors++;
+        }
         _slot = (_slot + 1) % SLOT_COUNT;
+        reportPidsOnce();
     }
+}
+
+// Once every PID has either answered or said NO DATA, log which ones the
+// vehicle supports. Same line format as before, so tools keep parsing it.
+void ObdBle::reportPidsOnce() {
+    if (_pidReported) return;
+    for (int i = 0; i < SLOT_COUNT; i++) {
+        if (_pidSeen[i] == 0) return;
+    }
+    _pidReported = true;
+    Serial.printf("[OBD] supported: RPM=%d SPEED=%d THROTTLE=%d LOAD=%d (from live replies)\n",
+                  _pidSeen[SLOT_RPM] == 1, _pidSeen[SLOT_SPEED] == 1,
+                  _pidSeen[SLOT_THROTTLE] == 1, _pidSeen[SLOT_LOAD] == 1);
 }
 
 void ObdBle::restart() {
     NimBLEScan *scan = NimBLEDevice::getScan();
     if (scan->isScanning()) scan->stop();
-    dropLink("manual restart", 500);
+    // Give the dongle time to notice the disconnect before we come back.
+    // Reconnecting after 0.5 s hit HCI 0x08 on the Veepeak every time.
+    dropLink("manual restart", OBD_RECONNECT_DELAY_MS);
 }
 
 void ObdBle::service() {
     const uint32_t now = millis();
 
-    if (g_linkDropped && _state != ObdState::Backoff) {
+    // The disconnect callback for a link we already tore down (OBD RESTART,
+    // or a drop handled in discovery) can arrive after the new scan starts.
+    // With no client there is nothing to drop; doing it anyway cost an extra
+    // 3 s backoff after every restart on the A5.
+    if (g_linkDropped && g_client == nullptr) {
+        g_linkDropped = false;
+    } else if (g_linkDropped && _state != ObdState::Backoff) {
         dropLink("notified by NimBLE", OBD_RECONNECT_DELAY_MS);
         return;
     }
@@ -386,9 +488,19 @@ void ObdBle::service() {
             break;
 
         case ObdState::Discovering:
+            // Let the dongle finish its own post-connect setup (parameter
+            // update requests and the like) before asking for its services.
+            if (now - _stateSince < OBD_SETTLE_MS) {
+                if (g_linkDropped) dropLink("lost before discovery", OBD_RECONNECT_DELAY_MS);
+                break;
+            }
             if (discoverCharacteristics()) {
                 _state = ObdState::Initialising;
                 _stateSince = now;
+            } else if (g_linkDropped || !isLinkUp()) {
+                // A dropped link is worth retrying promptly; a genuinely
+                // unknown layout will not fix itself, so back off longer.
+                dropLink("lost during discovery", OBD_RECONNECT_DELAY_MS);
             } else {
                 dropLink("discovery failed", OBD_RECONNECT_DELAY_MS * 3);
             }

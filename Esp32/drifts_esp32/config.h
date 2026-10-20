@@ -102,6 +102,22 @@ constexpr float HARSH_BRAKE_G        = 0.35f;  // longitudinal decel counted as 
 constexpr int   BRAKE_EVENT_TRIGGER  = 3;      // this many in the window -> trigger
 constexpr int   BRAKE_WINDOW_S       = 60;
 
+// Steering weave, from the IMU gyro yaw rate (how fast the car is turning).
+// Standard OBD-II has no steering-angle PID; the car's own rotation is a
+// better fatigue signal anyway, and the gyro gives it at 50 Hz instead of
+// the ~1 Hz per signal the dongle manages (measured on the A5).
+//
+// A reversal = yaw rate past +STEER_REVERSAL_DPS then past -STEER_REVERSAL_DPS
+// (or back) within STEER_REVERSAL_MAX_MS. At 100 km/h, 2 deg/s of yaw is
+// about 0.1 g of lateral acceleration: a real correction, not lane-keeping
+// wobble. 2 s rejects the slow transition between highway bends.
+//
+// STARTING VALUES, NOT CALIBRATED. Confirm on the road (Docs/steering-weave.md).
+constexpr float    STEER_REVERSAL_DPS     = 2.0f;
+constexpr uint32_t STEER_REVERSAL_MAX_MS  = 2000;
+constexpr int      STEER_REVERSAL_TRIGGER = 6;      // this many in the window -> trigger
+constexpr int      STEER_WINDOW_S         = 60;
+
 // RPM fluctuation: standard deviation over the window.
 constexpr float RPM_STDDEV_TRIGGER   = 400.0f;
 constexpr int   RPM_WINDOW_S         = 30;

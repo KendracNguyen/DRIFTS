@@ -57,6 +57,11 @@ public:
     // OBD RESTART serial command so a link test always starts from zero.
     void restart();
 
+    // Link options for diagnosing dongles that drop the connection.
+    void setMtuExchange(bool on);
+    void setPhy1mOnly(bool on);
+    void printLinkOptions() const;
+
     bool isLinkUp() const;                 // connected to the dongle
     bool isPolling() const { return _state == ObdState::Polling; }
     ObdState state() const { return _state; }
@@ -83,10 +88,12 @@ public:
 private:
     bool connectToDongle();
     bool discoverCharacteristics();
+    bool discoverOnConnectedLink();
     bool initialiseElm();
     void pollOnce();
     void dropLink(const char *why, uint32_t backoffMs);
     void startScan();
+    void reportPidsOnce();
 
     ObdState _state;
     BleStream _stream;
@@ -108,6 +115,8 @@ private:
 
     uint32_t _noData;
     uint32_t _errors;
+    uint8_t _pidSeen[SLOT_COUNT];   // 0 unknown, 1 answered, 2 NO DATA
+    bool _pidReported;
 
     const char *_layoutName;
 };
