@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT / "raspberry"))
+sys.path.insert(0, str(REPO_ROOT / "Raspberry"))
 sys.path.insert(0, str(REPO_ROOT))
 
 try:
