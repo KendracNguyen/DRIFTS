@@ -242,6 +242,7 @@ pedals and airbag deployment paths.
 | `README.md` | This document |
 | `schematic.md` | Driver circuits, power tree, connector detail |
 | `BOM.csv` | Bill of materials |
+| `drawings/DRIFTS_Schematic_rev3.pdf` | **Full system schematic** (KiCad-style drawing). Regenerate with `python Hardware/drawings/draw_schematic.py` |
 | `pinout.md` / `pinout.svg` | **Wiring diagram** and pin-by-pin table, LEDs + LCD |
 | `pinout.csv` | Pin map as data, for diffing against `config.h` |
 | `reserved_pins.csv` | Pins that must not be assigned, as data |
