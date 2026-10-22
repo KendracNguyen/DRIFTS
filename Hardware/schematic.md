@@ -109,20 +109,35 @@ identical.
 
 ---
 
-## 4. Status LED
+## 4. Status LEDs (3)
 
 ```
-   GPIO 2 ───[ 330 Ω ]───▶|─── GND
-                        LED
+   GPIO 2 ───[ 100 Ω* ]───▶|─── GND     GREEN  connections
+   GPIO 3 ───[ 330 Ω  ]───▶|─── GND     YELLOW caution / system
+   GPIO 4 ───[ 330 Ω  ]───▶|─── GND     RED    drowsiness
+                          LED  (long leg / anode toward the resistor)
 ```
 
-This is an **external** LED. The DevKitC-1's on-board user LED is an
-addressable RGB (WS2812-type) on GPIO 8, where `digitalWrite()` does nothing
-visible. To use it instead of an external LED, drop this circuit and call
-`rgbLedWrite(RGB_BUILTIN, r, g, b)` — but note GPIO 8 is also a strapping pin.
+\* **Green resistor depends on the LED.** A true green LED drops about 3.0 V,
+leaving 0.3 V across the resistor: 330 Ω gives ~1 mA and barely glows, so use
+**100 Ω** (~3 mA). A yellow-green LED drops ~2.1 V and is fine on 330 Ω.
 
-Current: (3.3 − 2.0) / 330 ≈ 4 mA. Adjust the resistor for LED colour and
-brightness; red drops ~2.0 V, blue and white ~3.0 V.
+| LED | Drop | Resistor | Current |
+| --- | --- | --- | --- |
+| Red | ~2.0 V | 330 Ω | ~4 mA |
+| Yellow | ~2.1 V | 330 Ω | ~3.6 mA |
+| Green (true) | ~3.0 V | 100 Ω | ~3 mA |
+
+About 12 mA in total; no transistors needed.
+
+**GPIO 4 is a strapping pin.** It is only sampled for SDIO boot, which this
+board never uses, and an LED to GND does not pull it either way at reset. It
+is safe for this LED and **nothing else** — no pull-ups, no other circuit.
+`check_pins.py` enforces this (`led_only` in `reserved_pins.csv`).
+
+The board's on-board LED is an addressable RGB on GPIO 8 and is not used.
+
+Meanings and the bench test: [`../Docs/status-leds.md`](../Docs/status-leds.md).
 
 ---
 

@@ -153,7 +153,7 @@ the IMU sign.
 2. Confirm on the Pi: `Connected to ESP32 hub`, `Subscribed to WAKE`, and
    `Heartbeat started (1.0 s interval)`.
    - **No heartbeat line → alerts will cut out after 3 s.** Pull latest.
-3. Confirm on the ESP32: `[BLE] Pi subscribed` and the status LED lights.
+3. Confirm on the ESP32: `[BLE] Pi subscribed` and the green LED (GPIO 2) goes solid once the dongle is also polling — see `status-leds.md`.
 4. Trigger a WAKE (rev the engine, or type `WAKE`).
 5. Expected sequence:
    - ESP32: `[BLE] WAKE -> Pi`

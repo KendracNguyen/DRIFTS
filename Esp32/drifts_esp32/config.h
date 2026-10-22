@@ -27,17 +27,29 @@
 // flash lines. You get corruption or a crash loop, with nothing pointing at
 // the cause. The old 25/26 assignments were exactly this mistake.
 //
-// Avoid entirely: 4, 5, 8, 9 (strapping), 12, 13 (USB Serial/JTAG),
+// Avoid entirely: 5, 8, 9 (strapping), 12, 13 (USB Serial/JTAG),
 // 15 (strapping), 16, 17 (UART0 console), 14 and 24-30 (absent).
+// 4 (strapping) is used for the red LED only -- see LED_RED_PIN below.
 // GPIO0-6 are also ADC1_CH0-6; leave them free if analog is ever needed.
 constexpr int MOTOR_PIN  = 10;   // PWM -> motor transistor base
 constexpr int BUZZER_PIN = 11;   // tone -> buzzer transistor base
 
-// There is no plain user LED on any C6 devkit -- the on-board one is an
-// addressable RGB on GPIO 8, where digitalWrite() does nothing visible.
-// This is an EXTERNAL LED. To use the on-board RGB instead, drop this and
-// call rgbLedWrite(RGB_BUILTIN, r, g, b).
-constexpr int LED_PIN    = 2;    // external LED (lit when the Pi is subscribed)
+// Three external status LEDs, each GPIO -> resistor -> LED -> GND. Meanings
+// in status_leds.h and Docs/status-leds.md. (The board's on-board LED is an
+// addressable RGB on GPIO 8, which digitalWrite() cannot drive.)
+//
+// GPIO 4 is a strapping pin, but only for SDIO boot, which this board never
+// uses. An LED to GND does not pull it either way at reset, so it is safe for
+// this LED and NOTHING else -- never put a pull-up or other circuit on it.
+// It also gives up pad JTAG, which this project does not use.
+constexpr int LED_GREEN_PIN  = 2;   // connections
+constexpr int LED_YELLOW_PIN = 3;   // caution / system status
+constexpr int LED_RED_PIN    = 4;   // drowsiness
+
+// 0-255. 255 = full. Full brightness can glare at night: lower it, or mount
+// the LEDs where a passenger sees them rather than the driver.
+constexpr int LED_BRIGHTNESS = 255;
+constexpr uint32_t LED_LAMP_TEST_MS = 1000;   // all on at power-up
 
 // MPU-6050 on the I2C bus. See "Longitudinal acceleration" below for why
 // the IMU lives on the ESP32 rather than on the Pi.

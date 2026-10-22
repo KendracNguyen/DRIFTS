@@ -98,6 +98,10 @@ class SimHub:
         elif msg == "NOT_DROWSY":
             self.alert_until = self.motor_until = self.buzzer_until = 0.0
             self.out(f"[SIM ESP32] IDLE: GPIO {MOTOR_PIN} LOW, GPIO {BUZZER_PIN} LOW")
+        elif msg.startswith("EYE:"):
+            eye = int(msg.split(":")[1])
+            alert = expected_alert(eye)
+            self.out(f"[SIM ESP32] Eye {eye} -> alert score {alert:.0f} -> {expected_leds(alert)}")
         elif msg.startswith("TEST:"):
             parts = msg.split(":")
             motor_ms, buzzer_ms = int(parts[1]), int(parts[2])
@@ -177,7 +181,7 @@ class SerialHub:
         if not line:
             return
         self.seen_lines += 1
-        if line.startswith(("[MAIN]", "[TEST]", "[CMD]", "[STATUS]")):
+        if line.startswith(("[MAIN]", "[TEST]", "[CMD]", "[STATUS]", "[SCORE]", "[LED]")):
             self.out(f"    ESP32| {line}")
         if "-> ALERTING" in line:
             self.alert = True
@@ -291,15 +295,36 @@ class BleHub:
 # --------------------------------------------------------------------------- #
 # Interactive session
 # --------------------------------------------------------------------------- #
-MENU = f"""
-  ┌──────────────── DRIFTS alert-chain test ────────────────┐
-  │  D  DROWSY      full alert: motor + buzzer pulse (≤20 s)  │
-  │  N  NOT_DROWSY  stop everything                           │
-  │  T  TEST        hold motor / buzzer on for set durations  │
-  │  S  STATUS      what the ESP32 reports right now          │
-  │  Q  QUIT        stop outputs, save results, disconnect    │
-  └──────────────────────────────────────────────────────────┘
-  Motor = ESP32 GPIO {MOTOR_PIN}    Buzzer = ESP32 GPIO {BUZZER_PIN}"""
+def _box(title: str, rows: list[str], width: int = 64) -> str:
+    inner = width - 2
+    top = "  ┌" + f" {title} ".center(inner, "─") + "┐"
+    body = ["  │" + ("  " + r).ljust(inner) + "│" for r in rows]
+    return "\n".join([""] + [top] + body + ["  └" + "─" * inner + "┘"])
+
+
+MENU = _box("DRIFTS alert-chain test", [
+    "D  DROWSY      full alert: motor + buzzer pulse (<=20 s)",
+    "N  NOT_DROWSY  stop everything",
+    "T  TEST        hold motor / buzzer on for set durations",
+    "E  EYE         send an eye score 0-100 (LED bands)",
+    "S  STATUS      what the ESP32 reports right now",
+    "Q  QUIT        stop outputs, save results, disconnect",
+]) + f"""
+  Motor = GPIO {MOTOR_PIN}   Buzzer = GPIO {BUZZER_PIN}   LEDs: green 2, yellow 3, red 4"""
+
+
+# Mirrors alertness.h: alert = 0.7 x eye + 0.3 x driving. Bands: OK >= 70,
+# CAUTION 50-69 (yellow solid), LOW < 50 (red fast blink).
+def expected_alert(eye: int, driving: float = 100.0) -> float:
+    return 0.7 * eye + 0.3 * driving
+
+
+def expected_leds(alert: float) -> str:
+    if alert < 50:
+        return "RED fast blink (drowsy), yellow off"
+    if alert < 70:
+        return "YELLOW solid (caution), red off"
+    return "red and yellow off (OK)"
 
 
 class Session:
@@ -338,6 +363,23 @@ class Session:
         await asyncio.sleep(1.0)
         await self.show_status()
         await self.confirm("NOT_DROWSY: both outputs stopped?")
+
+    async def do_eye(self) -> None:
+        try:
+            text = (await self.ask("  Eye score 0-100 (stands in for the Pi camera) [80]: ")).strip() or "80"
+            eye = int(text)
+            if not 0 <= eye <= 100:
+                raise ValueError
+        except ValueError:
+            print("  Not sent: enter a whole number from 0 to 100")
+            return
+        await self.hub.send(f"EYE:{eye}")
+        alert = expected_alert(eye)
+        print(f"  Sent EYE:{eye}. With calm driving the alert score becomes about {alert:.0f}.")
+        print(f"  Expect: {expected_leds(alert)}.")
+        print("  (Raising the score back needs 5 points of margin: 75 for OK, 55 to leave LOW.)")
+        await asyncio.sleep(1.5)
+        await self.confirm(f"EYE {eye}: LEDs show {expected_leds(alert)}?")
 
     async def do_test(self) -> None:
         try:
@@ -386,13 +428,15 @@ class Session:
         try:
             while True:
                 print(MENU)
-                choice = (await self.ask("Select D / N / T / S / Q: ")).strip().upper()
+                choice = (await self.ask("Select D / N / T / E / S / Q: ")).strip().upper()
                 if choice == "D":
                     await self.do_drowsy()
                 elif choice == "N":
                     await self.do_not_drowsy()
                 elif choice == "T":
                     await self.do_test()
+                elif choice == "E":
+                    await self.do_eye()
                 elif choice == "S":
                     await self.show_status()
                 elif choice in ("Q", "QUIT", "EXIT"):
