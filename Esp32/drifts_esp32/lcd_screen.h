@@ -6,25 +6,18 @@
 // Boot:   "   Welcome to   " / "     DRIFTS     "   then
 //         "   Drive Safe   " / "                "   then the live screen.
 //
-// Live:   line 1  level + alert score     "ALERT     87/100"
-//                                          "LEVEL 1   62/100"
-//                                          "LEVEL 2   38/100"
-//         line 2  what the level means     "Drive Safe"
-//                                          "Mild Fatigue"
-//                                          "Sev. Exhaustion"
+// Live, alert:         "ALERT     87/100" / "   Drive Safe   "
+// Live, intervention:  line 1 "INTERVENTION 1" (14 chars: no room for the
+//                      score), line 2 rotates every LCD_SWAP_MS through
+//                        "Signs of Fatigue"  /  "Worsening Signs"   (meaning)
+//                        "  Score 62/100  "                         (score)
+//                        "PULL OVER SAFELY"     (only while the alert runs)
 //
-// Levels follow the two steps in the EU driver drowsiness warning regulation
-// (EU 2021/1341, Annex I 3.3.1): a system MAY warn at KSS 7 and MUST warn at
-// KSS 8+. Level 1 (Mild Fatigue) is the "may warn" step, Level 2 (Severe
-// Exhaustion) the "must warn" step. They use the same alert-score bands as
-// the LEDs (alertness.h), so the screen and the LEDs never disagree.
-// The score-to-KSS correspondence is a design mapping, not a validated one.
-// PLANNED: four levels tied to interventions (Docs/intervention-levels.md).
-//
-// "Severe Exhaustion" is 17 characters; the display has 16, so it reads
-// "Sev. Exhaustion". A '*' after the score marks a PARTIAL score (no eye
-// data). While the DROWSY alert runs, line 2 alternates with
-// "PULL OVER SAFELY".
+// Intervention levels escalate and STACK (Docs/intervention-levels.md):
+// 1 = buzzer, 2 = + seat vibration, 3 = + voice, 4 = + rest-stop alert.
+// Levels 3 and 4 are planned; today levels 1 and 2 come from the alert-score
+// bands in alertness.h (Caution 50-69, Low < 50), shared with the LEDs.
+// A '*' after the score marks a PARTIAL score (no eye data).
 
 #include <stdint.h>
 #include <stdio.h>
@@ -36,7 +29,7 @@ constexpr int LCD_COLS = 16;
 constexpr int LCD_ROWS = 2;
 constexpr uint32_t LCD_WELCOME_MS = 2500;      // "Welcome to DRIFTS"
 constexpr uint32_t LCD_DRIVE_SAFE_MS = 2500;   // then "Drive Safe"
-constexpr uint32_t LCD_ALERT_SWAP_MS = 1500;   // alternate line 2 during an alert
+constexpr uint32_t LCD_SWAP_MS = 2000;         // line-2 rotation at intervention levels
 
 struct ScreenView {
     uint32_t sinceBootMs = 0;   // time since the LCD started
@@ -63,22 +56,29 @@ inline void lcdLeft(char line[LCD_COLS + 1], const char *text) {
     memcpy(line, text, (size_t)n);
 }
 
-inline const char *levelTitle(AlertLevel l) {
+// 0 = no intervention, 1-2 today, 3-4 planned.
+inline int interventionLevel(AlertLevel l) {
     switch (l) {
-        case AlertLevel::Ok:      return "ALERT";
-        case AlertLevel::Caution: return "LEVEL 1";
-        case AlertLevel::Low:     return "LEVEL 2";
+        case AlertLevel::Ok:      return 0;
+        case AlertLevel::Caution: return 1;
+        case AlertLevel::Low:     return 2;
     }
-    return "?";
+    return 0;
 }
 
-inline const char *levelMeaning(AlertLevel l) {
-    switch (l) {
-        case AlertLevel::Ok:      return "Drive Safe";
-        case AlertLevel::Caution: return "Mild Fatigue";
-        case AlertLevel::Low:     return "Sev. Exhaustion";
+inline const char *interventionMeaning(int level) {
+    switch (level) {
+        case 1: return "Signs of Fatigue";
+        case 2: return "Worsening Signs";
     }
-    return "";
+    return "Drive Safe";
+}
+
+inline int clampScore(float score) {
+    int s = (int)(score + 0.5f);
+    if (s < 0) s = 0;
+    if (s > 100) s = 100;
+    return s;
 }
 
 inline void composeScreen(const ScreenView &v, char line1[LCD_COLS + 1], char line2[LCD_COLS + 1]) {
@@ -93,25 +93,35 @@ inline void composeScreen(const ScreenView &v, char line1[LCD_COLS + 1], char li
         return;
     }
 
-    // Line 1: "LEVEL 2   38/100", score right-aligned, '*' if partial.
-    int score = (int)(v.score + 0.5f);
-    if (score < 0) score = 0;
-    if (score > 100) score = 100;
-    char right[9];
-    snprintf(right, sizeof(right), "%d/100%s", score, v.partial ? "*" : "");
-    lcdLeft(line1, levelTitle(v.level));
-    const int rn = (int)strlen(right);
-    memcpy(line1 + LCD_COLS - rn, right, (size_t)rn);
+    const int score = clampScore(v.score);
+    char scoreText[LCD_COLS + 1];
 
-    // Line 2: the level's meaning; during an alert, alternate with an instruction.
-    const bool showAction = v.alertActive && ((v.sinceBootMs / LCD_ALERT_SWAP_MS) % 2 == 1);
-    if (showAction) {
-        lcdCenter(line2, "PULL OVER SAFELY");
-    } else {
-        // An alert can run while the score still reads OK (DROWSY from the Pi
-        // before the score catches up): never show "Drive Safe" during one.
-        const AlertLevel shown = v.alertActive && v.level == AlertLevel::Ok ? AlertLevel::Low : v.level;
-        lcdCenter(line2, levelMeaning(shown));
+    // An alert can run while the score still reads OK (DROWSY from the Pi
+    // before the score catches up). The alert fires buzzer + motor, which is
+    // intervention 2, so show that rather than "Drive Safe".
+    int level = interventionLevel(v.level);
+    if (v.alertActive && level == 0) level = 2;
+
+    if (level == 0) {
+        // "ALERT     87/100", score right-aligned, '*' if partial.
+        snprintf(scoreText, sizeof(scoreText), "%d/100%s", score, v.partial ? "*" : "");
+        lcdLeft(line1, "ALERT");
+        const int rn = (int)strlen(scoreText);
+        memcpy(line1 + LCD_COLS - rn, scoreText, (size_t)rn);
+        lcdCenter(line2, interventionMeaning(0));
+        return;
+    }
+
+    char title[LCD_COLS + 1];
+    snprintf(title, sizeof(title), "INTERVENTION %d", level);
+    lcdCenter(line1, title);
+
+    snprintf(scoreText, sizeof(scoreText), "Score %d/100%s", score, v.partial ? "*" : "");
+    const int frames = v.alertActive ? 3 : 2;
+    switch ((v.sinceBootMs / LCD_SWAP_MS) % frames) {
+        case 0:  lcdCenter(line2, interventionMeaning(level)); break;
+        case 1:  lcdCenter(line2, scoreText); break;
+        default: lcdCenter(line2, "PULL OVER SAFELY"); break;
     }
 }
 

@@ -56,16 +56,33 @@ int main() {
     show(live(87, AlertLevel::Ok));
     CHECK(!strcmp(L1, "ALERT     87/100") && !strcmp(L2, "   Drive Safe   "), "OK: ALERT 87/100 / Drive Safe");
 
-    show(live(62, AlertLevel::Caution));
-    CHECK(!strcmp(L1, "LEVEL 1   62/100") && !strcmp(L2, "  Mild Fatigue  "), "Level 1: Mild Fatigue");
+    // Intervention screens: line 2 rotates meaning -> score (-> PULL OVER SAFELY).
+    ScreenView i1 = live(62, AlertLevel::Caution);
+    i1.sinceBootMs -= i1.sinceBootMs % (2 * LCD_SWAP_MS);           // frame 0
+    show(i1);
+    CHECK(!strcmp(L1, " INTERVENTION 1 ") && !strcmp(L2, "Signs of Fatigue"), "Intervention 1: Signs of Fatigue");
+    i1.sinceBootMs += LCD_SWAP_MS;                                   // frame 1
+    show(i1);
+    CHECK(!strcmp(L2, "  Score 62/100  "), "Intervention 1: then the score");
+    i1.sinceBootMs += LCD_SWAP_MS;
+    composeScreen(i1, L1, L2);
+    CHECK(!strcmp(L2, "Signs of Fatigue"), "no alert: two frames only");
 
-    show(live(38, AlertLevel::Low));
-    CHECK(!strcmp(L1, "LEVEL 2   38/100") && !strcmp(L2, "Sev. Exhaustion "), "Level 2: Sev. Exhaustion");
+    ScreenView i2 = live(38, AlertLevel::Low);
+    i2.sinceBootMs -= i2.sinceBootMs % (2 * LCD_SWAP_MS);
+    show(i2);
+    CHECK(!strcmp(L1, " INTERVENTION 2 ") && !strcmp(L2, "Worsening Signs "), "Intervention 2: Worsening Signs");
 
     ScreenView p = live(41.6f, AlertLevel::Low);
     p.partial = true;
+    p.sinceBootMs -= p.sinceBootMs % (2 * LCD_SWAP_MS);
+    p.sinceBootMs += LCD_SWAP_MS;
     show(p);
-    CHECK(!strcmp(L1, "LEVEL 2  42/100*"), "partial score marked with *, rounded");
+    CHECK(!strcmp(L2, " Score 42/100*  "), "partial score marked with *, rounded");
+    ScreenView po = live(87.4f, AlertLevel::Ok);
+    po.partial = true;
+    composeScreen(po, L1, L2);
+    CHECK(!strcmp(L1, "ALERT    87/100*"), "partial on the ALERT screen");
 
     show(live(100, AlertLevel::Ok));
     CHECK(!strcmp(L1, "ALERT    100/100"), "100 fits");
@@ -73,30 +90,36 @@ int main() {
     full.partial = true;
     composeScreen(full, L1, L2);
     CHECK(!strcmp(L1, "ALERT   100/100*") && is16(L1), "100 with * still fits 16");
-    show(live(0, AlertLevel::Low));
-    CHECK(!strcmp(L1, "LEVEL 2    0/100"), "0 fits");
-    composeScreen(live(-5, AlertLevel::Low), L1, L2);
-    CHECK(!strcmp(L1, "LEVEL 2    0/100"), "out-of-range score clamped to 0");
+    ScreenView zero = live(0, AlertLevel::Low);
+    zero.sinceBootMs -= zero.sinceBootMs % (2 * LCD_SWAP_MS);
+    zero.sinceBootMs += LCD_SWAP_MS;
+    composeScreen(zero, L1, L2);
+    CHECK(!strcmp(L2, "  Score 0/100   "), "0 fits");
+    zero.score = -5;
+    composeScreen(zero, L1, L2);
+    CHECK(!strcmp(L2, "  Score 0/100   "), "out-of-range score clamped to 0");
     composeScreen(live(130, AlertLevel::Ok), L1, L2);
     CHECK(!strcmp(L1, "ALERT    100/100"), "out-of-range score clamped to 100");
 
-    // ---------------- alert alternation ----------------
+    // ---------------- alert: third frame ----------------
     ScreenView a = live(30, AlertLevel::Low);
     a.alertActive = true;
-    a.sinceBootMs = 0 + LCD_WELCOME_MS + LCD_DRIVE_SAFE_MS + 3 * LCD_ALERT_SWAP_MS;  // odd slot
-    a.sinceBootMs -= a.sinceBootMs % LCD_ALERT_SWAP_MS;
-    if ((a.sinceBootMs / LCD_ALERT_SWAP_MS) % 2 == 0) a.sinceBootMs += LCD_ALERT_SWAP_MS;
-    show(a);
-    CHECK(!strcmp(L2, "PULL OVER SAFELY"), "alert: line 2 shows PULL OVER SAFELY in odd slots");
-    a.sinceBootMs += LCD_ALERT_SWAP_MS;
+    a.sinceBootMs -= a.sinceBootMs % (3 * LCD_SWAP_MS);
     composeScreen(a, L1, L2);
-    CHECK(!strcmp(L2, "Sev. Exhaustion "), "alert: and the level in even slots");
+    CHECK(!strcmp(L2, "Worsening Signs "), "alert frame 0: meaning");
+    a.sinceBootMs += LCD_SWAP_MS;
+    composeScreen(a, L1, L2);
+    CHECK(!strcmp(L2, "  Score 30/100  "), "alert frame 1: score");
+    a.sinceBootMs += LCD_SWAP_MS;
+    show(a);
+    CHECK(!strcmp(L2, "PULL OVER SAFELY"), "alert frame 2: PULL OVER SAFELY");
 
     ScreenView early = live(85, AlertLevel::Ok);
     early.alertActive = true;
-    early.sinceBootMs -= early.sinceBootMs % (2 * LCD_ALERT_SWAP_MS);   // even slot
+    early.sinceBootMs -= early.sinceBootMs % (3 * LCD_SWAP_MS);
     show(early);
-    CHECK(strcmp(L2, "   Drive Safe   ") != 0, "never 'Drive Safe' while an alert is running");
+    CHECK(!strcmp(L1, " INTERVENTION 2 ") && strcmp(L2, "   Drive Safe   ") != 0,
+          "alert while score is OK shows Intervention 2 (buzzer + motor are firing), never 'Drive Safe'");
 
     // ---------------- every screen is exactly 16 chars ----------------
     bool all16 = true;
