@@ -47,6 +47,10 @@ score and the fatigue level.
 
 ---
 
+> **Planned:** levels will become four, each tied to an intervention (buzzer →
+> seat vibration → voice → rest-stop alert). See
+> [`intervention-levels.md`](intervention-levels.md).
+
 ## Why two levels, and why these bands
 
 Commercial driver drowsiness systems warn in **two steps**, and EU law

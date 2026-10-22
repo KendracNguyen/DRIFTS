@@ -19,6 +19,7 @@
 // Exhaustion) the "must warn" step. They use the same alert-score bands as
 // the LEDs (alertness.h), so the screen and the LEDs never disagree.
 // The score-to-KSS correspondence is a design mapping, not a validated one.
+// PLANNED: four levels tied to interventions (Docs/intervention-levels.md).
 //
 // "Severe Exhaustion" is 17 characters; the display has 16, so it reads
 // "Sev. Exhaustion". A '*' after the score marks a PARTIAL score (no eye
