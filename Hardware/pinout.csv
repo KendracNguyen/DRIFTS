@@ -4,5 +4,5 @@ gpio,direction,component,signal,firmware_constant,notes
 2,output_pwm,Green status LED (connections),Anode via 100R (true green) or 330R,LED_GREEN_PIN,Solid = dongle + Pi linked; slow blink = link missing
 3,output_pwm,Yellow status LED (caution / system),Anode via 330R,LED_YELLOW_PIN,Solid = alert score 50-69; slow blink = system issue
 4,output_pwm,Red status LED (drowsiness),Anode via 330R,LED_RED_PIN,Fast blink = drowsy; GPIO 4 is LED-only (strapping pin)
-21,bidirectional,MPU-6050,I2C SDA,IMU_SDA_PIN,Wire.begin(21_22) must be explicit; C6 default SDA is 23
-22,output,MPU-6050,I2C SCL,IMU_SCL_PIN,400 kHz
+21,bidirectional,MPU-6050 + LCD backpack,I2C SDA,IMU_SDA_PIN,Wire.begin(21_22) must be explicit; C6 default SDA is 23; LCD via level shifter
+22,output,MPU-6050 + LCD backpack,I2C SCL,IMU_SCL_PIN,100 kHz (PCF8574 limit); LCD via level shifter

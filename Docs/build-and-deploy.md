@@ -187,6 +187,12 @@ fail-safe stops the alert if the Pi is silent longer than `FAILSAFE_MS`, and
 Three LEDs (green 2 / yellow 3 / red 4) and the 0-100 alert score — key,
 wiring and bench test in [`status-leds.md`](status-leds.md). Serial: `LEDS`, `SCORE <n>`.
 
+### LCD display
+
+16x2 I2C LCD: welcome screens, alert score, Level 1 / Level 2 — wiring (level
+shifter!), screens and bench test in [`lcd-display.md`](lcd-display.md).
+Serial: `LCD`, `I2C SCAN`.
+
 ### Steering weave (gyro)
 
 Steering comes from the MPU-6050 gyro, not OBD — desk test and road

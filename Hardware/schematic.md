@@ -159,7 +159,42 @@ Meanings and the bench test: [`../Docs/status-leds.md`](../Docs/status-leds.md).
   set; paralleled pull-ups over-load the bus.
 - Keep the I2C leads short and away from motor wiring. This is the circuit most
   vulnerable to the switching noise described in README §5.4.
-- Bus runs at 400 kHz.
+- Bus runs at **100 kHz**, shared with the LCD backpack (§5a), whose PCF8574
+  is only rated to 100 kHz.
+
+---
+
+## 5a. 16x2 LCD (HD44780 + PCF8574 I2C backpack)
+
+```
+   ESP32-C6        level shifter (BSS138)        LCD backpack (PCF8574)
+   ────────        ──────────────────────        ──────────────────────
+   3V3     ─────── LV                HV ──────── 5V ──── VCC
+   GND     ─────── GND              GND ──────── GND ─── GND
+   GPIO 21 ─────── LV1              HV1 ─────────────── SDA
+   GPIO 22 ─────── LV2              HV2 ─────────────── SCL
+                                                         (backpack pins solder
+                                                          onto the 1602's 16-pin
+                                                          header, pin 1 = VSS)
+```
+
+- **The backpack is a 5 V part.** At 5 V the PCF8574 needs ≥ 3.5 V for a logic
+  high, more than the C6's 3.3 V, and many backpacks carry pull-ups to 5 V.
+  **Do not connect its SDA/SCL straight to the C6** — the C6 pins are not 5 V
+  tolerant. The level shifter fixes both.
+- The MPU-6050 stays on the **3.3 V side** of the shifter (GPIO 21/22 directly).
+- **Pull-ups:** the shifter has its own on each side; the MPU-6050 breakout has
+  another 3.3 V pair. Two pairs in parallel on the 3.3 V side (~2.4 kΩ) is fine
+  at 100 kHz. Do not add a third.
+- **Contrast:** turn the blue trim pot on the backpack until characters appear.
+  A row of solid blocks, or nothing, is almost always contrast, not firmware.
+- **Backlight jumper** on the backpack must be fitted. `LCD_BACKLIGHT` in
+  `config.h` switches it in firmware.
+- Address **0x27** (PCF8574) or **0x3F** (PCF8574A); firmware tries both.
+- Current: ~20–30 mA with backlight from the 5 V rail.
+- Mount where a passenger or tester sees it, like the LEDs.
+
+Screens, levels and the bench test: [`../Docs/lcd-display.md`](../Docs/lcd-display.md).
 
 ---
 
@@ -186,6 +221,8 @@ would hide.
    115200.
 2. **Add the MPU-6050.** Confirm `[IMU] MPU-6050 at 0x68` on boot. If absent,
    the bus is miswired or the address is wrong.
+2b. **Add the LCD** through the level shifter. Confirm `[LCD] 16x2 display at
+   0x27` (or 0x3F) and "Welcome to DRIFTS". `I2C SCAN` lists both devices.
 3. **Add the buzzer.** `BUZZ` via serial should produce a tone. Verify before
    the motors, because it is the quieter failure.
 4. **Add the motor branch with a bench supply and a current meter in series.**

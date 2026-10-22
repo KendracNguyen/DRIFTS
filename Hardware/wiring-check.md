@@ -107,6 +107,12 @@ during the DROWSY test.
 well as braking. A loose board or soft foam turns vibration into false steering
 reversals. Flat = `IMU_YAW_AXIS = 2`; see `Docs/steering-weave.md`.
 
+**⚠ LCD backpack is 5 V — level shifter required.** Never wire the backpack's
+SDA/SCL directly to GPIO 21/22: its pull-ups go to 5 V and the C6 pins are
+3.3 V only. Before connecting, power the backpack alone and measure SDA and
+SCL to GND: if they read ~5 V, they must stay on the HV side of the shifter.
+See `schematic.md` §5a.
+
 **⚠ Keep motor wiring away from SDA/SCL.** Switching noise couples into the
 MPU-6050 lines and shows up as I2C errors or false harsh-brake events.
 
