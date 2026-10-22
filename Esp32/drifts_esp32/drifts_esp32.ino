@@ -15,7 +15,8 @@
     DROWSY        simulate a DROWSY result from the Pi
     NOT_DROWSY    simulate a NOT_DROWSY result
     STOP          stop the alert
-    TEST:m:b[:DC] drive motor m ms, buzzer b ms (DC = steady HIGH, silent)
+    TEST:m:b[:DC] drive motor m ms, piezo b ms (DC = 3.3 V across it, silent)
+    SWEEP         piezo 4-6 kHz in 100 Hz steps (find the loudest; STOP ends it)
     WATCH         toggle a 1 Hz line of live OBD values
     GYRO          toggle a 5 Hz line of yaw rate and steering reversals
     OBD RESTART   drop the dongle link and rescan from scratch
@@ -32,6 +33,7 @@
 
 #include "config.h"
 #include "actuators.h"
+#include "piezo.h"
 #include "alertness.h"
 #include "status_leds.h"
 #include "lcd_i2c.h"
@@ -65,7 +67,7 @@ static uint32_t lastDrvMs = 0;
 static bool drvAnnounced = false;
 
 static void enterIdle(const char *why) {
-    if (state == SystemState::Alerting || isPinTestActive()) stopAll();
+    if (state == SystemState::Alerting || isPinTestActive() || piezoSweepActive()) stopAll();
     state = SystemState::Idle;
     stateStartMs = millis();
     piStatus = "idle";
@@ -120,7 +122,10 @@ void setup() {
                       MIN_SPEED_KPH, GATE_COVERAGE * 100.0f);
     }
 
-    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / LEDS / SCORE n / LCD / I2C SCAN");
+    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / LEDS / SCORE n / LCD / I2C SCAN / SWEEP");
+#if PIEZO_SWEEP_TEST
+    piezoSweepStart();
+#endif
     Serial.println("==================================\n");
     stateStartMs = millis();
 }
@@ -221,6 +226,10 @@ static void handleSerial() {
         enterIdle("simulated NOT_DROWSY");
     } else if (cmd.equalsIgnoreCase("LCD")) {
         Lcd.reinit();
+    } else if (cmd.equalsIgnoreCase("SWEEP")) {
+        if (state != SystemState::Idle) enterIdle("piezo sweep requested");
+        stopAll();
+        piezoSweepStart();
     } else if (cmd.equalsIgnoreCase("I2C SCAN")) {
         i2cScan();
     } else if (cmd.equalsIgnoreCase("LEDS")) {

@@ -140,6 +140,11 @@ def test_serial_hub_tracks_pin_test_from_firmware_log():
     assert hub.buzzer_on and not hub.motor_on
     hub.on_line("[TEST] Buzzer off")
     assert hub.status()["test"] is False
+    # v13 firmware names both piezo legs
+    hub.on_line("[TEST] Motor GPIO 10: 0 ms at duty 255/255 | Buzzer GPIO 11/18: 2000 ms 5 kHz differential tone")
+    assert hub.buzzer_on and not hub.motor_on
+    hub.on_line("[TEST] Buzzer off")
+    assert hub.status()["test"] is False
 
 
 def test_serial_hub_tracks_alert_state():
