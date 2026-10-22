@@ -189,7 +189,7 @@ wiring and bench test in [`status-leds.md`](status-leds.md). Serial: `LEDS`, `SC
 
 ### LCD display
 
-16x2 I2C LCD: welcome screens, alert score, Level 1 / Level 2 — wiring (level
+16x2 I2C LCD: welcome screens, alert score, Intervention 1 / 2 — wiring (level
 shifter!), screens and bench test in [`lcd-display.md`](lcd-display.md).
 Serial: `LCD`, `I2C SCAN`.
 

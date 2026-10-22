@@ -25,29 +25,40 @@ score and the fatigue level.
 └────────────────┘     └────────────────┘
 ```
 
-**Live screen** — level and score on line 1, what it means on line 2:
+**Live screen.** When alert, the score is on line 1:
 
 ```
-┌────────────────┐   ┌────────────────┐   ┌────────────────┐
-│ALERT     87/100│   │LEVEL 1   62/100│   │LEVEL 2   38/100│
-│   Drive Safe   │   │  Mild Fatigue  │   │Sev. Exhaustion │
-└────────────────┘   └────────────────┘   └────────────────┘
-   score 70-100         score 50-69          score 0-49
-   LEDs: none           yellow solid         red fast blink
+┌────────────────┐
+│ALERT     87/100│   score 70-100, LEDs: none
+│   Drive Safe   │
+└────────────────┘
 ```
 
-- **`*` after the score** (`42/100*`) = partial score: no eye data from the Pi
-  in the last 2 minutes, so it is driving data only.
-- **During the DROWSY alert** line 2 alternates every 1.5 s between the level
-  and `PULL OVER SAFELY`. It never says "Drive Safe" while an alert runs.
-- "Severe Exhaustion" is 17 characters; the display has 16, so it reads
-  **Sev. Exhaustion**.
+At an **intervention level**, line 1 says which level. `INTERVENTION 1` is 14
+of the 16 characters, so the score moves to line 2, which **rotates every 2 s**:
+
+```
+ INTERVENTION 1      line 2 rotates:                        score 50-69
+                     Signs of Fatigue  ──►  Score 62/100    yellow LED solid
+
+ INTERVENTION 2      line 2 rotates:                        score 0-49
+                     Worsening Signs   ──►  Score 38/100    red LED blinking
+```
+
+- **During the DROWSY alert** a third frame is added: `PULL OVER SAFELY`.
+- If the DROWSY alert runs while the score still reads OK, the screen shows
+  **INTERVENTION 2**, because buzzer + motor are firing. It never says "Drive
+  Safe" while an alert runs.
+- **`*` after the score** (`Score 42/100*`) = partial score: no eye data from
+  the Pi in the last 2 minutes, so it is driving data only.
+- Interventions **stack**: each level adds to the ones below. Levels 3 and 4
+  are planned; see [`intervention-levels.md`](intervention-levels.md).
 - Bands, hysteresis and the score itself are exactly the ones the LEDs use
   ([`status-leds.md`](status-leds.md)), so the screen and the LEDs never disagree.
 
 ---
 
-## Why two levels, and why these bands
+## Why these first two bands
 
 Commercial driver drowsiness systems warn in **two steps**, and EU law
 describes them the same way.
@@ -71,8 +82,8 @@ So:
 | Level | Text | Alert score | Comparable to | Output |
 | --- | --- | --- | --- | --- |
 | — | Drive Safe | 70–100 | KSS ≤ 6 | — |
-| **Level 1** | **Mild Fatigue** | 50–69 | KSS 7 — "may warn" | Yellow LED solid, screen only |
-| **Level 2** | **Severe Exhaustion** | 0–49 | KSS 8+ — "must warn" | Red LED, and the motor/buzzer alert when the Pi confirms DROWSY |
+| **Intervention 1** | **Signs of Fatigue** | 50–69 | KSS 7 — "may warn" | Yellow LED solid. Planned: buzzer |
+| **Intervention 2** | **Worsening Signs** | 0–49 | KSS 8+ — "must warn" | Red LED; buzzer + motor when the Pi confirms DROWSY |
 
 > ⚠ The score-to-KSS column is a **design mapping**, not a validated
 > measurement. Until the eye model is trained and checked against KSS
@@ -131,9 +142,9 @@ Flash **v11** or later and open the serial monitor
 | 3 | `I2C SCAN` | `0x27 LCD backpack (PCF8574)` and `0x68 MPU-6050` |
 | 4 | `STATUS` | `[SCORE] ... LCD on` and `[LCD] |...| |...|` matching the glass |
 | 5 | `SCORE 80` | `ALERT     80/100` / `Drive Safe` |
-| 6 | `SCORE 60` | `LEVEL 1   60/100` / `Mild Fatigue`, yellow LED solid |
-| 7 | `SCORE 30` | `LEVEL 2   30/100` / `Sev. Exhaustion`, red LED blinking |
-| 8 | `DROWSY` | Line 2 alternates with `PULL OVER SAFELY` |
+| 6 | `SCORE 60` | `INTERVENTION 1`; line 2 rotates `Signs of Fatigue` / `Score 60/100`; yellow LED solid |
+| 7 | `SCORE 30` | `INTERVENTION 2`; line 2 rotates `Worsening Signs` / `Score 30/100`; red LED blinking |
+| 8 | `DROWSY` | Line 2 adds a third frame, `PULL OVER SAFELY` |
 | 9 | `STOP`, `SCORE OFF` | Back to the live score |
 | 10 | Wiggle a wire, then `LCD` | Display re-initialises and redraws |
 

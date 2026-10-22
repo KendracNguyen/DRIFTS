@@ -67,7 +67,7 @@ is the normal state between Pi results.
 > driving data and the Pi's yes/no answer — not a measured fatigue level.
 > Quote it that way in reports.
 
-The 16x2 LCD shows the same bands as **Level 1 / Level 2**; see
+The 16x2 LCD shows the same bands as **Intervention 1 / Intervention 2**; see
 [`lcd-display.md`](lcd-display.md).
 
 All weights and bands are in `Esp32/drifts_esp32/alertness.h` (`AlertConfig`).
