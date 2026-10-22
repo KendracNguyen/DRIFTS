@@ -10,6 +10,7 @@ Esp32/test/test_trigger
 Esp32/test/test_stream
 Esp32/test/test_pin_test
 Esp32/test/test_weave
+Esp32/test/test_alertness
 
 # arduino-cli build output
 Esp32/drifts_esp32/build/

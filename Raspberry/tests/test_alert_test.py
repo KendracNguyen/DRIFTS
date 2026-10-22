@@ -205,3 +205,53 @@ def test_serial_session_end_to_end(tmp_path):
     assert sent[-1] == "STOP"                        # outputs stopped on quit
     log = next(tmp_path.glob("alert_test_*.log")).read_text()
     assert "hub: SerialHub" in log and "4 pass, 0 fail" in log
+
+
+# --------------------------------------------------------------------------- #
+# Eye score -> expected LEDs (mirrors alertness.h / status_leds.h)
+# --------------------------------------------------------------------------- #
+from drifts.alert_test import expected_alert, expected_leds
+
+
+def test_expected_led_bands_match_firmware():
+    assert expected_alert(100) == 100
+    assert round(expected_alert(57)) == 70              # 0.7*57 + 30 = 69.9 -> boundary
+    assert expected_leds(70) == "red and yellow off (OK)"
+    assert expected_leds(69.9).startswith("YELLOW solid")
+    assert expected_leds(50).startswith("YELLOW solid")
+    assert expected_leds(49.9).startswith("RED fast blink")
+
+
+def test_eye_option_sends_eye_message(tmp_path):
+    answers = iter(["E", "30", "y", "Q"])
+
+    async def ask(_prompt):
+        return next(answers)
+
+    async def no_sleep(_s):
+        return None
+
+    lines = []
+    hub = SimHub(out=lines.append)
+    sent = []
+    orig = hub.send
+
+    async def spy(msg):
+        sent.append(msg)
+        await orig(msg)
+
+    hub.send = spy
+    real_sleep = asyncio.sleep
+    asyncio.sleep = no_sleep
+    try:
+        asyncio.run(Session(hub, ask, tmp_path).run())
+    finally:
+        asyncio.sleep = real_sleep
+    assert "EYE:30" in sent
+    assert any("alert score 51" in l and "YELLOW solid" in l for l in lines)
+
+
+def test_menu_box_lines_are_aligned():
+    from drifts.alert_test import MENU
+    box = [l for l in MENU.splitlines() if l.strip().startswith(("┌", "│", "└"))]
+    assert len({len(l) for l in box}) == 1

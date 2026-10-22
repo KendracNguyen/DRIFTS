@@ -22,10 +22,16 @@
     OBD MTU ON|OFF, OBD PHY 1M|ANY, OBD OPTIONS   dongle link options
     BRAKE         inject one harsh-brake event
     STATUS        print the current state
+    LEDS          cycle every LED pattern (wiring check)
+    SCORE <n>     force the alert score to n (0-100) for 30 s; SCORE OFF ends it
+    EYE:<n>       eye score 0-100, as the Pi will send it (also accepted over BLE)
+    DRV:s:t:b     simulator driving sample (reserved for the Logitech G29; stored only)
 */
 
 #include "config.h"
 #include "actuators.h"
+#include "alertness.h"
+#include "status_leds.h"
 #include "ble_hub.h"
 #include "obd_ble.h"
 #include "trigger.h"
@@ -42,6 +48,18 @@ static uint32_t lastPhoneMs = 0;
 static bool watchObd = false;
 static uint32_t lastWatchMs = 0;
 static const char *piStatus = "idle";
+
+// Alert score: 70 % eye (Pi) + 30 % driving (ESP32 sensors). See alertness.h.
+static AlertScore alertScore;
+static uint32_t lastScoreMs = 0;
+static bool imuPresent = false;
+static constexpr uint32_t SCORE_FORCE_MS = 30000;
+
+// Reserved for the Logitech G29 simulator source: latest DRV: sample, stored
+// so the message format is fixed now. Not yet turned into a driving score.
+static DrvSample lastDrv;
+static uint32_t lastDrvMs = 0;
+static bool drvAnnounced = false;
 
 static void enterIdle(const char *why) {
     if (state == SystemState::Alerting || isPinTestActive()) stopAll();
@@ -66,8 +84,7 @@ void setup() {
     Serial.println("  DRIFTS v3 - ESP32 (BLE OBD)");
     Serial.println("==================================");
 
-    pinMode(LED_PIN, OUTPUT);
-    digitalWrite(LED_PIN, LOW);
+    Leds.begin();   // lamp test: all three LEDs on for LED_LAMP_TEST_MS
 
     initActuators();
     Serial.println("[MAIN] Actuators ready");
@@ -75,6 +92,7 @@ void setup() {
     // The IMU supplies harsh-braking events. Without it that condition is
     // disabled rather than silently reporting zero.
     const bool imuOk = Motion.begin();
+    imuPresent = imuOk;
     drivingTrigger.setAccelAvailable(imuOk);
     drivingTrigger.setGyroAvailable(imuOk);
 
@@ -98,7 +116,7 @@ void setup() {
                       MIN_SPEED_KPH, GATE_COVERAGE * 100.0f);
     }
 
-    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART");
+    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / LEDS / SCORE n");
     Serial.println("==================================\n");
     stateStartMs = millis();
 }
@@ -118,6 +136,51 @@ static void printStatus() {
                   (int)Hub.isPiConnected(), (int)Hub.isPhoneConnected(),
                   (unsigned long)Obd.noDataCount(), (unsigned long)Obd.errorCount(),
                   (unsigned long)Obd.rxOverflows());
+    const LedState &l = Leds.state();
+    Serial.printf("[SCORE] alert %.0f (%s) = eye %.0f%s x0.7 + driving %.0f x0.3%s%s | "
+                  "LEDs G=%s Y=%s R=%s | system issue: %s\n",
+                  alertScore.score(), alertLevelName(alertScore.level()),
+                  alertScore.eye(), alertScore.eyeEstimated() ? " (est.)" : "",
+                  alertScore.driving(),
+                  alertScore.partial() ? " | PARTIAL: no eye data, driving only" : "",
+                  alertScore.forced() ? " | FORCED by SCORE command" : "",
+                  ledPatternName(l.green), ledPatternName(l.yellow), ledPatternName(l.red),
+                  GATE_BENCH_MODE ? "bench mode" : (!imuPresent ? "IMU missing" : "none"));
+}
+
+// EYE:<n> and DRV:s:t:b, from the Pi over BLE or typed on the console.
+static bool tryScoreMessage(const String &msg, const char *source) {
+    int eye = 0;
+    if (parseEye(msg.c_str(), &eye)) {
+        alertScore.setEye((float)eye, millis());
+        Serial.printf("[SCORE] Eye score %d from %s\n", eye, source);
+        return true;
+    }
+    DrvSample d;
+    if (parseDrv(msg.c_str(), &d)) {
+        lastDrv = d;
+        lastDrvMs = millis();
+        if (!drvAnnounced) {
+            drvAnnounced = true;
+            Serial.printf("[SCORE] DRV sample from %s (steer %.1f deg, throttle %.0f%%, brake %.0f%%). "
+                          "Simulator source not implemented yet: stored only.\n",
+                          source, d.steerDeg, d.throttlePct, d.brakePct);
+        }
+        return true;
+    }
+    return false;
+}
+
+// Driving inputs as ratios of their trigger thresholds (1.0 = at threshold).
+// A statistic with too few samples is not trusted, same rule as the trigger.
+static DrivingRatios drivingRatios(const TriggerSnapshot &s) {
+    DrivingRatios r;
+    if (s.gyro_available) r.steer = (float)s.steer_reversal_count / (float)STEER_REVERSAL_TRIGGER;
+    if (s.accel_available) r.brake = (float)s.hard_brake_count / (float)BRAKE_EVENT_TRIGGER;
+    if (s.rpm_samples >= MIN_SAMPLES_FOR_STAT) r.rpm = s.rpm_stddev / RPM_STDDEV_TRIGGER;
+    if (s.speed_samples >= MIN_SAMPLES_FOR_STAT) r.speed = s.speed_stddev / SPEED_STDDEV_TRIGGER;
+    if (s.throttle_samples >= MIN_SAMPLES_FOR_STAT) r.throttle = s.throttle_stddev / THROTTLE_STDDEV_TRIGGER;
+    return r;
 }
 
 // Runs a TEST:<motor_ms>:<buzzer_ms>[:DC] command from either input.
@@ -144,10 +207,32 @@ static void handleSerial() {
         piStatus = "analyzing";
         Serial.println("[CMD] Manual WAKE");
     } else if (cmd.equalsIgnoreCase("DROWSY")) {
+        alertScore.onPiResult(true, millis());
         enterAlerting();
     } else if (cmd.equalsIgnoreCase("NOT_DROWSY")) {
+        alertScore.onPiResult(false, millis());
         piStatus = "not_drowsy";
         enterIdle("simulated NOT_DROWSY");
+    } else if (cmd.equalsIgnoreCase("LEDS")) {
+        Leds.startSelfTest(millis());
+    } else if (cmd.equalsIgnoreCase("SCORE OFF")) {
+        alertScore.clearForce();
+        Serial.println("[SCORE] Override off");
+    } else if (cmd.startsWith("SCORE ") || cmd.startsWith("score ")) {
+        String arg = cmd.substring(6);
+        arg.trim();
+        bool digits = arg.length() >= 1 && arg.length() <= 3;
+        for (unsigned i = 0; digits && i < arg.length(); i++) digits = isDigit(arg.charAt(i));
+        const int n = digits ? arg.toInt() : -1;
+        if (n < 0 || n > 100) {
+            Serial.println("[CMD] Usage: SCORE <0-100>  or  SCORE OFF");
+        } else {
+            alertScore.force((float)n, millis(), SCORE_FORCE_MS);
+            Serial.printf("[SCORE] Forced to %d for %lu s (SCORE OFF to end)\n", n,
+                          (unsigned long)(SCORE_FORCE_MS / 1000));
+        }
+    } else if (tryScoreMessage(cmd, "serial")) {
+        // handled
     } else if (cmd.equalsIgnoreCase("STOP")) {
         enterIdle("manual STOP");
     } else if (cmd.equalsIgnoreCase("BRAKE")) {
@@ -228,12 +313,16 @@ void loop() {
         Serial.printf("[MAIN] Pi result: %s\n", result.c_str());
 
         if (result.equalsIgnoreCase("DROWSY")) {
+            alertScore.onPiResult(true, now);
             enterAlerting();
         } else if (result.equalsIgnoreCase("NOT_DROWSY")) {
+            alertScore.onPiResult(false, now);
             piStatus = "not_drowsy";
             Hub.setPiIdle();
             enterIdle("Pi reported NOT_DROWSY");
         } else if (tryPinTest(result, "Pi")) {
+            // handled
+        } else if (tryScoreMessage(result, "Pi")) {
             // handled
         } else {
             Serial.printf("[MAIN] Ignored unknown Pi message: %s\n", result.c_str());
@@ -285,7 +374,19 @@ void loop() {
     }
 
     updateActuators();
-    digitalWrite(LED_PIN, Hub.isPiConnected() ? HIGH : LOW);
+
+    // Alert score, once a second, then the LEDs every loop (non-blocking).
+    if (now - lastScoreMs >= 1000) {
+        lastScoreMs = now;
+        alertScore.update(drivingRatios(snap), now);
+    }
+    LedInputs ledIn;
+    ledIn.dongleOk = Obd.isPolling();
+    ledIn.piOk = Hub.isPiConnected();
+    ledIn.systemIssue = GATE_BENCH_MODE || !imuPresent;
+    ledIn.alertActive = isAlertActive();
+    ledIn.level = alertScore.level();
+    Leds.update(ledIn, now);
 
     // 7. Telemetry to the phone.
     if (now - lastPhoneMs >= PHONE_UPDATE_MS) {
@@ -294,14 +395,17 @@ void loop() {
         snprintf(json, sizeof(json),
                  "{\"rpm\":%.0f,\"spd\":%.1f,\"thr\":%.1f,\"g\":%.2f,\"yaw\":%.1f,\"steer\":%d,"
                  "\"obd\":\"%s\",\"hz\":%.1f,\"gate\":\"%s\",\"drv\":\"%s\","
-                 "\"pi\":\"%s\",\"alert\":%s,\"test\":%s}",
+                 "\"pi\":\"%s\",\"alert\":%s,\"test\":%s,"
+                 "\"score\":%.0f,\"lvl\":\"%s\",\"part\":%s}",
                  snap.rpm, snap.speed, snap.throttle, Motion.longitudinalG(),
                  Motion.yawRateDps(), snap.steer_reversal_count,
                  Obd.stateName(), Obd.achievedHz(),
                  GATE_BENCH_MODE ? "BENCH" : (snap.gate_open ? "open" : "closed"),
                  snap.triggered ? "TRIGGERED" : "OK",
                  piStatus, isAlertActive() ? "true" : "false",
-                 isPinTestActive() ? "true" : "false");
+                 isPinTestActive() ? "true" : "false",
+                 alertScore.score(), alertLevelName(alertScore.level()),
+                 alertScore.partial() ? "true" : "false");
         Hub.pushPhoneStatus(json);
     }
 

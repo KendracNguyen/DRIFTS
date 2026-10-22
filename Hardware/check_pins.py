@@ -68,12 +68,17 @@ def main() -> int:
                 f"config.h says {name} = {constants[name]}"
             )
 
-        # 2. Is the pin usable on this board at all?
+        # 2. Is the pin usable on this board at all? "led_only" pins (a
+        #    strapping pin that an LED to GND cannot disturb) are allowed for
+        #    an LED and refused for anything else.
         if gpio in blocked:
             status, reason = blocked[gpio]
-            problems.append(
-                f"GPIO {gpio} ({component}) is {status} on ESP32-C6-WROOM-1: {reason}"
-            )
+            if status == "led_only" and "LED" in component:
+                pass
+            else:
+                problems.append(
+                    f"GPIO {gpio} ({component}) is {status} on ESP32-C6-WROOM-1: {reason}"
+                )
 
         # 3. Assigned twice?
         if gpio in seen:

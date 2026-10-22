@@ -182,6 +182,11 @@ and that the Pi is on a commit with the `DF71...` UUIDs.
 fail-safe stops the alert if the Pi is silent longer than `FAILSAFE_MS`, and
 `heartbeat_s = 1.0` in `config.toml` is what keeps it satisfied.
 
+### Status LEDs and alert score
+
+Three LEDs (green 2 / yellow 3 / red 4) and the 0-100 alert score — key,
+wiring and bench test in [`status-leds.md`](status-leds.md). Serial: `LEDS`, `SCORE <n>`.
+
 ### Steering weave (gyro)
 
 Steering comes from the MPU-6050 gyro, not OBD — desk test and road
