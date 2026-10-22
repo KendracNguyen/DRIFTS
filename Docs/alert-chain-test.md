@@ -7,7 +7,7 @@ drowsiness detection is involved:
 flowchart LR
   PI["Raspberry Pi<br/>alert_test tool"] -- "BLE: DROWSY / NOT_DROWSY / TEST" --> ESP["ESP32-C6<br/>DRIFTS-ESP32"]
   ESP -- "GPIO 10" --> Q1["Q1 MOSFET"] --> M["Vibration motors"]
-  ESP -- "GPIO 11" --> Q2["Q2 MOSFET"] --> B["Passive buzzer"]
+  ESP -- "GPIO 11 + 18" --> B["Passive piezo (differential)"]
   ESP -. "status (alert / test)" .-> PI
 ```
 
@@ -29,7 +29,7 @@ flowchart LR
 | ESP32-C6 board, flashed with firmware from `esp32-first-compile` (commit with `TEST:` support) | See §1 |
 | Raspberry Pi Zero 2 W + microSD (16 GB+) + 5 V supply | |
 | Laptop on the same Wi-Fi as the Pi | For SSH |
-| Motor driver (Q1 + D1 + motors) and buzzer driver (Q2 + piezo) built per `Hardware/schematic.md` | Or nothing at all for a meter-only test |
+| Motor driver (Q1 + D1 + motors) and piezo (R6/R7, GPIO 11 + 18) built per `Hardware/schematic.md` | Or nothing at all for a meter-only test |
 | Multimeter | For the steady-HIGH checks |
 | Phone with nRF Connect | Optional, confirms the ESP32 is advertising |
 
@@ -46,7 +46,7 @@ chain, so if it passes, any later failure is on the Pi / BLE side.
 flowchart LR
   PC["Laptop<br/>alert_test --serial<br/>or serial monitor"] -- "USB: TEST / DROWSY / STOP" --> ESP["ESP32-C6"]
   ESP -- "GPIO 10" --> Q1["Q1"] --> M["Motors"]
-  ESP -- "GPIO 11" --> Q2["Q2"] --> B["Buzzer"]
+  ESP -- "GPIO 11 + 18" --> B["Buzzer"]
 ```
 
 **Before powering the motor branch**, do the power-off checks in
@@ -119,8 +119,8 @@ Lines starting `ESP32|` are the board's own log.
 | --- | --- | --- | --- | --- |
 | 1 | **S** | — | `ESP32 status: alert=False test=False` | — |
 | 2 | **T** | motor `2`, buzzer `0`, Enter | `ESP32\| [TEST] Motor GPIO 10: 2000 ms ...`; motor runs 2 s, then `Motor off` | `y` if it ran |
-| 3 | **T** | motor `0`, buzzer `2`, Enter (tone) | 2.7 kHz tone for 2 s | `y` if heard |
-| 4 | **T** | motor `0`, buzzer `5`, `d` (DC) | Silent. Meter: black probe on GND, red on GPIO 11 → **≈ 3.3 V** for 5 s | `y` if ~3.3 V |
+| 3 | **T** | motor `0`, buzzer `2`, Enter (tone) | 5 kHz tone for 2 s | `y` if heard |
+| 4 | **T** | motor `0`, buzzer `5`, `d` (DC) | Silent. Meter: black probe on GND, red on GPIO 11 → **≈ 3.3 V** (GPIO 18 ≈ 0 V) for 5 s | `y` if ~3.3 V |
 | 5 | **D** | — | `ESP32\| [MAIN] -> ALERTING`; motor pulses 0.5 s on / 0.3 s off, buzzer beeps | `y`, `y` |
 | 6 | **N** | — | `ESP32\| [MAIN] -> IDLE`; both stop at once | `y` |
 | 7 | **Q** | — | Sends `STOP`, closes the port, prints and saves the log | — |
@@ -164,8 +164,8 @@ python -m serial.tools.miniterm --dtr 0 --rts 0 COM5 115200
 | # | Command | Expect | ☐ |
 | --- | --- | --- | --- |
 | 1 | `TEST:2000:0` | Motor runs 2 s, then `[TEST] Motor off` | ☐ |
-| 2 | `TEST:0:2000` | Buzzer 2.7 kHz tone for 2 s | ☐ |
-| 3 | `TEST:5000:5000:DC` | Motor runs 5 s; meter on GPIO 11 (black probe on GND) ≈ **3.3 V**, buzzer silent | ☐ |
+| 2 | `TEST:0:2000` | Buzzer 5 kHz tone for 2 s | ☐ |
+| 3 | `TEST:5000:5000:DC` | Motor runs 5 s; meter on GPIO 11 (black probe on GND) ≈ **3.3 V**, GPIO 18 ≈ 0 V, buzzer silent | ☐ |
 | 4 | `DROWSY` | Full alert: motor 0.5 s on / 0.3 s off, buzzer beeping | ☐ |
 | 5 | `STOP` | Both stop immediately | ☐ |
 | 6 | `DROWSY`, then wait | Stops on its own at 20 s (safety cap) | ☐ |
@@ -173,7 +173,7 @@ python -m serial.tools.miniterm --dtr 0 --rts 0 COM5 115200
 Command format: `TEST:<motor_ms>:<buzzer_ms>[:DC]`
 
 - `0` leaves that output off
-- `:DC` holds the buzzer pin steady HIGH (silent, for a meter) instead of the tone
+- `:DC` holds GPIO 11 HIGH and GPIO 18 LOW (silent, for a meter) instead of the tone
 - Anything above `20000` ms is clamped to 20 s, so a typo cannot hold 5 V on 3 V motors
 
 ### Without the Pi, two things differ
@@ -189,7 +189,7 @@ Command format: `TEST:<motor_ms>:<buzzer_ms>[:DC]`
 | Serial shows | But | Look at |
 | --- | --- | --- |
 | `[TEST] Motor GPIO 10 ...` | motor does not run | Meter GPIO 10: ~3.3 V → driver (Q1, D1, motor rail). 0 V → wrong header pin |
-| `[TEST] ... Buzzer ... tone` | silent | GPIO 11 ~1.6 V average → Q2 / piezo wiring. Sounds in DC but not tone → active buzzer, swap for passive |
+| `[TEST] ... Buzzer ... tone` | silent | GPIO 11 and 18 ~1.6 V average → R6/R7 / piezo wiring. Sounds in DC but not tone → active buzzer, swap for passive |
 | nothing after typing `TEST:...` | | Firmware older than v3, or the port/baud is wrong |
 | board resets when the motor starts | | 5 V rail sag — `wiring-check.md` §2 |
 
@@ -310,7 +310,7 @@ After each action the tool asks you to confirm what you saw, felt or measured
 | --- | --- | --- | --- |
 | 1 | **S** | `alert=False test=False` | No telemetry: firmware too old, re-flash (§1) |
 | 2 | **T**, motor `2`, buzzer `0` | Motor runs 2 s, then stops | `Hardware/wiring-check.md` → motor |
-| 3 | **T**, motor `0`, buzzer `2`, mode **T**one | 2.7 kHz tone for 2 s | `wiring-check.md` → buzzer |
+| 3 | **T**, motor `0`, buzzer `2`, mode **T**one | 5 kHz tone for 2 s | `wiring-check.md` → buzzer |
 | 4 | **T**, motor `5`, buzzer `5`, mode **D**C | Meter on GPIO 11 vs GND ≈ **3.3 V** for 5 s; motor runs | Pin or ground problem |
 | 5 | **D** | Motor pulses 0.5 s on / 0.3 s off, buzzer beeps, keeps going | Stops after ~3 s → heartbeat not reaching ESP32 |
 | 6 | **N** | Both stop immediately | |
@@ -326,7 +326,8 @@ cannot hold the motors on indefinitely.
 | --- | --- | --- |
 | GPIO 10 (motor gate side of 100 Ω) | ≈ 3.3 V while `DROWSY_VIB_DUTY` is 255; ≈ 2.1 V average at 160 | 0 V |
 | GPIO 11 in **DC** mode | ≈ 3.3 V | 0 V |
-| GPIO 11 in **tone** mode | ≈ 1.6 V average (a meter cannot follow 2.7 kHz) | 0 V |
+| GPIO 11 and 18 in **tone** mode | ≈ 1.6 V average each (a meter cannot follow 5 kHz) | 0 V |
+| GPIO 18 in **DC** mode | ≈ 0 V | — |
 | Q1 drain (motor −) | ≈ 0.1–0.2 V while on | ≈ motor rail (5 V) |
 
 ### When done

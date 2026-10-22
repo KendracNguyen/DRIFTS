@@ -139,12 +139,14 @@ python -m pytest
 ## 2. Flashing the ESP32
 
 1. Open Arduino IDE or PlatformIO.
-2. Select **ESP32 Dev Module** (ESP32 Arduino core 3.x or 2.x).
+2. Select **ESP32C6 Dev Module** (ESP32 Arduino core 3.x). Full steps and the
+   prebuilt-image route: `Docs/build-and-deploy.md`.
 3. Open `Esp32/drifts_esp32/drifts_esp32.ino`.
-4. Verify pin configurations in `config.h`:
-   - `MOTOR_PIN = 26`
-   - `BUZZER_PIN = 25`
-   - `CAN_TX_PIN = 21`, `CAN_RX_PIN = 22`
+4. Verify pin configurations in `config.h` (diagram: `Hardware/pinout.md`):
+   - `MOTOR_PIN = 10`
+   - `PIEZO_A_PIN = 11`, `PIEZO_B_PIN = 18` (piezo driven differentially)
+   - `LED_GREEN_PIN = 2`, `LED_YELLOW_PIN = 3`, `LED_RED_PIN = 4`
+   - `IMU_SDA_PIN = 21`, `IMU_SCL_PIN = 22` (MPU-6050 + LCD)
 5. Upload the sketch and monitor Serial at `115200` baud.
 6. Serial test commands:
    - `WAKE`: Manually trigger Pi analysis

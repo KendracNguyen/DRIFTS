@@ -78,7 +78,7 @@ cd Tools && python -m pytest obd_sim/tests obd_link/tests -q
 Confirm nothing is wired to **GPIO 25 or 26**. On the C6 those are SPI flash
 lines. `ledcAttach(26, …)` returns `true` and `digitalWrite(25, …)` runs — the
 symptom is flash corruption or a boot loop with nothing pointing at the pins.
-Motor is **GPIO 10**, buzzer is **GPIO 11**.
+Motor is **GPIO 10**, buzzer is **GPIO 11 + GPIO 18** (piezo between them, driven in opposite phase).
 
 ### Flash
 
@@ -122,7 +122,7 @@ average, not a level. Check it like this:
 
 | Command | Expect on GPIO 10 | Expect on GPIO 11 |
 | --- | --- | --- |
-| `DROWSY` | ~3.1 V average at 63 % duty, or 3.3 V if `DROWSY_VIB_DUTY` is still 255 | ~2.7 kHz square |
+| `DROWSY` | ~3.1 V average at 63 % duty, or 3.3 V if `DROWSY_VIB_DUTY` is still 255 | ~5 kHz square (GPIO 18: the same, inverted) |
 | `STOP` | 0 V | 0 V |
 
 `DROWSY` must **hold** for the full 20 s (`MAX_ALERT_MS`). If it cuts off at

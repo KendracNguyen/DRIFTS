@@ -33,7 +33,8 @@ from drifts.config import BleConfig, load_config
 
 # Must match config.h on the ESP32.
 MOTOR_PIN = 10
-BUZZER_PIN = 11
+BUZZER_PIN = 11       # piezo leg A
+PIEZO_B_PIN = 18      # piezo leg B, same signal inverted (firmware v13+)
 MAX_TEST_S = 20.0                # MAX_ALERT_MS; the ESP32 clamps to this too
 PHONE_STATUS_UUID = "DF720002-B5A3-F393-E0A9-E50E24DCCA9E"
 
@@ -94,7 +95,7 @@ class SimHub:
             self.motor_until = self.buzzer_until = 0.0
             self.alert_until = now + self.ALERT_MS / 1000
             self.out(f"[SIM ESP32] ALERTING: GPIO {MOTOR_PIN} pulses 500/300 ms, "
-                     f"GPIO {BUZZER_PIN} 2.7 kHz 300/300 ms, max 20 s")
+                     f"GPIO {BUZZER_PIN}/{PIEZO_B_PIN} 5 kHz 300/300 ms, max 20 s")
         elif msg == "NOT_DROWSY":
             self.alert_until = self.motor_until = self.buzzer_until = 0.0
             self.out(f"[SIM ESP32] IDLE: GPIO {MOTOR_PIN} LOW, GPIO {BUZZER_PIN} LOW")
@@ -110,7 +111,7 @@ class SimHub:
             self.motor_until = now + motor_ms / 1000
             self.buzzer_until = now + buzzer_ms / 1000
             self.out(f"[SIM ESP32] TEST: GPIO {MOTOR_PIN} HIGH for {motor_ms} ms, "
-                     f"GPIO {BUZZER_PIN} {'steady HIGH' if self.buzzer_dc else 'tone'} for {buzzer_ms} ms")
+                     f"GPIO {BUZZER_PIN}/{PIEZO_B_PIN} {'DC (11 HIGH, 18 LOW)' if self.buzzer_dc else 'tone'} for {buzzer_ms} ms")
         else:
             self.out(f"[SIM ESP32] Ignored unknown message: {msg}")
 
@@ -126,7 +127,7 @@ class SimHub:
         pass
 
 
-_TEST_LINE = re.compile(r"\[TEST\] Motor GPIO \d+: (?P<motor>\d+) ms.*Buzzer GPIO \d+: (?P<buzzer>\d+) ms")
+_TEST_LINE = re.compile(r"\[TEST\] Motor GPIO \d+: (?P<motor>\d+) ms.*Buzzer GPIO [\d/]+: (?P<buzzer>\d+) ms")
 
 
 class SerialHub:
@@ -188,7 +189,8 @@ class SerialHub:
         elif "-> IDLE" in line:
             self.alert = False
         elif m := _TEST_LINE.search(line):
-            # "[TEST] Motor GPIO 10: 2000 ms at duty 255/255 | Buzzer GPIO 11: 0 ms tone"
+            # "[TEST] Motor GPIO 10: 2000 ms at duty 255/255 | Buzzer GPIO 11/18: 0 ms 5 kHz differential tone"
+            # (firmware before v13 printed "Buzzer GPIO 11:"; both match)
             self.motor_on = int(m["motor"]) > 0
             self.buzzer_on = int(m["buzzer"]) > 0
         elif line.startswith("[TEST] Motor off"):
@@ -310,7 +312,7 @@ MENU = _box("DRIFTS alert-chain test", [
     "S  STATUS      what the ESP32 reports right now",
     "Q  QUIT        stop outputs, save results, disconnect",
 ]) + f"""
-  Motor = GPIO {MOTOR_PIN}   Buzzer = GPIO {BUZZER_PIN}   LEDs: green 2, yellow 3, red 4"""
+  Motor = GPIO {MOTOR_PIN}   Buzzer = GPIO {BUZZER_PIN} + {PIEZO_B_PIN}   LEDs: green 2, yellow 3, red 4"""
 
 
 # Mirrors alertness.h: alert = 0.7 x eye + 0.3 x driving. Bands: OK >= 70,
@@ -351,7 +353,7 @@ class Session:
     async def do_drowsy(self) -> None:
         await self.hub.send("DROWSY")
         print("  Sent DROWSY. Expect: motor pulsing 0.5 s on / 0.3 s off, buzzer beeping")
-        print("  2.7 kHz 0.3 s on / 0.3 s off. It runs until N, Q, or 20 s.")
+        print("  5 kHz 0.3 s on / 0.3 s off. It runs until N, Q, or 20 s.")
         await asyncio.sleep(1.5)
         await self.show_status()
         await self.confirm("DROWSY: motor pulsing?")
@@ -394,7 +396,7 @@ class Session:
         await self.hub.send(cmd)
         print(f"  Sent {cmd}")
         print(f"  GPIO {MOTOR_PIN} (motor) HIGH for {motor_s:g} s; "
-              f"GPIO {BUZZER_PIN} (buzzer) {'steady HIGH' if dc else 'tone'} for {buzzer_s:g} s.")
+              f"GPIO {BUZZER_PIN}/{PIEZO_B_PIN} (buzzer) {'DC: 11 HIGH, 18 LOW' if dc else 'tone'} for {buzzer_s:g} s.")
         if dc:
             print(f"  Meter, black probe on GND: GPIO {BUZZER_PIN} should read about 3.3 V while on.")
         longest = max(motor_s, buzzer_s)
@@ -406,7 +408,7 @@ class Session:
         if motor_s > 0:
             await self.confirm(f"TEST: motor ran for about {motor_s:g} s, then stopped?")
         if buzzer_s > 0:
-            what = "meter read ~3.3 V on GPIO 11" if dc else "buzzer sounded"
+            what = "meter read ~3.3 V on GPIO 11 (and ~0 V on 18)" if dc else "buzzer sounded"
             await self.confirm(f"TEST: {what} for about {buzzer_s:g} s, then stopped?")
 
     def save(self) -> Optional[Path]:

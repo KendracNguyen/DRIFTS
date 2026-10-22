@@ -5,7 +5,9 @@
 
 StatusLeds Leds;
 
-static constexpr int LED_PWM_HZ = 5000;
+// 1 kHz, not the usual 5 kHz: a channel at the same frequency and resolution
+// as the piezo (5 kHz / 8-bit) would share its timer. See config.h.
+static constexpr int LED_PWM_HZ = 1000;
 static constexpr int LED_PWM_BITS = 8;
 // Self test: each LED shows solid, slow, fast for this long, one after another.
 static constexpr uint32_t SELF_TEST_STEP_MS = 2000;

@@ -1,5 +1,6 @@
 #include "actuators.h"
 #include "config.h"
+#include "piezo.h"
 
 static Pulse vibPulse;
 static Pulse buzzPulse;
@@ -21,30 +22,25 @@ void setMotor(int duty) {
 #endif
 }
 
+// Differential piezo (piezo.h). 0 means off, which must be piezoOff() --
+// never a zero duty, or the inverted leg holds DC across the element.
 void setBuzzer(int hz) {
-#if ESP_ARDUINO_VERSION_MAJOR >= 3
-    ledcWriteTone(BUZZER_PIN, hz);
-#else
-    if (hz <= 0) {
-        ledcWrite(1, 0);
+    if (hz > 0) {
+        piezoOn((uint32_t)hz);
     } else {
-        ledcWriteTone(1, hz);
+        piezoOff();
     }
-#endif
 }
 
 void initActuators() {
     pinMode(MOTOR_PIN, OUTPUT);
-    pinMode(BUZZER_PIN, OUTPUT);
+    piezoBegin();   // both piezo legs LOW before anything can raise an alert
 
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
-    ledcAttach(MOTOR_PIN, 20000, 8);  // 20 kHz PWM for motor
-    ledcAttach(BUZZER_PIN, 2000, 8);   // Tone for buzzer
+    ledcAttach(MOTOR_PIN, 20000, 8);  // 20 kHz PWM for motor (own timer)
 #else
     ledcSetup(0, 20000, 8);
     ledcAttachPin(MOTOR_PIN, 0);
-    ledcSetup(1, 2000, 8);
-    ledcAttachPin(BUZZER_PIN, 1);
 #endif
 
     stopAll();
@@ -78,24 +74,6 @@ void updatePulse(Pulse &p, void (*out)(int)) {
     }
 }
 
-// Steady HIGH on the buzzer pin means taking it away from LEDC and driving it
-// as a plain GPIO; the tone path needs it handed back afterwards.
-static void buzzerPinDc(bool high) {
-#if ESP_ARDUINO_VERSION_MAJOR >= 3
-    if (high) {
-        ledcDetach(BUZZER_PIN);
-        pinMode(BUZZER_PIN, OUTPUT);
-        digitalWrite(BUZZER_PIN, HIGH);
-    } else {
-        digitalWrite(BUZZER_PIN, LOW);
-        ledcAttach(BUZZER_PIN, 2000, 8);
-        setBuzzer(0);
-    }
-#else
-    ledcWrite(1, high ? 255 : 0);
-#endif
-}
-
 static void endTestMotor() {
     if (!testMotorOn) return;
     testMotorOn = false;
@@ -107,7 +85,7 @@ static void endTestBuzzer() {
     if (!testBuzzOn) return;
     testBuzzOn = false;
     if (testBuzzDc) {
-        buzzerPinDc(false);
+        piezoDc(false);
         testBuzzDc = false;
     } else {
         setBuzzer(0);
@@ -128,15 +106,15 @@ void startPinTest(uint32_t motorMs, uint32_t buzzerMs, bool buzzerDc) {
         testBuzzDc = buzzerDc;
         testBuzzEnd = now + buzzerMs;
         if (buzzerDc) {
-            buzzerPinDc(true);
+            piezoDc(true);
         } else {
             setBuzzer(DROWSY_BUZZ_HZ);
         }
     }
-    Serial.printf("[TEST] Motor GPIO %d: %lu ms at duty %d/255 | Buzzer GPIO %d: %lu ms %s\n",
+    Serial.printf("[TEST] Motor GPIO %d: %lu ms at duty %d/255 | Buzzer GPIO %d/%d: %lu ms %s\n",
                   MOTOR_PIN, (unsigned long)motorMs, DROWSY_VIB_DUTY,
-                  BUZZER_PIN, (unsigned long)buzzerMs,
-                  buzzerDc ? "steady HIGH (silent)" : "tone");
+                  PIEZO_A_PIN, PIEZO_B_PIN, (unsigned long)buzzerMs,
+                  buzzerDc ? "DC: 11 HIGH, 18 LOW (silent)" : "5 kHz differential tone");
 }
 
 bool isPinTestActive() {
@@ -150,6 +128,7 @@ void updateActuators() {
     if (testBuzzOn && (int32_t)(now - testBuzzEnd) >= 0) endTestBuzzer();
     updatePulse(vibPulse, setMotor);
     updatePulse(buzzPulse, setBuzzer);
+    piezoUpdate();
 }
 
 void startAlert() {

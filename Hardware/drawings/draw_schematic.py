@@ -16,7 +16,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Polygon, Rectangle
 
-REV = 3
+REV = 4
 W, H = 240, 202
 
 WIRE = "#1a6b1a"
@@ -115,8 +115,8 @@ def no_connect(x, y):
 
 # ---------------------------------------------------------------- title
 text(W / 2, 3, f"DRIFTS — Schematic (NewBrain architecture) · rev {REV}", size=16, ha="center", weight="bold")
-text(W / 2, 6.2, "Team 1 · ESP32-C6 dev kit + Raspberry Pi Zero 2 W · rev 3 adds status LEDs ×3, "
-     "16x2 I2C LCD and I2C level shifter · generated drawing (not a KiCad file)",
+text(W / 2, 6.2, "Team 1 · ESP32-C6 dev kit + Raspberry Pi Zero 2 W · rev 4: differential piezo (GPIO11 + GPIO18, 5 kHz) · "
+     "rev 3: status LEDs ×3, 16x2 I2C LCD + level shifter · generated drawing (not a KiCad file)",
      size=8.5, ha="center", style="italic")
 
 # ---------------------------------------------------------------- power input
@@ -168,7 +168,7 @@ text(207, 31.5, "Veepeak (BLE, not Classic)", size=6.5, ha="center", style="ital
 # ---------------------------------------------------------------- ESP32-C6
 u1 = box(92, 48, 18, 56, "U1 ESP32-C6\nWROOM-1 N8 dev kit",
          left=[("5V", 54), ("3V3", 62), ("GND", 70), ("GPIO22", 80), ("GPIO21", 88)],
-         right=[("GPIO10 PWM", 56), ("GPIO11 tone", 64), ("GPIO2", 72), ("GPIO3", 78), ("GPIO4", 84)],
+         right=[("GPIO10 PWM", 56), ("GPIO11 tone", 64), ("GPIO18 tone inv", 68), ("GPIO2", 72), ("GPIO3", 78), ("GPIO4", 84)],
          title_lines=2)
 wire(u1["5V"], (88.5, 54))
 flag(88.5, 54, "+5V")
@@ -250,43 +250,34 @@ wire(m["GND"], (161, 52))
 gnd(161, 52, drop=1.4)
 
 # ---------------------------------------------------------------- buzzer
-frame(124, 88, 76, 42, "Buzzer driver")
-wire(u1["GPIO11 tone"], (121, 64), (121, 112), (128, 112))
-res_h(128, 112, "R3  100Ω")
-wire((134, 112), (158, 112))
-dot(142, 112)
-wire((142, 112), (142, 116))
-res_v(142, 116, "R4\n10kΩ")
-wire((142, 122), (142, 125))
-gnd(142, 125)
-# Q2 n-MOSFET
-ax.plot([158, 158], [108, 116], color=EDGE, lw=2, zorder=3)
-for yy in (108.5, 112, 115.5):
-    ax.plot([159.2, 159.2], [yy - 1.1, yy + 1.1], color=EDGE, lw=2, zorder=3)
-ax.plot([159.2, 164], [108.5, 108.5], color=EDGE, lw=1.4, zorder=3)
-ax.plot([159.2, 164], [115.5, 115.5], color=EDGE, lw=1.4, zorder=3)
-ax.annotate("", xy=(159.4, 112), xytext=(164, 112), arrowprops=dict(arrowstyle="-|>", color=EDGE, lw=1.2))
-ax.plot([164, 164], [112, 115.5], color=EDGE, lw=1.4, zorder=3)
-wire((164, 108.5), (164, 102.5))
-wire((164, 115.5), (164, 124))
-gnd(164, 124)
-text(166, 112, "Q2\n2N7002 / AO3400A", size=7.5)
-text(165.2, 107, "D", size=6.5, color=EDGE)
-text(165.2, 118, "S", size=6.5, color=EDGE)
-text(155, 110.4, "G", size=6.5, color=EDGE)
-# LS1
-ax.add_patch(Circle((164, 99.5), 3, fc=FILL, ec=EDGE, lw=1.6, zorder=3))
-text(164, 99.5, "~", size=11, color=EDGE, ha="center")
-wire((164, 96.5), (164, 94))
-flag(164, 94, "+5V")
-text(168.5, 98.5, "LS1  piezo, tone 2.7 kHz\nTMB12A03: confirm PASSIVE (note 7)", size=7.5)
+# Rev 4: differential drive. Q2, R3, R4 removed. LS1 sits between two GPIOs,
+# each through 100 R; GPIO18 carries GPIO11's LEDC channel, inverted.
+frame(124, 88, 76, 42, "Piezo buzzer (differential drive)")
+wire(u1["GPIO11 tone"], (123, 64), (123, 104), (128, 104))
+res_h(128, 104, "R6  100Ω")
+wire((134, 104), (152, 104), (152, 108.6))
+wire(u1["GPIO18 tone inv"], (121, 68), (121, 118), (128, 118))
+res_h(128, 118, "R7  100Ω", below=True)
+wire((134, 118), (152, 118), (152, 113.4))
+# LS1 piezo element: two plates with the crystal between them
+ax.plot([148.5, 155.5], [108.6, 108.6], color=EDGE, lw=2.2, zorder=3)
+ax.plot([148.5, 155.5], [113.4, 113.4], color=EDGE, lw=2.2, zorder=3)
+ax.add_patch(Rectangle((149.3, 109.4), 5.4, 3.2, fc=FILL, ec=EDGE, lw=1.4, zorder=3))
+text(146.5, 107, "1", size=6.5, color=EDGE)
+text(146.5, 115.4, "2", size=6.5, color=EDGE)
+text(158, 107.5, "LS1  passive piezo", size=7.5, weight="bold", color=EDGE)
+text(158, 111, "5 kHz, 50 % duty, legs 180° apart", size=7.5)
+text(158, 114.2, "→ 6.6 Vpp across LS1 (+6 dB)", size=7.5)
+text(158, 117.4, "Neither leg to GND. No flyback diode.", size=7.5)
+text(126, 126.5, "Off = both pins LOW (0 V across LS1), never duty 0. Q2/R3/R4 of rev 2 removed.",
+     size=6.8, style="italic")
 
 # ---------------------------------------------------------------- status LEDs
 frame(124, 134, 76, 26, "Status LEDs ×3")
 rows = [
     ("GPIO2", 119, 142, "R5  100Ω", "#3ccf5a", "D3 green", "connections"),
-    ("GPIO3", 117, 148, "R6  330Ω", "#ffd60a", "D4 yellow", "caution 50–69 / system"),
-    ("GPIO4", 115, 154, "R7  330Ω", "#ff4d4d", "D5 red", "drowsy (LED only)"),
+    ("GPIO3", 117, 148, "R8  330Ω", "#ffd60a", "D4 yellow", "caution 50–69 / system"),
+    ("GPIO4", 115, 154, "R9  330Ω", "#ff4d4d", "D5 red", "drowsy (LED only)"),
 ]
 for pin, xv, yr, rl, col, dl, meaning in rows:
     wire(u1[pin], (xv, u1[pin][1]), (xv, yr), (130, yr))
@@ -334,20 +325,20 @@ notes = [
         "   U7 BSS138 shifter: LV = +3V3, HV = +5V. U8 backpack is a 5 V part",
         "   and pulls SDA/SCL to 5 V: never connect it directly to the C6.",
         "   U8 address 0x27 (PCF8574) or 0x3F (PCF8574A), auto-detected.",
-        "6. LEDs: D3 green GPIO2 (100Ω true green, 330Ω yellow-green), D4 yellow",
-        "   GPIO3, D5 red GPIO4. ~12 mA total. GPIO4 is a strapping pin: an LED",
+        "6. LEDs: D3 green GPIO2 R5 (100Ω true green, 330Ω yellow-green), D4",
+        "   yellow GPIO3 R8, D5 red GPIO4 R9. GPIO4 is a strapping pin: an LED",
         "   to GND only, nothing else. Mount LEDs and LCD in the passenger's view.",
-        "7. LS1 must be PASSIVE for tone (GPIO11 → Q2). The fitted TMB12A03 may",
-        "   be ACTIVE: check with TEST:0:3000:DC. No flyback diode for a piezo.",
+        "7. LS1 passive piezo, differential: GPIO11→R6→LS1←R7←GPIO18, one LEDC",
+        "   channel, GPIO18 inverted; 5 kHz 50 %, 6.6 Vpp. Off = both pins LOW.",
     ],
     [
         "8. C3/C4: 0.1µF ceramic at +3V3 and +5V near U1; one per module VCC.",
         "9. Wireless (dashed purple): Pi↔C6 and OBD dongle↔C6 over BLE. U3",
         "   must be BLE, not Classic. Camera U5 connects to the Pi only.",
-        "10. Do not use: 5, 8, 9, 15 (strapping); 12, 13 (USB); 16, 17 (UART0",
-        "   to CH343); 14, 24–30 (flash). GPIO4 = red LED only.",
+        "10. Do not use: 5, 8, 9, 15 (strapping); 6, 7 (JTAG); 12, 13 (USB);",
+        "   16, 17 (UART0 to CH343); 14, 24–30 (flash). GPIO4 = red LED only.",
         "11. Same-named flags (+5V, +3V3, GND) are one net, as in KiCad.",
-        "12. Firmware v12: LCD shows INTERVENTION 1/2 (score 50–69 / <50),",
+        "12. Firmware v13: LCD shows INTERVENTION 1/2 (score 50–69 / <50),",
         "   same bands as the LEDs. See Docs/lcd-display.md, Hardware/pinout.md.",
     ],
 ]

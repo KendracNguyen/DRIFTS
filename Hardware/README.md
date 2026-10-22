@@ -33,10 +33,11 @@ SN65HVD230 transceiver, the J1962 pigtail and all bus-tapping risk.
 | GPIO | Direction | Component | Signal | Notes |
 | --- | --- | --- | --- | --- |
 | **10** | Out (LEDC PWM) | ERM vibration motor array | MOSFET gate, via 100 Ω | 20 kHz, 8-bit duty. **Never direct to motor** |
-| **11** | Out (LEDC tone) | Piezo buzzer | MOSFET gate, via 100 Ω | `ledcWriteTone`, 2.7 kHz nominal |
+| **11** | Out (LEDC) | Piezo LS1 leg A | via R6 100 Ω | 5 kHz, 50 %; differential with GPIO 18 |
+| **18** | Out (LEDC, inverted) | Piezo LS1 leg B | via R7 100 Ω | Same channel as 11, inverted: 6.6 Vpp across LS1 |
 | **2** | Out | Status LED | Anode via 330 Ω | **External LED.** Lit when the Pi is subscribed |
 | **21** | Bidir (I2C) | MPU-6050 | SDA | `Wire.begin(21, 22)` — must be explicit |
-| **22** | Out (I2C) | MPU-6050 | SCL | 400 kHz |
+| **22** | Out (I2C) | MPU-6050 + LCD backpack | SCL | 100 kHz (PCF8574 limit) |
 | 3V3 | Power | MPU-6050 | VCC | 3.3 V only |
 | GND | Power | All | Common | See grounding, §5.4 |
 
@@ -72,10 +73,10 @@ cause. If anything is currently soldered to 25 or 26, move it before power-up.
 | U4 | MPU-6050 breakout | 1 | ±2 g, I2C 0x68, 3.3 V | Harsh-brake detection |
 | U5 | OV5647 camera | 1 | 640×480, CSI | Connects to Pi, not the C6 |
 | Q1 | Logic-level N-MOSFET | 1 | V_GS(th) < 2 V, I_D > 1 A | AO3400A, 2N7002 (small loads), or IRLZ44N |
-| Q2 | Logic-level N-MOSFET | 1 | same | Buzzer driver |
 | D1 | Flyback diode | 1 | 1N4148 or 1N4001 | **Mandatory** across the motor |
 | M1 | ERM vibration motors | 4 | ~3 V, 60–100 mA each | Seat haptics |
-| LS1 | Passive piezo buzzer | 1 | 3–5 V, driven by tone | Must be *passive* — an active buzzer ignores frequency |
+| LS1 | Passive piezo buzzer | 1 | driven differentially, 5 kHz | Must be *passive* — an active buzzer ignores frequency |
+| R6, R7 | Piezo series resistors | 2 | 100 Ω | One per piezo leg |
 | — | 5 V buck converter | 1 | 12 V in, **3 A** out | Vehicle power, §5.5 |
 
 **The dongle must say "Bluetooth LE" or "BLE".** The ESP32-C6 has no Classic
@@ -145,11 +146,11 @@ that is invisible until the motors fail on demo day.
 ### 5.3 Buzzer
 
 Use a **passive** piezo element. An active buzzer contains its own oscillator
-and emits one fixed tone regardless of what `ledcWriteTone` does, which makes
-the multi-tier alert audibly identical at every level.
+and emits one fixed tone regardless of the drive frequency.
 
-At ~30 mA a small piezo is near the GPIO's limit. Drive it through Q2 rather
-than directly.
+It is driven **differentially** from GPIO 11 and GPIO 18, each through 100 Ω,
+with neither leg to ground: 6.6 Vpp at 5 kHz, louder than the old MOSFET
+driver (Q2, now removed). Details: `schematic.md` §3.
 
 ### 5.4 Grounding — star, not daisy-chain
 
@@ -242,7 +243,7 @@ pedals and airbag deployment paths.
 | `README.md` | This document |
 | `schematic.md` | Driver circuits, power tree, connector detail |
 | `BOM.csv` | Bill of materials |
-| `drawings/DRIFTS_Schematic_rev3.pdf` | **Full system schematic** (KiCad-style drawing). Regenerate with `python Hardware/drawings/draw_schematic.py` |
+| `drawings/DRIFTS_Schematic_rev4.pdf` | **Full system schematic** (KiCad-style drawing). Regenerate with `python Hardware/drawings/draw_schematic.py` |
 | `pinout.md` / `pinout.svg` | **Wiring diagram** and pin-by-pin table, LEDs + LCD |
 | `pinout.csv` | Pin map as data, for diffing against `config.h` |
 | `reserved_pins.csv` | Pins that must not be assigned, as data |

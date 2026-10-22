@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 820" width="1000" height="820" font-family="Helvetica, Arial, sans-serif" font-size="14">
   <rect width="1000" height="820" fill="#ffffff"/>
-  <text x="500" y="34" text-anchor="middle" font-size="22" font-weight="bold" fill="#222">DRIFTS — ESP32-C6 pinout (v11)</text>
+  <text x="500" y="34" text-anchor="middle" font-size="22" font-weight="bold" fill="#222">DRIFTS — ESP32-C6 pinout (v13)</text>
   <text x="500" y="56" text-anchor="middle" font-size="13" fill="#555">Find pins by the label printed on the board. Power pins are shown as net tags: every tag with the same name is the same wire.</text>
 
   <!-- ESP32-C6 board -->
@@ -17,10 +17,11 @@
     <text x="232" y="345">GPIO 4</text>
     <text x="232" y="405">GPIO 10</text>
     <text x="232" y="455">GPIO 11</text>
+    <text x="232" y="495">GPIO 18</text>
     <text x="232" y="545">GPIO 21 SDA</text>
     <text x="232" y="605">GPIO 22 SCL</text>
   </g>
-  <g fill="#f2c94c"><circle cx="240" cy="100" r="5"/><circle cx="240" cy="140" r="5"/><circle cx="240" cy="180" r="5"/><circle cx="240" cy="240" r="5"/><circle cx="240" cy="290" r="5"/><circle cx="240" cy="340" r="5"/><circle cx="240" cy="400" r="5"/><circle cx="240" cy="450" r="5"/><circle cx="240" cy="540" r="5"/><circle cx="240" cy="600" r="5"/></g>
+  <g fill="#f2c94c"><circle cx="240" cy="100" r="5"/><circle cx="240" cy="140" r="5"/><circle cx="240" cy="180" r="5"/><circle cx="240" cy="240" r="5"/><circle cx="240" cy="290" r="5"/><circle cx="240" cy="340" r="5"/><circle cx="240" cy="400" r="5"/><circle cx="240" cy="450" r="5"/><circle cx="240" cy="490" r="5"/><circle cx="240" cy="540" r="5"/><circle cx="240" cy="600" r="5"/></g>
 
   <!-- power net tags -->
   <g stroke-width="3">
@@ -33,7 +34,7 @@
     <rect x="300" y="128" width="48" height="24" rx="4" fill="#f77f00"/><text x="324" y="145" text-anchor="middle" fill="#fff">3V3</text>
     <rect x="300" y="168" width="48" height="24" rx="4" fill="#222"/><text x="324" y="185" text-anchor="middle" fill="#fff">GND</text>
   </g>
-  <text x="362" y="105" fill="#555" font-size="12">from USB; feeds LCD backpack, shifter HV, motor + buzzer</text>
+  <text x="362" y="105" fill="#555" font-size="12">from USB; feeds LCD backpack, shifter HV, motor supply</text>
   <text x="362" y="145" fill="#555" font-size="12">MPU-6050 VCC, shifter LV</text>
   <text x="362" y="185" fill="#555" font-size="12">common ground for everything</text>
 
@@ -67,14 +68,17 @@
   <g stroke-width="3">
     <line x1="240" y1="400" x2="300" y2="400" stroke="#7b2cbf"/><line x1="360" y1="400" x2="410" y2="400" stroke="#7b2cbf"/>
     <line x1="240" y1="450" x2="300" y2="450" stroke="#0077b6"/><line x1="360" y1="450" x2="410" y2="450" stroke="#0077b6"/>
+    <line x1="240" y1="490" x2="300" y2="490" stroke="#00a8a8"/><line x1="360" y1="490" x2="410" y2="490" stroke="#00a8a8"/>
   </g>
-  <g fill="#fff" stroke="#333" stroke-width="2"><rect x="300" y="390" width="60" height="20"/><rect x="300" y="440" width="60" height="20"/></g>
-  <g font-size="12" text-anchor="middle" fill="#222"><text x="330" y="405">100 Ω</text><text x="330" y="455">100 Ω</text></g>
+  <g fill="#fff" stroke="#333" stroke-width="2"><rect x="300" y="390" width="60" height="20"/><rect x="300" y="440" width="60" height="20"/><rect x="300" y="480" width="60" height="20"/></g>
+  <g font-size="12" text-anchor="middle" fill="#222"><text x="330" y="405">100 Ω</text><text x="330" y="455">R6 100 Ω</text><text x="330" y="495">R7 100 Ω</text></g>
   <g fill="#f4f0fa" stroke="#7b2cbf" stroke-width="2"><rect x="410" y="384" width="520" height="32" rx="6"/></g>
-  <g fill="#eef6fb" stroke="#0077b6" stroke-width="2"><rect x="410" y="434" width="520" height="32" rx="6"/></g>
+  <g fill="#eef6fb" stroke="#0077b6" stroke-width="2"><rect x="410" y="434" width="172" height="72" rx="6"/></g>
   <g font-size="13" fill="#222">
     <text x="422" y="405">Q1 gate (AO3400A) → 4× ERM motors + flyback diode — schematic §2</text>
-    <text x="422" y="455">Q2 gate (2N7002/AO3400A) → buzzer TMB12A03 — schematic §3</text>
+    <text x="422" y="455" font-weight="bold">LS1 passive piezo</text>
+    <text x="422" y="474" font-size="12">across R6/R7, no leg on GND</text>
+    <text x="422" y="493" font-size="12">5 kHz, opposite phase</text>
   </g>
 
   <!-- I2C bus -->
