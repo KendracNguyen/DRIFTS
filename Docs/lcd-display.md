@@ -89,8 +89,8 @@ GPIO 21 (SDA) ── LV1                 HV1 ───────────�
 GPIO 22 (SCL) ── LV2                 HV2 ───────────── backpack SCL
 ```
 
-The MPU-6050 stays on GPIO 21/22 on the 3.3 V side, as before. Full detail and
-cautions: [`../Hardware/schematic.md`](../Hardware/schematic.md) §5a.
+The MPU-6050 stays on GPIO 21/22 on the 3.3 V side, as before. Diagram and
+pin-by-pin table: [`../Hardware/pinout.md`](../Hardware/pinout.md). Cautions: [`../Hardware/schematic.md`](../Hardware/schematic.md) §5a.
 
 **Why the level shifter.** At 5 V the PCF8574 needs ≥ 3.5 V (0.7 × VCC) to read
 a logic high; the C6 drives 3.3 V. Many backpacks also pull SDA/SCL up to 5 V,
