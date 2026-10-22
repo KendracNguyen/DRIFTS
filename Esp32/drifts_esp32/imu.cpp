@@ -28,7 +28,7 @@ static void writeReg(uint8_t reg, uint8_t value) {
 
 bool Imu::begin() {
     Wire.begin(IMU_SDA_PIN, IMU_SCL_PIN);
-    Wire.setClock(400000);
+    Wire.setClock(I2C_CLOCK_HZ);   // shared with the LCD backpack; see config.h
 
     Wire.beginTransmission(IMU_I2C_ADDR);
     Wire.write(REG_WHO_AM_I);

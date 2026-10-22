@@ -59,6 +59,18 @@ constexpr uint32_t LED_LAMP_TEST_MS = 1000;   // all on at power-up
 // Wire.begin() would silently use the wrong pin.
 constexpr int IMU_SDA_PIN = 21;
 constexpr int IMU_SCL_PIN = 22;
+
+// The I2C bus is shared by the MPU-6050 and the LCD backpack. The PCF8574 on
+// the backpack is rated to 100 kHz, so the whole bus runs at 100 kHz. The
+// IMU's 14-byte read then takes ~1.6 ms every 20 ms -- still under 10 % of
+// the bus.
+constexpr uint32_t I2C_CLOCK_HZ = 100000;
+
+// 16x2 LCD (HD44780 + PCF8574 backpack, address 0x27 or 0x3F, auto-detected).
+// See lcd_screen.h for what it shows and Docs/lcd-display.md for wiring.
+constexpr bool     LCD_BACKLIGHT      = true;
+constexpr uint32_t LCD_REFRESH_MS     = 250;   // recompose the screen 4x a second
+constexpr int      LCD_CHARS_PER_LOOP = 4;     // ~2 ms of I2C per loop at most
 constexpr uint8_t IMU_I2C_ADDR = 0x68;
 
 // ---------------------------------------------------------------

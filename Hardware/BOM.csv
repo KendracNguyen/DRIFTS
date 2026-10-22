@@ -18,3 +18,6 @@ C1,Bulk capacitor,1,100-470uF 16V,,1,needed,At motor supply
 PS1,Buck converter,1,12V to 5V 3A,Pololu D24V22F5,19,conditional,Vehicle power only - use power bank for bench
 F1,Inline fuse,1,2A automotive,,3,conditional,Vehicle power only
 TVS1,TVS diode,1,SMBJ26A 600W,,1,conditional,Vehicle power only - load dump protection
+LCD1,16x2 character LCD,1,HD44780 5V blue backlight,HiLetgo 1602 LCD,6,have,Mount for passenger/tester view - see Docs/lcd-display.md
+LCD2,I2C LCD backpack,1,PCF8574 or PCF8574A 5V; addr 0x27 or 0x3F,HiLetgo 2004/1602 IIC adapter,3,have,Contrast pot on board; firmware auto-detects address
+LS1,I2C level shifter,1,Bidirectional BSS138 2-channel 3.3V-5V,Adafruit 757 or SparkFun BOB-12009,3,needed,Between C6 GPIO21/22 and the 5V backpack; never pull C6 pins to 5V

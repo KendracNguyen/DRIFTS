@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 820" width="1000" height="820" font-family="Helvetica, Arial, sans-serif" font-size="14">
+  <rect width="1000" height="820" fill="#ffffff"/>
+  <text x="500" y="34" text-anchor="middle" font-size="22" font-weight="bold" fill="#222">DRIFTS — ESP32-C6 pinout (v11)</text>
+  <text x="500" y="56" text-anchor="middle" font-size="13" fill="#555">Find pins by the label printed on the board. Power pins are shown as net tags: every tag with the same name is the same wire.</text>
+
+  <!-- ESP32-C6 board -->
+  <rect x="40" y="80" width="200" height="600" rx="10" fill="#1f3b5c" stroke="#0f2236" stroke-width="2"/>
+  <text x="140" y="636" text-anchor="middle" fill="#fff" font-size="18" font-weight="bold">ESP32-C6</text>
+  <text x="140" y="655" text-anchor="middle" fill="#cfe0f2" font-size="13">WROOM-1 N8</text>
+  <text x="140" y="671" text-anchor="middle" fill="#cfe0f2" font-size="13">dev kit</text>
+  <g fill="#fff" font-size="13" text-anchor="end">
+    <text x="232" y="105">5V</text>
+    <text x="232" y="145">3V3</text>
+    <text x="232" y="185">GND</text>
+    <text x="232" y="245">GPIO 2</text>
+    <text x="232" y="295">GPIO 3</text>
+    <text x="232" y="345">GPIO 4</text>
+    <text x="232" y="405">GPIO 10</text>
+    <text x="232" y="455">GPIO 11</text>
+    <text x="232" y="545">GPIO 21 SDA</text>
+    <text x="232" y="605">GPIO 22 SCL</text>
+  </g>
+  <g fill="#f2c94c"><circle cx="240" cy="100" r="5"/><circle cx="240" cy="140" r="5"/><circle cx="240" cy="180" r="5"/><circle cx="240" cy="240" r="5"/><circle cx="240" cy="290" r="5"/><circle cx="240" cy="340" r="5"/><circle cx="240" cy="400" r="5"/><circle cx="240" cy="450" r="5"/><circle cx="240" cy="540" r="5"/><circle cx="240" cy="600" r="5"/></g>
+
+  <!-- power net tags -->
+  <g stroke-width="3">
+    <line x1="240" y1="100" x2="300" y2="100" stroke="#d62828"/>
+    <line x1="240" y1="140" x2="300" y2="140" stroke="#f77f00"/>
+    <line x1="240" y1="180" x2="300" y2="180" stroke="#222"/>
+  </g>
+  <g font-size="13" font-weight="bold">
+    <rect x="300" y="88" width="48" height="24" rx="4" fill="#d62828"/><text x="324" y="105" text-anchor="middle" fill="#fff">5V</text>
+    <rect x="300" y="128" width="48" height="24" rx="4" fill="#f77f00"/><text x="324" y="145" text-anchor="middle" fill="#fff">3V3</text>
+    <rect x="300" y="168" width="48" height="24" rx="4" fill="#222"/><text x="324" y="185" text-anchor="middle" fill="#fff">GND</text>
+  </g>
+  <text x="362" y="105" fill="#555" font-size="12">from USB; feeds LCD backpack, shifter HV, motor + buzzer</text>
+  <text x="362" y="145" fill="#555" font-size="12">MPU-6050 VCC, shifter LV</text>
+  <text x="362" y="185" fill="#555" font-size="12">common ground for everything</text>
+
+  <!-- LEDs -->
+  <g stroke-width="3" fill="none">
+    <line x1="240" y1="240" x2="300" y2="240" stroke="#2a9d3f"/><line x1="360" y1="240" x2="410" y2="240" stroke="#2a9d3f"/><line x1="440" y1="240" x2="480" y2="240" stroke="#222"/>
+    <line x1="240" y1="290" x2="300" y2="290" stroke="#c9a400"/><line x1="360" y1="290" x2="410" y2="290" stroke="#c9a400"/><line x1="440" y1="290" x2="480" y2="290" stroke="#222"/>
+    <line x1="240" y1="340" x2="300" y2="340" stroke="#d62828"/><line x1="360" y1="340" x2="410" y2="340" stroke="#d62828"/><line x1="440" y1="340" x2="480" y2="340" stroke="#222"/>
+  </g>
+  <g fill="#fff" stroke="#333" stroke-width="2">
+    <rect x="300" y="230" width="60" height="20"/><rect x="300" y="280" width="60" height="20"/><rect x="300" y="330" width="60" height="20"/>
+  </g>
+  <g font-size="12" text-anchor="middle" fill="#222"><text x="330" y="245">100 Ω</text><text x="330" y="295">330 Ω</text><text x="330" y="345">330 Ω</text></g>
+  <g stroke="#333" stroke-width="2">
+    <polygon points="410,228 410,252 438,240" fill="#3ccf5a"/><line x1="440" y1="228" x2="440" y2="252"/>
+    <polygon points="410,278 410,302 438,290" fill="#ffd60a"/><line x1="440" y1="278" x2="440" y2="302"/>
+    <polygon points="410,328 410,352 438,340" fill="#ff4d4d"/><line x1="440" y1="328" x2="440" y2="352"/>
+  </g>
+  <g font-size="12" font-weight="bold">
+    <rect x="480" y="230" width="40" height="20" rx="4" fill="#222"/><text x="500" y="245" text-anchor="middle" fill="#fff">GND</text>
+    <rect x="480" y="280" width="40" height="20" rx="4" fill="#222"/><text x="500" y="295" text-anchor="middle" fill="#fff">GND</text>
+    <rect x="480" y="330" width="40" height="20" rx="4" fill="#222"/><text x="500" y="345" text-anchor="middle" fill="#fff">GND</text>
+  </g>
+  <g font-size="13" fill="#222">
+    <text x="535" y="245">GREEN — connections (long leg toward resistor)</text>
+    <text x="535" y="295">YELLOW — caution / system</text>
+    <text x="535" y="345">RED — drowsiness (GPIO 4: LED only, strapping pin)</text>
+  </g>
+
+  <!-- motor / buzzer -->
+  <g stroke-width="3">
+    <line x1="240" y1="400" x2="300" y2="400" stroke="#7b2cbf"/><line x1="360" y1="400" x2="410" y2="400" stroke="#7b2cbf"/>
+    <line x1="240" y1="450" x2="300" y2="450" stroke="#0077b6"/><line x1="360" y1="450" x2="410" y2="450" stroke="#0077b6"/>
+  </g>
+  <g fill="#fff" stroke="#333" stroke-width="2"><rect x="300" y="390" width="60" height="20"/><rect x="300" y="440" width="60" height="20"/></g>
+  <g font-size="12" text-anchor="middle" fill="#222"><text x="330" y="405">100 Ω</text><text x="330" y="455">100 Ω</text></g>
+  <g fill="#f4f0fa" stroke="#7b2cbf" stroke-width="2"><rect x="410" y="384" width="520" height="32" rx="6"/></g>
+  <g fill="#eef6fb" stroke="#0077b6" stroke-width="2"><rect x="410" y="434" width="520" height="32" rx="6"/></g>
+  <g font-size="13" fill="#222">
+    <text x="422" y="405">Q1 gate (AO3400A) → 4× ERM motors + flyback diode — schematic §2</text>
+    <text x="422" y="455">Q2 gate (2N7002/AO3400A) → buzzer TMB12A03 — schematic §3</text>
+  </g>
+
+  <!-- I2C bus -->
+  <g stroke-width="3">
+    <line x1="240" y1="540" x2="560" y2="540" stroke="#2196f3"/>
+    <line x1="240" y1="600" x2="560" y2="600" stroke="#ff9800"/>
+    <line x1="330" y1="540" x2="330" y2="700" stroke="#2196f3"/>
+    <line x1="400" y1="600" x2="400" y2="700" stroke="#ff9800"/>
+  </g>
+  <g fill="#222"><circle cx="330" cy="540" r="5"/><circle cx="400" cy="600" r="5"/></g>
+  <text x="400" y="530" font-size="12" fill="#555" text-anchor="middle">3.3 V side</text>
+
+  <!-- MPU-6050 -->
+  <rect x="270" y="700" width="250" height="90" rx="6" fill="#e9f5ec" stroke="#2a9d3f" stroke-width="2"/>
+  <text x="390" y="755" text-anchor="middle" font-weight="bold" fill="#222">MPU-6050</text>
+  <g font-size="12" fill="#222"><text x="318" y="718">SDA</text><text x="388" y="718">SCL</text></g>
+  <text x="390" y="775" text-anchor="middle" font-size="12" fill="#444">VCC→3V3 · GND · AD0→GND (0x68)</text>
+
+  <!-- level shifter -->
+  <rect x="560" y="505" width="160" height="160" rx="6" fill="#fff8e1" stroke="#b8860b" stroke-width="2"/>
+  <text x="640" y="497" text-anchor="middle" font-weight="bold" fill="#222">I2C level shifter</text>
+  <text x="640" y="685" text-anchor="middle" font-size="12" fill="#444">BSS138, 2+ channels</text>
+  <g font-size="12" fill="#222">
+    <text x="568" y="525">LV</text><text x="568" y="545">LV1</text><text x="568" y="605">LV2</text><text x="568" y="645">GND</text>
+    <text x="712" y="525" text-anchor="end">HV</text><text x="712" y="545" text-anchor="end">HV1</text><text x="712" y="605" text-anchor="end">HV2</text><text x="712" y="645" text-anchor="end">GND</text>
+  </g>
+  <g font-size="11" font-weight="bold">
+    <rect x="512" y="510" width="40" height="18" rx="3" fill="#f77f00"/><text x="532" y="523" text-anchor="middle" fill="#fff">3V3</text>
+    <rect x="512" y="630" width="40" height="18" rx="3" fill="#222"/><text x="532" y="643" text-anchor="middle" fill="#fff">GND</text>
+  </g>
+  <g stroke-width="3">
+    <line x1="552" y1="519" x2="560" y2="519" stroke="#f77f00"/>
+    <line x1="552" y1="639" x2="560" y2="639" stroke="#222"/>
+    <line x1="720" y1="520" x2="800" y2="520" stroke="#d62828"/>
+    <line x1="720" y1="540" x2="800" y2="540" stroke="#2196f3"/>
+    <line x1="720" y1="600" x2="800" y2="600" stroke="#ff9800"/>
+    <line x1="720" y1="640" x2="800" y2="640" stroke="#222"/>
+  </g>
+  <text x="760" y="510" text-anchor="middle" font-size="11" fill="#d62828" font-weight="bold">5V</text>
+  <text x="760" y="575" text-anchor="middle" font-size="12" fill="#555">5 V side</text>
+
+  <!-- LCD backpack -->
+  <rect x="800" y="505" width="170" height="160" rx="6" fill="#e3f0ff" stroke="#1f5fa8" stroke-width="2"/>
+  <text x="885" y="497" text-anchor="middle" font-weight="bold" fill="#222">LCD backpack</text>
+  <g font-size="12" fill="#222"><text x="808" y="525">VCC</text><text x="808" y="545">SDA</text><text x="808" y="605">SCL</text><text x="808" y="645">GND</text></g>
+  <text x="925" y="575" text-anchor="middle" font-size="12" fill="#444">PCF8574</text>
+  <text x="925" y="591" text-anchor="middle" font-size="12" fill="#444">0x27 / 0x3F</text>
+  <text x="885" y="685" text-anchor="middle" font-size="12" fill="#444">on the 1602 LCD's 16-pin header</text>
+
+  <!-- warning -->
+  <rect x="540" y="705" width="430" height="85" rx="6" fill="#fdecea" stroke="#d62828" stroke-width="2"/>
+  <text x="555" y="728" font-weight="bold" fill="#b00020">⚠ Never wire LCD SDA/SCL straight to the C6</text>
+  <text x="555" y="748" font-size="12" fill="#222">The backpack is 5 V and pulls SDA/SCL up to 5 V.</text>
+  <text x="555" y="765" font-size="12" fill="#222">The C6 pins are 3.3 V only. The MPU-6050 stays on the</text>
+  <text x="555" y="782" font-size="12" fill="#222">3.3 V side. Bus runs at 100 kHz.</text>
+</svg>

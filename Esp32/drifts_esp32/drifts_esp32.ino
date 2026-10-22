@@ -26,12 +26,15 @@
     SCORE <n>     force the alert score to n (0-100) for 30 s; SCORE OFF ends it
     EYE:<n>       eye score 0-100, as the Pi will send it (also accepted over BLE)
     DRV:s:t:b     simulator driving sample (reserved for the Logitech G29; stored only)
+    LCD           re-initialise the 16x2 display and redraw it
+    I2C SCAN      list every device on the I2C bus (LCD 0x27/0x3F, MPU-6050 0x68)
 */
 
 #include "config.h"
 #include "actuators.h"
 #include "alertness.h"
 #include "status_leds.h"
+#include "lcd_i2c.h"
 #include "ble_hub.h"
 #include "obd_ble.h"
 #include "trigger.h"
@@ -85,6 +88,7 @@ void setup() {
     Serial.println("==================================");
 
     Leds.begin();   // lamp test: all three LEDs on for LED_LAMP_TEST_MS
+    Lcd.begin();    // "Welcome to DRIFTS", then "Drive Safe", then the live score
 
     initActuators();
     Serial.println("[MAIN] Actuators ready");
@@ -116,7 +120,7 @@ void setup() {
                       MIN_SPEED_KPH, GATE_COVERAGE * 100.0f);
     }
 
-    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / LEDS / SCORE n");
+    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / LEDS / SCORE n / LCD / I2C SCAN");
     Serial.println("==================================\n");
     stateStartMs = millis();
 }
@@ -138,14 +142,16 @@ static void printStatus() {
                   (unsigned long)Obd.rxOverflows());
     const LedState &l = Leds.state();
     Serial.printf("[SCORE] alert %.0f (%s) = eye %.0f%s x0.7 + driving %.0f x0.3%s%s | "
-                  "LEDs G=%s Y=%s R=%s | system issue: %s\n",
+                  "LEDs G=%s Y=%s R=%s | system issue: %s | LCD %s\n",
                   alertScore.score(), alertLevelName(alertScore.level()),
                   alertScore.eye(), alertScore.eyeEstimated() ? " (est.)" : "",
                   alertScore.driving(),
                   alertScore.partial() ? " | PARTIAL: no eye data, driving only" : "",
                   alertScore.forced() ? " | FORCED by SCORE command" : "",
                   ledPatternName(l.green), ledPatternName(l.yellow), ledPatternName(l.red),
-                  GATE_BENCH_MODE ? "bench mode" : (!imuPresent ? "IMU missing" : "none"));
+                  GATE_BENCH_MODE ? "bench mode" : (!imuPresent ? "IMU missing" : "none"),
+                  Lcd.present() ? "on" : "absent");
+    if (Lcd.present()) Serial.printf("[LCD] |%s| |%s|\n", Lcd.line1(), Lcd.line2());
 }
 
 // EYE:<n> and DRV:s:t:b, from the Pi over BLE or typed on the console.
@@ -213,6 +219,10 @@ static void handleSerial() {
         alertScore.onPiResult(false, millis());
         piStatus = "not_drowsy";
         enterIdle("simulated NOT_DROWSY");
+    } else if (cmd.equalsIgnoreCase("LCD")) {
+        Lcd.reinit();
+    } else if (cmd.equalsIgnoreCase("I2C SCAN")) {
+        i2cScan();
     } else if (cmd.equalsIgnoreCase("LEDS")) {
         Leds.startSelfTest(millis());
     } else if (cmd.equalsIgnoreCase("SCORE OFF")) {
@@ -387,6 +397,13 @@ void loop() {
     ledIn.alertActive = isAlertActive();
     ledIn.level = alertScore.level();
     Leds.update(ledIn, now);
+
+    ScreenView screen;
+    screen.score = alertScore.score();
+    screen.level = alertScore.level();
+    screen.partial = alertScore.partial();
+    screen.alertActive = isAlertActive();
+    Lcd.service(screen, now);
 
     // 7. Telemetry to the phone.
     if (now - lastPhoneMs >= PHONE_UPDATE_MS) {
