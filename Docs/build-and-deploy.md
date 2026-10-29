@@ -193,6 +193,13 @@ wiring and bench test in [`status-leds.md`](status-leds.md). Serial: `LEDS`, `SC
 shifter!), screens and bench test in [`lcd-display.md`](lcd-display.md).
 Serial: `LCD`, `I2C SCAN`.
 
+### Live dashboard (camera + OBD)
+
+Live camera with eye tracking, OBD values, alert level and LCD text in a
+browser; also collects labelled frames for training. Laptop or Pi:
+[`live-dashboard.md`](live-dashboard.md).
+`python -m drifts.live --esp serial --port COM5`.
+
 ### Steering weave (gyro)
 
 Steering comes from the MPU-6050 gyro, not OBD — desk test and road

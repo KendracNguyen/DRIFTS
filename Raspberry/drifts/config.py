@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tomllib
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
@@ -67,6 +66,10 @@ def load_config(path: str | Path | None = None) -> Config:
     path = Path(path) if path else DEFAULT_CONFIG
     if not path.exists():
         return Config()
+    try:
+        import tomllib                    # Python 3.11+
+    except ModuleNotFoundError:           # older laptops: pip install tomli
+        import tomli as tomllib
     with open(path, "rb") as f:
         raw = tomllib.load(f)
     cfg = Config()
