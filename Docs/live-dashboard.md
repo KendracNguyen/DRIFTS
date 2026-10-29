@@ -17,8 +17,26 @@ camera ──► eye tracker ──► PERCLOS ──► EYE:<n> ──► ESP32
 car ──OBD──► Veepeak ──BLE──► ESP32 ──USB or BLE──► dashboard (browser)
 ```
 
-Code: `Raspberry/drifts/live.py` (app + page), `eyes.py` (tracker + PERCLOS),
-`esp_link.py` (USB serial / BLE / simulated ESP32).
+Code: `Raspberry/drifts/live.py` (server), `dashboard.html` (the page),
+`eyes.py` (tracker + PERCLOS), `esp_link.py` (USB serial / BLE / simulated
+ESP32). The page is re-read on every load: edit `dashboard.html` and refresh.
+
+### Screens (same design as the DRIFTS phone app)
+
+A phone-width page in the app's maroon style, usable on a phone or a laptop.
+
+| Tab | Shows |
+| --- | --- |
+| **Home** | Alertness score ring (ESP32 alert score) with Eyes / Driving / PERCLOS bars and the LCD text; live driver camera; active interventions; vehicle RPM / speed / throttle; nearest rest stop |
+| **History** | Alert score, eye score and RPM for the whole session (kept by the server, so opening the tab mid-demo shows everything) |
+| **Devices** | ESP32 link, firmware, OBD dongle, camera, LCD, eye scores sent, ESP32 log |
+| **Training** | Capture buttons and counts |
+
+Intervention pills: **ACTIVE** = the ESP32 is driving that output right now
+(buzzer + motor during an alert); **LEVEL 1 / LEVEL 2** = the score has
+reached that intervention level; **STANDBY** = not reached; **PLANNED** =
+Level 3 voice and Level 4 rest-stop routing, not built yet. The rest-stop card
+is a placeholder until phone GPS exists: it never shows a made-up place.
 
 > ⚠ The eye tracker is a **demo heuristic** (OpenCV Haar cascades), not the
 > trained model: about **74 %** right on frames where it finds a face in the
