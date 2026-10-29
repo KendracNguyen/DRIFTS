@@ -130,6 +130,24 @@ shares the bus and was at 400 kHz; at 100 kHz an IMU read still takes under
 
 ---
 
+## Verified on hardware (Oct 29 2026, firmware v14)
+
+HiLetgo 1602 + PCF8574 backpack on the ESP32-C6, **temporary all-3.3 V
+hookup** (backpack VCC on 3V3, SDA/SCL straight to GPIO 21/22, no level
+shifter yet). `I2C SCAN` found `0x27`; `[LCD] 16x2 display at 0x27, I2C
+100 kHz`; Welcome / Drive Safe shown and the text is readable at 3.3 V.
+
+Lessons from bring-up:
+
+- **No backlight, but the backpack's red LED is on → the backlight jumper is
+  missing.** The 2-pin header at the end of the backpack (LED / BL) must be
+  bridged with a jumper cap or wire. Ours shipped without the cap.
+- **3.3 V works for bench testing.** Everything at 3.3 V is safe for the C6
+  and the text was readable here. Use 5 V on VCC *only* with the level
+  shifter in place.
+- **Wired after power-up?** v14's `LCD` command looks for the display again
+  and replays the welcome screen; no reset needed.
+
 ## Bench test (ESP32 only, ~5 minutes)
 
 Flash **v11** or later and open the serial monitor

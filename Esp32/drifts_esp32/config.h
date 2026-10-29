@@ -14,6 +14,10 @@
 #include <Arduino.h>
 #include <stdint.h>
 
+// Printed at boot and by STATUS, so the flashed image can be identified.
+// Matches the drifts_c6_8M_uartchip_<version>.bin file name.
+#define DRIFTS_FW_VERSION "v14"
+
 // ---------------------------------------------------------------
 // Pin assignments  --  TARGET: ESP32-C6-WROOM-1
 // ---------------------------------------------------------------
@@ -28,11 +32,28 @@
 // the cause. The old 25/26 assignments were exactly this mistake.
 //
 // Avoid entirely: 5, 8, 9 (strapping), 12, 13 (USB Serial/JTAG),
-// 15 (strapping), 16, 17 (UART0 console), 14 and 24-30 (absent).
-// 4 (strapping) is used for the red LED only -- see LED_RED_PIN below.
+// 15 (strapping), 16, 17 (UART0 console), 14 and 24-30 (absent),
+// 6, 7 (pad JTAG). 4 (strapping) is used for the red LED only -- see
+// LED_RED_PIN below.
 // GPIO0-6 are also ADC1_CH0-6; leave them free if analog is ever needed.
-constexpr int MOTOR_PIN  = 10;   // PWM -> motor transistor base
-constexpr int BUZZER_PIN = 11;   // tone -> buzzer transistor base
+constexpr int MOTOR_PIN  = 10;   // PWM -> motor module IN via R1 100 R
+
+// Passive piezo LS1 driven differentially between two pins (see piezo.h):
+// GPIO 11 -> R6 100 R -> LS1 -> R7 100 R <- GPIO 18, neither leg to GND.
+// Pin B carries the same LEDC channel as pin A, inverted: 6.6 Vpp across LS1.
+constexpr int PIEZO_A_PIN = 11;   // leg A, non-inverted
+constexpr int PIEZO_B_PIN = 18;   // leg B, inverted
+constexpr int PIEZO_FREQ_HZ  = 5000;   // alert tone, 50 % duty
+constexpr int PIEZO_LEDC_RES = 8;
+// Explicit channel, highest of the C6's six. ledcAttach() hands out the
+// lowest free channel, and only four pins use it (motor + three LEDs:
+// channels 0-3), so 5 is never taken. The 5 kHz piezo must also not share
+// a timer with anything: the core reuses a timer for any channel with the
+// same frequency and resolution, which is why the LEDs run at 1 kHz.
+constexpr int PIEZO_LEDC_CH  = 5;
+// 1 = sweep 4-6 kHz once at boot (piezo.h). The SWEEP serial command does
+// the same at any time.
+#define PIEZO_SWEEP_TEST 0
 
 // Three external status LEDs, each GPIO -> resistor -> LED -> GND. Meanings
 // in status_leds.h and Docs/status-leds.md. (The board's on-board LED is an
@@ -193,7 +214,7 @@ constexpr int   TRIGGER_COOLDOWN_S   = 30;
 constexpr int DROWSY_VIB_DUTY   = 255;   // 0-255 PWM duty
 constexpr int DROWSY_VIB_ON_MS  = 500;
 constexpr int DROWSY_VIB_OFF_MS = 300;
-constexpr int DROWSY_BUZZ_HZ    = 2700;
+constexpr int DROWSY_BUZZ_HZ    = PIEZO_FREQ_HZ;
 constexpr int DROWSY_BUZZ_ON_MS = 300;
 constexpr int DROWSY_BUZZ_OFF_MS = 300;
 

@@ -1,6 +1,8 @@
 gpio,status,reason
 4,led_only,Strapping pin MTMS - only matters for SDIO boot; an LED to GND through a resistor is safe. Nothing else: no pull-ups or other circuits
 5,reserved,Strapping pin MTDI
+6,reserved,Pad JTAG MTCK
+7,reserved,Pad JTAG MTDO
 8,reserved,Strapping pin and on-board addressable RGB LED
 9,reserved,Strapping pin and BOOT button
 12,reserved,USB Serial/JTAG D-minus

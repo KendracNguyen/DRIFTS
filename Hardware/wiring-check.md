@@ -23,7 +23,8 @@ your board**, not from a DevKitC-1 pinout image.
 | Signal | GPIO | Notes |
 | --- | --- | --- |
 | Motor gate | 10 | via 100 Ω to Q1 gate |
-| Buzzer gate | 11 | via 100 Ω to Q2 gate |
+| Piezo leg A | 11 | via R6 100 Ω to LS1 pin 1 |
+| Piezo leg B | 18 | via R7 100 Ω to LS1 pin 2 (neither leg to GND) |
 | Status LED | 2 | via 330 Ω |
 | MPU-6050 SDA / SCL | 21 / 22 | 3.3 V only |
 | **Never use** | **24 – 30** | SPI flash lines. Writing them corrupts flash, often silently |
@@ -41,10 +42,11 @@ Do every one of these **with all power disconnected**.
 | --- | --- | --- | --- |
 | ☐ | +5 V rail to GND | **Not** a short (reads > 100 Ω, often rising as caps charge) | A short here is usually D1 backwards |
 | ☐ | **D1 orientation**: striped (cathode) end on **+5 V**, other end on Q1 drain / motor − | Diode test: ~0.5–0.7 V drain→+5 V, open the other way | Backwards = dead short across the supply at power-on |
-| ☐ | Q1 / Q2 gate to GND | ≈ 10 kΩ | Pull-down present. Missing → gate floats during reset → motors twitch on boot |
+| ☐ | Q1 gate to GND | ≈ 10 kΩ | Pull-down present. Missing → gate floats during reset → motors twitch on boot |
 | ☐ | GPIO 10 to Q1 gate | ≈ 100 Ω | Gate resistor in series |
-| ☐ | GPIO 11 to Q2 gate | ≈ 100 Ω | |
-| ☐ | Q1 / Q2 source to GND | ≈ 0 Ω | Source must be on ground, not drain |
+| ☐ | GPIO 11 to LS1 pin 1, GPIO 18 to LS1 pin 2 | ≈ 100 Ω each | Series resistors R6, R7 present |
+| ☐ | Either LS1 pin to GND | **Open** (no continuity) | The piezo floats between two GPIOs; a leg on GND loses half the swing |
+| ☐ | Q1 source to GND | ≈ 0 Ω | Source must be on ground, not drain |
 | ☐ | ESP32 GND to Pi GND to motor-supply GND | ≈ 0 Ω | **Common ground.** Without it the gate drive has no reference |
 | ☐ | Nothing on GPIO 24 – 30 | Open | Flash corruption |
 | ☐ | GPIO 4 has only the red LED + resistor to GND | No pull-up, nothing else on it | Strapping pin; only an LED is safe there |
@@ -91,6 +93,9 @@ inherits whichever choice is made. Agree it before the first long test.
 DC mode it will sound, with tone mode it may sound wrong or warble. To check:
 apply 3–5 V DC directly — a passive piezo only clicks, an active one beeps.
 
+**⚠ Piezo is driven from two GPIOs (11 and 18), neither leg on GND.** Old
+wiring with a MOSFET (Q2) or a leg on ground must be removed.
+
 **⚠ Never drive the motor straight from a GPIO.** A C6 pin supplies a few
 tens of mA; one ERM wants 60–100 mA. Always through Q1.
 
@@ -124,7 +129,8 @@ Power in this order and stop at the first failure. Each step hides the next.
 
 1. **ESP32 alone on USB.** Serial at 115200 prints the banner; DRIFTS-ESP32
    visible in nRF Connect.
-2. **Add the buzzer branch** (Q2, piezo). Serial `TEST:0:2000` → 2 s tone.
+2. **Add the buzzer** (R6, R7, piezo between GPIO 11 and 18). Serial
+   `TEST:0:2000` → 2 s tone at 5 kHz. `SWEEP` plays 4–6 kHz to find the loudest.
 3. **Add the motor branch with a current-limited bench supply** (set 5 V,
    1 A limit) and a meter in series. Serial `TEST:2000:0` → motors run; current
    ≈ 0.3–0.5 A for four motors. Much more → short or stalled motor; stop.
@@ -141,8 +147,9 @@ Power in this order and stop at the first failure. Each step hides the next.
 | Motor runs **all the time**, even idle | Q1 source/drain swapped, Q1 failed short (often from missing D1), or gate pull-down missing |
 | Motor twitches at power-on only | Gate pull-down missing — harmless but fix it |
 | Motor hums but does not spin | Under-voltage: duty 160 **and** series resistors both fitted (§2) |
-| Buzzer silent in tone mode, ~1.6 V average on GPIO 11 | Pin is fine → Q2 pins or piezo wiring; or the piezo needs more drive (try 5 V supply side) |
+| Buzzer silent in tone mode, ~1.6 V average on GPIO 11 and 18 | Pins are fine → R6/R7 or piezo wiring |
+| Buzzer quiet | One leg on GND instead of GPIO 18, or GPIO 18 reads 0 V (firmware older than v13) |
 | Buzzer sounds in DC mode but not tone mode | It is an **active** buzzer — replace with passive |
-| GPIO 11 reads 0 V in DC mode | Wrong header pin, or firmware older than the `TEST:` commit |
+| DC mode: GPIO 11 not ~3.3 V, or GPIO 18 not ~0 V | Wrong header pin, or firmware older than v13 |
 | ESP32 or Pi resets when motors start | Rail sag — §2 |
 | Everything worked on USB, fails on 12 V supply | Buck converter / fuse / TVS front end — `schematic.md` §1 |

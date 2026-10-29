@@ -35,7 +35,7 @@ reviewable.
 | --- | --- | --- |
 | `01_motor_driver.txt` | Q1 + motor array + D1 flyback, PWM duty 63 % | §2 |
 | `02_motor_driver_series_resistors.txt` | Four motors with 27 Ω series resistors, full duty | README §5.2 option A |
-| `03_buzzer_driver.txt` | Q2 + passive piezo, 2.7 kHz tone | §3 |
+| `03_buzzer_driver.txt` | **Superseded (rev 2 design).** Q2 + passive piezo, 2.7 kHz. The buzzer is now driven differentially from GPIO 11/18 with no transistor — `schematic.md` §3 | — |
 | `04_status_led.txt` | GPIO 2 + 330 Ω + LED | §4 |
 | `05_motor_driver_no_flyback.txt` | **Failure case.** D1 removed | §2, the warning |
 | `06_power_front_end.txt` | 12 V fuse + TVS clamp + bulk cap, with a load-dump pulse | §1 |
