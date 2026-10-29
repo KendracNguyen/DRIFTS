@@ -10,7 +10,9 @@ echo "==> Installing DRIFTS v2 from $REPO for user $USER_NAME"
 
 echo "==> System packages"
 sudo apt-get update -qq
-sudo apt-get install -y -qq python3-venv python3-picamera2 python3-opencv python3-numpy bluez
+# opencv-data holds the Haar cascades the live dashboard's eye tracker needs
+# (python3-opencv alone does not ship them).
+sudo apt-get install -y -qq python3-venv python3-picamera2 python3-opencv opencv-data python3-numpy bluez
 
 echo "==> Enable Bluetooth and add user permissions"
 sudo systemctl enable --now bluetooth

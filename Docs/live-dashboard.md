@@ -122,11 +122,25 @@ DROWSY. To show the alert in the demo, use the alert test tool afterwards
 Same app on the Pi with the Pi camera, talking to the ESP32 over BLE.
 **Not yet tested on hardware:** treat as a stretch for tomorrow.
 
-```bash
-cd ~/drifts && git pull && bash deploy/install.sh   # adds pyserial
-sudo systemctl stop drifts          # the ESP32 takes one Pi link at a time
-.venv/bin/python -m drifts.live --esp ble
+From the laptop (PowerShell, in the repo's `Raspberry` folder):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\deploy.ps1 -Install   # first time
+powershell -ExecutionPolicy Bypass -File .\deploy\deploy.ps1            # later updates
 ```
+
+Then on the Pi (`ssh drifts@drifts.local`):
+
+```bash
+sudo systemctl stop drifts          # frees the camera and the ESP32 link
+cd ~/drifts
+.venv/bin/python -m drifts.live --esp ble                # Pi camera + ESP32
+.venv/bin/python -m drifts.live --esp sim --video sim_images   # no camera, no ESP32
+```
+
+For `--video`, copy sample frames first:
+`scp -r ..\Simuletic_DMS_Dataset\images drifts@drifts.local:~/drifts/sim_images`.
+`sudo systemctl start drifts` puts the normal service back.
 
 From a phone on the same Wi-Fi: **http://<pi-address>:8080**
 (`hostname -I` on the Pi shows the address). The BLE link also sends the PING
