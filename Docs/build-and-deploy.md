@@ -193,6 +193,12 @@ wiring and bench test in [`status-leds.md`](status-leds.md). Serial: `LEDS`, `SC
 shifter!), screens and bench test in [`lcd-display.md`](lcd-display.md).
 Serial: `LCD`, `I2C SCAN`.
 
+### Buzzer alerts and Bluetooth ping
+
+1 s on / 1 s off alarm pattern, `BEEP` from a phone or the Pi
+(`python -m drifts.beep`), and the phone/laptop-only simulation alarm:
+[`buzzer-alerts.md`](buzzer-alerts.md).
+
 ### Live dashboard (camera + OBD)
 
 Live camera with eye tracking, OBD values, alert level and LCD text in a

@@ -79,3 +79,37 @@ def test_sim_link_follows_eye_score():
     assert snap["link"] == "simulated"
     assert snap["lvl"] == "LOW"           # 0.7*20 + 30 = 44
     assert snap["lcd1"] == " INTERVENTION 2 "
+
+
+def test_sim_link_command_and_alarm():
+    import time
+    link = SimLink()
+    link.start()
+    link.send_command("BEEP")
+    assert "BEEP received" in link.log_lines[-1]
+    link.send_eye(90)
+    time.sleep(1.3)
+    assert link.snapshot()["alert"] is False      # OK level: no alarm
+    link.send_eye(10)                              # 0.7*10 + 30 = 37 -> LOW
+    time.sleep(1.2)
+    snap = link.snapshot()
+    link.stop()
+    assert snap["lvl"] == "LOW" and snap["alert"] is True
+
+
+def test_serial_link_writes_commands():
+    from drifts.esp_link import SerialLink
+
+    class FakeSer:
+        def __init__(self):
+            self.out = b""
+
+        def write(self, data):
+            self.out += data
+
+    link = SerialLink("COM_TEST")
+    link._ser = FakeSer()
+    link.send_command("BEEP")
+    link.send_eye(42)
+    assert link._ser.out == b"BEEP\nEYE:42\n"
+    assert link.eyes_sent == 1

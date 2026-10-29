@@ -45,6 +45,16 @@ is a placeholder until phone GPS exists: it never shows a made-up place.
 
 ---
 
+### Alarm and buzzer buttons
+
+- **Alarm on this device** (Home): this phone or laptop beeps **1 s on /
+  1 s off** (and vibrates on Android) while fatigue is detected. Switch it on
+  by hand; browsers block sound until you tap. Used for the no-hardware
+  simulation; see [`buzzer-alerts.md`](buzzer-alerts.md).
+- **Test sound here**: one beep on this device.
+- **Beep ESP32 buzzer**: sends `BEEP` (firmware v15+), one 1 s beep on the
+  real buzzer.
+
 ## Tomorrow's demo: laptop setup (recommended)
 
 No Pi needed. The laptop camera is the driver camera, and the ESP32 is on USB.
