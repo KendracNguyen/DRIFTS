@@ -100,7 +100,9 @@ bool LcdI2c::begin() {
 
 void LcdI2c::reinit() {
     if (_addr == 0) {
-        Serial.println("[LCD] No display found at boot");
+        // Not found at boot (unplugged, or wired after power-up): look again.
+        if (!begin()) return;
+        _looping = false;   // replay Welcome / Drive Safe from the next loop
         return;
     }
     initPanel();

@@ -86,7 +86,7 @@ void setup() {
     Serial.begin(115200);
     delay(500);
     Serial.println("\n==================================");
-    Serial.println("  DRIFTS v3 - ESP32 (BLE OBD)");
+    Serial.println("  DRIFTS firmware " DRIFTS_FW_VERSION " - ESP32-C6");
     Serial.println("==================================");
 
     Leds.begin();   // lamp test: all three LEDs on for LED_LAMP_TEST_MS
@@ -132,6 +132,7 @@ void setup() {
 
 static void printStatus() {
     const TriggerSnapshot &s = drivingTrigger.snapshot();
+    Serial.println("[STATUS] firmware " DRIFTS_FW_VERSION);
     Serial.printf("[STATUS] obd=%s layout=%s %.1f Hz | rpm %.0f (sd %.0f, n %d) "
                   "spd %.0f (sd %.1f, n %d) thr %.0f (sd %.1f, n %d) | "
                   "brakes %d accel=%d steer %d yaw %+.1f | gate=%s | pi=%d phone=%d | nodata %lu err %lu ovf %lu\n",

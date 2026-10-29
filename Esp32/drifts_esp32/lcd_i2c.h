@@ -33,6 +33,7 @@ public:
     const char *line2() const { return _line2; }
 
     // LCD serial command: clear and redraw everything (after a loose wire).
+    // If no display was found at boot, probes for it again first.
     void reinit();
 
 private:
