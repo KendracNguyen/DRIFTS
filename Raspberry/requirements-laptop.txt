@@ -1,0 +1,8 @@
+# Laptop (Windows / macOS / Linux) for the live dashboard and alert test:
+#   pip install -r requirements-laptop.txt
+# OpenCV must stay below 5: OpenCV 5 removed the Haar cascades the eye
+# tracker uses (drifts/eyes.py). The Pi gets 4.x from apt (python3-opencv).
+opencv-python>=4.8,<5
+numpy
+pyserial>=3.5
+bleak>=0.22

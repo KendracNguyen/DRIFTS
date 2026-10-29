@@ -17,8 +17,10 @@ class Camera:
     When idle, resources are released and sensor is powered down.
     """
 
-    def __init__(self, cfg: CameraConfig):
+    def __init__(self, cfg: CameraConfig, device: int = 0, use_picamera: bool = True):
         self.cfg = cfg
+        self.device = device              # OpenCV webcam index (laptop testing)
+        self.use_picamera = use_picamera
         self._picam2 = None
         self._cv_cap = None
         self._is_running = False
@@ -32,6 +34,8 @@ class Camera:
 
         # 1. Try picamera2 (standard Raspberry Pi camera stack)
         try:
+            if not self.use_picamera:
+                raise RuntimeError("picamera2 disabled")
             from picamera2 import Picamera2
             self._picam2 = Picamera2()
             video_config = self._picam2.create_video_configuration(
@@ -50,14 +54,14 @@ class Camera:
         # 2. Try OpenCV VideoCapture fallback (USB camera / dev testing)
         try:
             import cv2
-            cap = cv2.VideoCapture(0)
+            cap = cv2.VideoCapture(self.device)
             if cap.isOpened():
                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.cfg.width)
                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.cfg.height)
                 cap.set(cv2.CAP_PROP_FPS, self.cfg.fps)
                 self._cv_cap = cap
                 self._is_running = True
-                log.info("OpenCV VideoCapture(0) started successfully.")
+                log.info("OpenCV VideoCapture(%d) started successfully.", self.device)
                 return
             else:
                 cap.release()

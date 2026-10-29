@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#7d1d2c">
+<title>DRIFTS Live</title>
+<style>
+:root{--maroon:#7d1d2c;--maroon-2:#9a2a3b;--maroon-dk:#5e1420;--bg:#f6eeee;--card:#fff;--ink:#2b1b1e;
+--muted:#9a8a8d;--line:#eedfe0;--track:#f0e4e5;--soft:#fbf3f3;--ok:#2f8a4a;--warn:#c9861a;--bad:#b3192f}
+*{box-sizing:border-box}html,body{margin:0}html{background:#efe3e4}
+body{font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+color:var(--ink);background:linear-gradient(160deg,#f3e3e4 0%,#efe6e6 45%,#e9d2d5 100%);min-height:100vh}
+.app{max-width:440px;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;
+box-shadow:0 0 0 1px rgba(125,29,44,.06),0 20px 60px rgba(94,20,32,.12)}
+header{background:var(--maroon);color:#fff;padding:22px 20px 18px;position:sticky;top:0;z-index:5}
+.hrow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+header h1{margin:0;font-size:26px;letter-spacing:2px;font-weight:700}
+header .sub{font-size:12.5px;opacity:.8;margin-top:3px}
+header .drive{font-size:12.5px;opacity:.85;text-align:right;white-space:nowrap}
+header .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#7bd88f;margin-right:5px;vertical-align:1px}
+header .dot.off{background:#f2a3ad}
+main{flex:1;padding:4px 14px 90px}
+.sec{font-size:11.5px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--maroon-dk);
+margin:18px 4px 8px}
+.card{background:var(--card);border-radius:16px;padding:14px;border:1px solid var(--line)}
+.score{display:flex;gap:16px;align-items:center}
+.ring{position:relative;width:92px;height:92px;flex:none}
+.ring svg{transform:rotate(-90deg)}
+.ring .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .c b{font-size:22px;color:var(--maroon)}.ring .c small{font-size:10px;color:var(--muted)}
+.big{font-size:40px;font-weight:700;color:var(--maroon);line-height:1}
+.state{font-size:14px;color:var(--maroon-dk);margin:4px 0 10px;font-weight:500}
+.bar{display:grid;grid-template-columns:52px 1fr 30px;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin:5px 0}
+.bar i{display:block;height:6px;border-radius:9px;background:var(--track);overflow:hidden}
+.bar i u{display:block;height:100%;width:0;background:var(--maroon);border-radius:9px;transition:width .4s}
+.bar em{font-style:normal;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
+.lcd{margin-top:12px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+.lcd pre{margin:0;font:13px/1.25 ui-monospace,Menlo,Consolas,monospace;background:#1e3c8f;color:#e3ecff;
+padding:6px 9px;border-radius:6px}
+.feed{position:relative;border-radius:12px;overflow:hidden;background:#1a1012;aspect-ratio:4/3}
+.feed img{width:100%;height:100%;object-fit:contain;display:block}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{font-size:12px;padding:4px 10px;border-radius:99px;background:var(--soft);border:1px solid var(--line);color:var(--ink)}
+.chip b{color:var(--maroon)}
+.chip.st-open{background:#eaf6ee;border-color:#cfe9d7;color:var(--ok)}
+.chip.st-closed{background:#fbe8eb;border-color:#f3c9d0;color:var(--bad)}
+.chip.st-no_face{background:#fdf3e2;border-color:#f3e0bd;color:var(--warn)}
+.toggle{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:13px;color:var(--muted)}
+.sw{position:relative;width:42px;height:24px}.sw input{opacity:0;width:0;height:0}
+.sw span{position:absolute;inset:0;background:#e3d4d6;border-radius:99px;transition:.2s;cursor:pointer}
+.sw span:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.sw input:checked+span{background:var(--maroon)}.sw input:checked+span:before{transform:translateX(18px)}
+.iv{display:flex;align-items:center;gap:12px;padding:12px;margin-bottom:8px}
+.iv .ic{width:38px;height:38px;border-radius:10px;background:var(--soft);display:flex;align-items:center;justify-content:center;flex:none;color:var(--maroon)}
+.iv .t{flex:1;min-width:0}.iv .t b{display:block;font-size:15px}.iv .t small{color:var(--muted);font-size:12px}
+.iv.dim{opacity:.55}
+.pill{font-size:10.5px;font-weight:700;letter-spacing:.8px;padding:4px 9px;border-radius:99px;border:1px solid var(--maroon);color:var(--maroon)}
+.pill.on{background:var(--maroon);color:#fff}
+.pill.grey{border-color:#cdbfc1;color:var(--muted)}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tile{background:var(--soft);border-radius:12px;padding:10px}.tile small{font-size:11px;color:var(--muted)}
+.tile b{display:block;font-size:24px;color:var(--maroon);font-variant-numeric:tabular-nums}
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+.rest{padding:0;overflow:hidden}
+.map{height:96px;background:linear-gradient(90deg,#f1e4e5,#f8eeee 40%,#efe0e2);position:relative}
+.map:before{content:"";position:absolute;left:0;right:0;top:55%;height:2px;background:#d9c3c6}
+.map .pin{position:absolute;left:52%;top:28%;color:var(--maroon)}
+.map .tag{position:absolute;right:12px;top:10px;background:var(--maroon-dk);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px}
+.rest .body{display:flex;justify-content:space-between;align-items:center;padding:12px 14px}
+.rest .body b{font-size:15px}.rest .body small{display:block;color:var(--muted);font-size:12px}
+.rest .dist{text-align:right}.rest .dist b{font-size:22px;color:var(--maroon)}
+.btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+button{font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:10px 6px;border:1px solid var(--maroon);
+background:#fff;color:var(--maroon);cursor:pointer}button:active{transform:scale(.98)}
+button.fill{background:var(--maroon);color:#fff}
+.log{font:11.5px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#6f5f62;white-space:pre-wrap;max-height:220px;overflow:auto}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13.5px}.kv span{color:var(--muted)}
+.chart{width:100%;height:120px;display:block}
+nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:440px;background:#fff;
+border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:6}
+nav a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--muted);text-decoration:none;cursor:pointer}
+nav a.on{color:var(--maroon);font-weight:600}
+.tab{display:none}.tab.on{display:block}
+</style></head>
+<body><div class="app">
+<header>
+ <div class="hrow">
+  <div><h1>DRIFTS</h1><div class="sub"><span class="dot off" id="dot"></span><span id="linktxt">connecting…</span></div></div>
+  <div class="drive">Drive time: <span id="drive">0h 00m</span><div id="fw" style="opacity:.75;margin-top:2px">fw --</div></div>
+ </div>
+</header>
+
+<main>
+<!-- ============================== HOME ============================== -->
+<section class="tab on" id="t-home">
+ <div class="sec">Alertness score</div>
+ <div class="card">
+  <div class="score">
+   <div class="ring"><svg width="92" height="92" viewBox="0 0 92 92">
+     <circle cx="46" cy="46" r="38" fill="none" stroke="var(--track)" stroke-width="8"/>
+     <circle id="arc" cx="46" cy="46" r="38" fill="none" stroke="var(--maroon)" stroke-width="8" stroke-linecap="round"
+      stroke-dasharray="238.8" stroke-dashoffset="238.8" style="transition:stroke-dashoffset .5s"/></svg>
+    <div class="c"><b id="ringv">--</b><small>/ 100</small></div></div>
+   <div style="flex:1;min-width:0">
+    <div class="big" id="score">--</div>
+    <div class="state" id="state">Waiting for ESP32…</div>
+    <div class="bar">Eyes<i><u id="b-eye"></u></i><em id="v-eye">--</em></div>
+    <div class="bar">Driving<i><u id="b-drv"></u></i><em id="v-drv">--</em></div>
+    <div class="bar">PERCLOS<i><u id="b-per"></u></i><em id="v-per">--</em></div>
+   </div>
+  </div>
+  <div class="lcd" id="lcdrow" style="display:none"><pre id="lcd"></pre><span>LCD on the ESP32</span></div>
+ </div>
+
+ <div class="sec">Driver camera</div>
+ <div class="card">
+  <div class="feed"><img src="/stream.mjpg" alt="Live driver camera"></div>
+  <div class="chips">
+   <span class="chip" id="c-eyes">Eyes --</span>
+   <span class="chip">PERCLOS <b id="c-per">--</b></span>
+   <span class="chip">Eye score <b id="c-score">--</b></span>
+   <span class="chip" id="c-fps">-- fps</span>
+  </div>
+  <div class="toggle">Send eye score to ESP32 <span id="c-sent"></span>
+   <label class="sw"><input type="checkbox" id="send" checked><span></span></label></div>
+ </div>
+
+ <div class="sec">Active interventions</div>
+ <div class="card iv" id="iv1"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1v-6h3zM3 19a2 2 0 002 2h1v-6H3z"/></svg></div>
+  <div class="t"><b>Audio alert</b><small>Piezo · 5 kHz · Level 1</small></div><span class="pill grey" id="p1">STANDBY</span></div>
+ <div class="card iv" id="iv2"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></div>
+  <div class="t"><b>Seat vibration</b><small>4× ERM array · PWM · Level 2</small></div><span class="pill grey" id="p2">STANDBY</span></div>
+ <div class="card iv dim"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0014 0M12 17v5"/></svg></div>
+  <div class="t"><b>Voice cmd confirm</b><small>"I'm awake" · Level 3</small></div><span class="pill grey">PLANNED</span></div>
+
+ <div class="sec">Vehicle</div>
+ <div class="card">
+  <div class="tiles">
+   <div class="tile"><small>RPM</small><b id="rpm">--</b></div>
+   <div class="tile"><small>km/h</small><b id="spd">--</b></div>
+   <div class="tile"><small>Throttle %</small><b id="thr">--</b></div>
+  </div>
+  <div class="note">OBD dongle: <b id="obd">--</b> · <span id="hz">--</span> Hz</div>
+ </div>
+
+ <div class="sec">Nearest rest stop</div>
+ <div class="card rest">
+  <div class="map"><span class="tag">Level 4</span><svg class="pin" width="26" height="32" viewBox="0 0 24 30"><path fill="currentColor" d="M12 0C5.4 0 0 5.4 0 12c0 9 12 18 12 18s12-9 12-18C24 5.4 18.6 0 12 0zm0 16.5a4.5 4.5 0 110-9 4.5 4.5 0 010 9z"/></svg></div>
+  <div class="body"><div><b>Rest-stop routing</b><small>Planned · needs phone GPS</small></div>
+   <div class="dist"><b>-- mi</b><small>Level 4</small></div></div>
+ </div>
+</section>
+
+<!-- ============================== HISTORY ============================== -->
+<section class="tab" id="t-history">
+ <div class="sec">Alert score · this session</div>
+ <div class="card"><svg class="chart" id="ch-score" viewBox="0 0 400 120" preserveAspectRatio="none"></svg>
+  <div class="note">Dashed lines: 70 (Intervention 1 below) and 50 (Intervention 2 below)</div></div>
+ <div class="sec">Eye score (camera)</div>
+ <div class="card"><svg class="chart" id="ch-eye" viewBox="0 0 400 120" preserveAspectRatio="none"></svg></div>
+ <div class="sec">RPM</div>
+ <div class="card"><svg class="chart" id="ch-rpm" viewBox="0 0 400 120" preserveAspectRatio="none"></svg></div>
+</section>
+
+<!-- ============================== DEVICES ============================== -->
+<section class="tab" id="t-devices">
+ <div class="sec">Devices</div>
+ <div class="card kv">
+  <span>ESP32 link</span><b id="d-link">--</b>
+  <span>Firmware</span><b id="d-fw">--</b>
+  <span>OBD dongle</span><b id="d-obd">--</b>
+  <span>Camera</span><b id="d-cam">--</b>
+  <span>LCD</span><b id="d-lcd">--</b>
+  <span>Eye scores sent</span><b id="d-sent">--</b>
+ </div>
+ <div class="sec">ESP32 log</div>
+ <div class="card"><div class="log" id="log">(nothing yet)</div></div>
+</section>
+
+<!-- ============================== TRAINING ============================== -->
+<section class="tab" id="t-train">
+ <div class="sec">Eye-model training capture</div>
+ <div class="card">
+  <div class="note" style="margin:0 0 10px">Hold the state, then save. Keys: <b>O</b> open · <b>C</b> closed · <b>D</b> drowsy.</div>
+  <div class="btns"><button onclick="cap('open')">Open</button><button onclick="cap('closed')">Closed</button><button onclick="cap('drowsy')">Drowsy</button></div>
+  <div class="btns" style="margin-top:8px"><button class="fill" onclick="cap('open',10)">Open ×10</button><button class="fill" onclick="cap('closed',10)">Closed ×10</button><button class="fill" onclick="cap('drowsy',10)">Drowsy ×10</button></div>
+  <div class="tiles" style="margin-top:12px">
+   <div class="tile"><small>Open</small><b id="n-open">0</b></div>
+   <div class="tile"><small>Closed</small><b id="n-closed">0</b></div>
+   <div class="tile"><small>Drowsy</small><b id="n-drowsy">0</b></div>
+  </div>
+  <div class="note" id="capdir"></div>
+ </div>
+</section>
+</main>
+
+<nav>
+ <a class="on" data-t="home"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>Home</a>
+ <a data-t="history"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>History</a>
+ <a data-t="devices"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 010 8.4M7.8 16.2a6 6 0 010-8.4M19 5a10 10 0 010 14M5 19A10 10 0 015 5"/></svg>Devices</a>
+ <a data-t="train"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>Training</a>
+</nav>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fx=(v,d=0)=>v==null||isNaN(v)?"--":Number(v).toFixed(d);
+const clamp=v=>Math.max(0,Math.min(100,v));
+const STATE={OK:"Alert · drive safe",CAUTION:"Moderate fatigue detected",LOW:"Severe fatigue · pull over safely"};
+let hist={score:[],eye:[],rpm:[]};
+async function loadHistory(){try{hist=await (await fetch("/history.json",{cache:"no-store"})).json()}catch(e){}drawCharts()}
+function show(name){const a=document.querySelector(`nav a[data-t="${name}"]`);if(!a)return;
+ document.querySelectorAll("nav a").forEach(x=>x.classList.toggle("on",x===a));
+ document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.id==="t-"+name));
+ history.replaceState(null,"","#"+name);window.scrollTo(0,0);if(name==="history")loadHistory()}
+document.querySelectorAll("nav a").forEach(a=>a.onclick=()=>show(a.dataset.t));
+if(location.hash)show(location.hash.slice(1));
+async function cap(label,n=1){await fetch(`/capture?label=${label}&n=${n}`,{method:"POST"})}
+$("send").onchange=e=>fetch(`/eye_send?on=${e.target.checked?1:0}`,{method:"POST"});
+document.addEventListener("keydown",e=>{const k=e.key.toLowerCase();
+ if(k==="o")cap("open");if(k==="c")cap("closed");if(k==="d")cap("drowsy")});
+function bar(id,v){$("b-"+id).style.width=(v==null?0:clamp(v))+"%";$("v-"+id).textContent=fx(v)}
+// ACTIVE = the ESP32 is driving this output now; LEVEL n = the score has reached
+// that intervention level; STANDBY = not reached.
+function pill(el,on,lvlReached,n){el.className="pill"+(on?" on":lvlReached?"":" grey");el.textContent=on?"ACTIVE":lvlReached?"LEVEL "+n:"STANDBY"}
+function chart(id,data,max,bands){const svg=$(id);if(!svg)return;data=(data||[]).filter(v=>v!=null);const W=400,H=120,n=data.length;
+ let s=(bands||[]).map(b=>`<line x1="0" x2="${W}" y1="${H-b/max*H}" y2="${H-b/max*H}" stroke="#d9c3c6" stroke-dasharray="4 4"/>`).join("");
+ if(n>1){const pts=data.map((v,i)=>`${(i/(n-1)*W).toFixed(1)},${(H-clamp(v/max*100)/100*H).toFixed(1)}`).join(" ");
+  s+=`<polyline points="0,${H} ${pts} ${W},${H}" fill="rgba(125,29,44,.08)" stroke="none"/>`+
+     `<polyline points="${pts}" fill="none" stroke="#7d1d2c" stroke-width="2" vector-effect="non-scaling-stroke"/>`}
+ else s+=`<text x="200" y="64" text-anchor="middle" fill="#9a8a8d" font-size="13">collecting…</text>`;svg.innerHTML=s}
+function drawCharts(){chart("ch-score",hist.score,100,[70,50]);chart("ch-eye",hist.eye,100,[]);
+ chart("ch-rpm",hist.rpm,Math.max(1000,...hist.rpm.map(v=>v||0))*1.1,[])}
+const skipNull=a=>a.filter(v=>v!=null);
+let last=0;
+async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-store"})).json()}
+ catch(e){$("linktxt").textContent="dashboard offline";$("dot").className="dot off";return}
+ const p=s.esp,e=s.eye,live=p.updated&&(s.time-p.updated)<5;
+ $("dot").className="dot"+(live?"":" off");$("linktxt").textContent="ESP32 · "+p.link;
+ $("fw").textContent="fw "+(p.fw||"--");
+ const dm=Math.floor((s.time-s.started)/60);$("drive").textContent=`${Math.floor(dm/60)}h ${String(dm%60).padStart(2,"0")}m`;
+ // score card
+ const sc=p.score;$("score").textContent=fx(sc);$("ringv").textContent=fx(sc);
+ $("arc").style.strokeDashoffset=238.8*(1-(sc==null?0:clamp(sc)/100));
+ $("state").textContent=p.lvl?(STATE[p.lvl]||p.lvl)+(p.part?" · driving data only":""):"Waiting for ESP32…";
+ const espEye=p.eye!=null?p.eye:e.last_sent;bar("eye",espEye);
+ bar("drv",sc!=null&&espEye!=null?clamp((sc-0.7*espEye)/0.3):null);
+ bar("per",e.perclos==null?null:e.perclos*100);
+ if(p.lcd1!=null){$("lcdrow").style.display="";$("lcd").textContent=p.lcd1+"\n"+p.lcd2}else $("lcdrow").style.display="none";
+ // camera
+ const names={open:"Eyes open",closed:"Eyes closed",no_face:"No face"};
+ $("c-eyes").textContent=names[e.state]+(e.state==="closed"&&e.closed_for>=1?` ${e.closed_for.toFixed(1)}s`:"");
+ $("c-eyes").className="chip st-"+e.state;$("c-per").textContent=e.perclos==null?"--":Math.round(e.perclos*100)+"%";
+ $("c-score").textContent=e.warming?"…":fx(e.score);$("c-fps").textContent=fx(e.fps,1)+" fps";
+ $("c-sent").textContent=`(${s.eyes_sent} sent)`;$("send").checked=s.eye_sending;
+ // interventions: ACTIVE only while the ESP32 is actually firing the outputs
+ const lvl=p.lvl;pill($("p1"),!!p.alert,lvl==="CAUTION"||lvl==="LOW",1);pill($("p2"),!!p.alert,lvl==="LOW",2);
+ // vehicle
+ $("rpm").textContent=fx(p.rpm);$("spd").textContent=fx(p.spd);$("thr").textContent=fx(p.thr);
+ $("obd").textContent=p.obd||"--";$("hz").textContent=fx(p.hz,1);
+ // devices + training
+ $("d-link").textContent=p.link;$("d-fw").textContent=p.fw||"--";$("d-obd").textContent=(p.obd||"--")+" · "+fx(p.hz,1)+" Hz";
+ $("d-cam").textContent=`${names[e.state]} · ${fx(e.fps,1)} fps`;$("d-lcd").textContent=p.lcd1!=null?"on":"not reported";
+ $("d-sent").textContent=s.eyes_sent;$("log").textContent=s.log.length?s.log.join("\n"):"(nothing yet)";
+ const c=s.capture.counts;$("n-open").textContent=c.open;$("n-closed").textContent=c.closed;$("n-drowsy").textContent=c.drowsy;
+ $("capdir").textContent=(s.capture.pending?`saving ${s.capture.pending}… · `:"")+"Saved to "+s.capture.dir;
+ // history: refresh every 2 s while that tab is open
+ if(s.time-last>=2&&$("t-history").classList.contains("on")){last=s.time;loadHistory()}}
+setInterval(tick,500);tick();
+</script></body></html>
