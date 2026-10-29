@@ -125,6 +125,13 @@ nav a.on{color:var(--maroon);font-weight:600}
  </div>
 
  <div class="sec">Active interventions</div>
+ <div class="card" id="alarmcard" style="margin-bottom:8px">
+  <div class="toggle" style="margin:0"><span><b style="color:var(--ink)">Alarm on this device</b><br>
+   <span id="alarm-note">Off · switch on to beep here when fatigue is detected</span></span>
+   <label class="sw"><input type="checkbox" id="alarm"><span></span></label></div>
+  <div class="btns" style="grid-template-columns:1fr 1fr;margin-top:10px">
+   <button onclick="testLocal()">Test sound here</button><button onclick="beepEsp()">Beep ESP32 buzzer</button></div>
+ </div>
  <div class="card iv" id="iv1"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1v-6h3zM3 19a2 2 0 002 2h1v-6H3z"/></svg></div>
   <div class="t"><b>Audio alert</b><small>Piezo · 5 kHz · Level 1</small></div><span class="pill grey" id="p1">STANDBY</span></div>
  <div class="card iv" id="iv2"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></div>
@@ -172,6 +179,7 @@ nav a.on{color:var(--maroon);font-weight:600}
   <span>LCD</span><b id="d-lcd">--</b>
   <span>Eye scores sent</span><b id="d-sent">--</b>
  </div>
+ <div class="btns" style="grid-template-columns:1fr;margin-top:10px"><button onclick="beepEsp()">Beep ESP32 buzzer (BEEP, firmware v15+)</button></div>
  <div class="sec">ESP32 log</div>
  <div class="card"><div class="log" id="log">(nothing yet)</div></div>
 </section>
@@ -205,6 +213,24 @@ nav a.on{color:var(--maroon);font-weight:600}
 const $=id=>document.getElementById(id);
 const fx=(v,d=0)=>v==null||isNaN(v)?"--":Number(v).toFixed(d);
 const clamp=v=>Math.max(0,Math.min(100,v));
+// ---- Alarm on this device (simulation without ESP32, or a second alert) ----
+// Browsers only allow sound after a tap, so the switch must be turned on by
+// hand. Pattern matches the ESP32 buzzer: 1 s beep, 1 s pause, repeating while
+// fatigue is detected (Intervention 1 or 2, or the DROWSY alert).
+let actx=null,alarmOn=false,fatigued=false,phase=false;
+function audio(){if(!actx){const C=window.AudioContext||window.webkitAudioContext;if(C)actx=new C()}
+ if(actx&&actx.state!=="running")actx.resume();return actx}
+function tone(ms){const a=audio();if(!a)return;const o=a.createOscillator(),g=a.createGain();
+ o.type="square";o.frequency.value=2000;g.gain.value=0.12;o.connect(g);g.connect(a.destination);
+ const t=a.currentTime;o.start(t);o.stop(t+ms/1000)}
+function buzz(ms){if(navigator.vibrate)navigator.vibrate(ms)}
+function testLocal(){tone(1000);buzz(1000)}
+async function beepEsp(){try{await fetch("/beep",{method:"POST"})}catch(e){}}
+function alarmNote(){$("alarm-note").textContent=!alarmOn?"Off · switch on to beep here when fatigue is detected":
+ fatigued?"ALARM · fatigue detected":"Armed · beeps 1 s on / 1 s off when fatigue is detected";
+ $("alarmcard").style.borderColor=alarmOn&&fatigued?"var(--maroon)":""}
+$("alarm").onchange=e=>{alarmOn=e.target.checked;if(alarmOn)audio();alarmNote()};
+setInterval(()=>{if(!alarmOn||!fatigued){phase=false;return}phase=!phase;if(phase){tone(1000);buzz(1000)}},1000);
 const STATE={OK:"Alert · drive safe",CAUTION:"Moderate fatigue detected",LOW:"Severe fatigue · pull over safely"};
 let hist={score:[],eye:[],rpm:[]};
 async function loadHistory(){try{hist=await (await fetch("/history.json",{cache:"no-store"})).json()}catch(e){}drawCharts()}
@@ -252,6 +278,7 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  $("c-eyes").className="chip st-"+e.state;$("c-per").textContent=e.perclos==null?"--":Math.round(e.perclos*100)+"%";
  $("c-score").textContent=e.warming?"…":fx(e.score);$("c-fps").textContent=fx(e.fps,1)+" fps";
  $("c-sent").textContent=`(${s.eyes_sent} sent)`;$("send").checked=s.eye_sending;
+ fatigued=!!live&&(p.lvl==="CAUTION"||p.lvl==="LOW"||!!p.alert);alarmNote();
  // interventions: ACTIVE only while the ESP32 is actually firing the outputs
  const lvl=p.lvl;pill($("p1"),!!p.alert,lvl==="CAUTION"||lvl==="LOW",1);pill($("p2"),!!p.alert,lvl==="LOW",2);
  // vehicle

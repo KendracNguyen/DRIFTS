@@ -95,7 +95,7 @@ class SimHub:
             self.motor_until = self.buzzer_until = 0.0
             self.alert_until = now + self.ALERT_MS / 1000
             self.out(f"[SIM ESP32] ALERTING: GPIO {MOTOR_PIN} pulses 500/300 ms, "
-                     f"GPIO {BUZZER_PIN}/{PIEZO_B_PIN} 5 kHz 300/300 ms, max 20 s")
+                     f"GPIO {BUZZER_PIN}/{PIEZO_B_PIN} 5 kHz 1 s on / 1 s off, max 20 s")
         elif msg == "NOT_DROWSY":
             self.alert_until = self.motor_until = self.buzzer_until = 0.0
             self.out(f"[SIM ESP32] IDLE: GPIO {MOTOR_PIN} LOW, GPIO {BUZZER_PIN} LOW")
@@ -353,7 +353,7 @@ class Session:
     async def do_drowsy(self) -> None:
         await self.hub.send("DROWSY")
         print("  Sent DROWSY. Expect: motor pulsing 0.5 s on / 0.3 s off, buzzer beeping")
-        print("  5 kHz 0.3 s on / 0.3 s off. It runs until N, Q, or 20 s.")
+        print("  1 s beep, 1 s pause (firmware v15+). It runs until N, Q, or 20 s.")
         await asyncio.sleep(1.5)
         await self.show_status()
         await self.confirm("DROWSY: motor pulsing?")

@@ -121,7 +121,7 @@ Lines starting `ESP32|` are the board's own log.
 | 2 | **T** | motor `2`, buzzer `0`, Enter | `ESP32\| [TEST] Motor GPIO 10: 2000 ms ...`; motor runs 2 s, then `Motor off` | `y` if it ran |
 | 3 | **T** | motor `0`, buzzer `2`, Enter (tone) | 5 kHz tone for 2 s | `y` if heard |
 | 4 | **T** | motor `0`, buzzer `5`, `d` (DC) | Silent. Meter: black probe on GND, red on GPIO 11 → **≈ 3.3 V** (GPIO 18 ≈ 0 V) for 5 s | `y` if ~3.3 V |
-| 5 | **D** | — | `ESP32\| [MAIN] -> ALERTING`; motor pulses 0.5 s on / 0.3 s off, buzzer beeps | `y`, `y` |
+| 5 | **D** | — | `ESP32\| [MAIN] -> ALERTING`; motor pulses 0.5 s on / 0.3 s off, buzzer 1 s beep / 1 s pause (v15+) | `y`, `y` |
 | 6 | **N** | — | `ESP32\| [MAIN] -> IDLE`; both stop at once | `y` |
 | 7 | **Q** | — | Sends `STOP`, closes the port, prints and saves the log | — |
 
@@ -166,7 +166,8 @@ python -m serial.tools.miniterm --dtr 0 --rts 0 COM5 115200
 | 1 | `TEST:2000:0` | Motor runs 2 s, then `[TEST] Motor off` | ☐ |
 | 2 | `TEST:0:2000` | Buzzer 5 kHz tone for 2 s | ☐ |
 | 3 | `TEST:5000:5000:DC` | Motor runs 5 s; meter on GPIO 11 (black probe on GND) ≈ **3.3 V**, GPIO 18 ≈ 0 V, buzzer silent | ☐ |
-| 4 | `DROWSY` | Full alert: motor 0.5 s on / 0.3 s off, buzzer beeping | ☐ |
+| 4 | `DROWSY` | Full alert: motor 0.5 s on / 0.3 s off, buzzer 1 s beep / 1 s pause | ☐ |
+| 4b | `STOP`, then `BEEP` | One 1 s beep (firmware v15+) | ☐ |
 | 5 | `STOP` | Both stop immediately | ☐ |
 | 6 | `DROWSY`, then wait | Stops on its own at 20 s (safety cap) | ☐ |
 
@@ -312,7 +313,7 @@ After each action the tool asks you to confirm what you saw, felt or measured
 | 2 | **T**, motor `2`, buzzer `0` | Motor runs 2 s, then stops | `Hardware/wiring-check.md` → motor |
 | 3 | **T**, motor `0`, buzzer `2`, mode **T**one | 5 kHz tone for 2 s | `wiring-check.md` → buzzer |
 | 4 | **T**, motor `5`, buzzer `5`, mode **D**C | Meter on GPIO 11 vs GND ≈ **3.3 V** for 5 s; motor runs | Pin or ground problem |
-| 5 | **D** | Motor pulses 0.5 s on / 0.3 s off, buzzer beeps, keeps going | Stops after ~3 s → heartbeat not reaching ESP32 |
+| 5 | **D** | Motor pulses 0.5 s on / 0.3 s off, buzzer 1 s beep / 1 s pause, keeps going | Stops after ~3 s → heartbeat not reaching ESP32 |
 | 6 | **N** | Both stop immediately | |
 | 7 | **D**, then wait 20 s | Stops on its own at 20 s | That is the `MAX_ALERT_MS` safety cap — expected |
 | 8 | **Q** | Outputs off, log printed | |

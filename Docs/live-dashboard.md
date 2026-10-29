@@ -45,6 +45,16 @@ is a placeholder until phone GPS exists: it never shows a made-up place.
 
 ---
 
+### Alarm and buzzer buttons
+
+- **Alarm on this device** (Home): this phone or laptop beeps **1 s on /
+  1 s off** (and vibrates on Android) while fatigue is detected. Switch it on
+  by hand; browsers block sound until you tap. Used for the no-hardware
+  simulation; see [`buzzer-alerts.md`](buzzer-alerts.md).
+- **Test sound here**: one beep on this device.
+- **Beep ESP32 buzzer**: sends `BEEP` (firmware v15+), one 1 s beep on the
+  real buzzer.
+
 ## Tomorrow's demo: laptop setup (recommended)
 
 No Pi needed. The laptop camera is the driver camera, and the ESP32 is on USB.
@@ -112,11 +122,25 @@ DROWSY. To show the alert in the demo, use the alert test tool afterwards
 Same app on the Pi with the Pi camera, talking to the ESP32 over BLE.
 **Not yet tested on hardware:** treat as a stretch for tomorrow.
 
-```bash
-cd ~/drifts && git pull && bash deploy/install.sh   # adds pyserial
-sudo systemctl stop drifts          # the ESP32 takes one Pi link at a time
-.venv/bin/python -m drifts.live --esp ble
+From the laptop (PowerShell, in the repo's `Raspberry` folder):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\deploy.ps1 -Install   # first time
+powershell -ExecutionPolicy Bypass -File .\deploy\deploy.ps1            # later updates
 ```
+
+Then on the Pi (`ssh drifts@drifts.local`):
+
+```bash
+sudo systemctl stop drifts          # frees the camera and the ESP32 link
+cd ~/drifts
+.venv/bin/python -m drifts.live --esp ble                # Pi camera + ESP32
+.venv/bin/python -m drifts.live --esp sim --video sim_images   # no camera, no ESP32
+```
+
+For `--video`, copy sample frames first:
+`scp -r ..\Simuletic_DMS_Dataset\images drifts@drifts.local:~/drifts/sim_images`.
+`sudo systemctl start drifts` puts the normal service back.
 
 From a phone on the same Wi-Fi: **http://<pi-address>:8080**
 (`hostname -I` on the Pi shows the address). The BLE link also sends the PING

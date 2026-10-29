@@ -17,6 +17,7 @@
     STOP          stop the alert
     TEST:m:b[:DC] drive motor m ms, piezo b ms (DC = 3.3 V across it, silent)
     SWEEP         piezo 4-6 kHz in 100 Hz steps (find the loudest; STOP ends it)
+    BEEP          one 1 s beep (also accepted over BLE, e.g. from a phone)
     WATCH         toggle a 1 Hz line of live OBD values
     GYRO          toggle a 5 Hz line of yaw rate and steering reversals
     OBD RESTART   drop the dongle link and rescan from scratch
@@ -122,7 +123,7 @@ void setup() {
                       MIN_SPEED_KPH, GATE_COVERAGE * 100.0f);
     }
 
-    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / LEDS / SCORE n / LCD / I2C SCAN / SWEEP");
+    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / LEDS / SCORE n / LCD / I2C SCAN / SWEEP / BEEP");
 #if PIEZO_SWEEP_TEST
     piezoSweepStart();
 #endif
@@ -195,6 +196,20 @@ static DrivingRatios drivingRatios(const TriggerSnapshot &s) {
     return r;
 }
 
+// BEEP: one BEEP_MS beep, so a phone or the Pi can prove the buzzer over
+// Bluetooth. Ignored while an alert or pin test is running: the buzzer is
+// already sounding, and a beep would cut into its on/off pattern.
+static bool tryBeep(const String &cmd, const char *source) {
+    if (!cmd.equalsIgnoreCase("BEEP")) return false;
+    if (isAlertActive() || isPinTestActive()) {
+        Serial.printf("[CMD] BEEP from %s ignored: buzzer already in use\n", source);
+        return true;
+    }
+    piezoBeep(PIEZO_FREQ_HZ, BEEP_MS);
+    Serial.printf("[CMD] BEEP from %s (%lu ms)\n", source, (unsigned long)BEEP_MS);
+    return true;
+}
+
 // Runs a TEST:<motor_ms>:<buzzer_ms>[:DC] command from either input.
 // Returns false if `cmd` is not a pin-test command.
 static bool tryPinTest(const String &cmd, const char *source) {
@@ -227,6 +242,8 @@ static void handleSerial() {
         enterIdle("simulated NOT_DROWSY");
     } else if (cmd.equalsIgnoreCase("LCD")) {
         Lcd.reinit();
+    } else if (tryBeep(cmd, "serial")) {
+        // handled
     } else if (cmd.equalsIgnoreCase("SWEEP")) {
         if (state != SystemState::Idle) enterIdle("piezo sweep requested");
         stopAll();
@@ -340,6 +357,8 @@ void loop() {
             piStatus = "not_drowsy";
             Hub.setPiIdle();
             enterIdle("Pi reported NOT_DROWSY");
+        } else if (tryBeep(result, "BLE")) {
+            // handled
         } else if (tryPinTest(result, "Pi")) {
             // handled
         } else if (tryScoreMessage(result, "Pi")) {

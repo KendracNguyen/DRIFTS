@@ -120,6 +120,10 @@ class _Base:
     def send_eye(self, score: int) -> None:
         raise NotImplementedError
 
+    def send_command(self, text: str) -> None:
+        """Any firmware command, e.g. BEEP (firmware v15+)."""
+        raise NotImplementedError
+
 
 class SerialLink(_Base):
     """USB serial to the ESP32 (COM5 on Windows, /dev/ttyACM0 or /dev/ttyUSB0 on Linux)."""
@@ -154,6 +158,9 @@ class SerialLink(_Base):
     def send_eye(self, score: int) -> None:
         self._write(f"EYE:{int(score)}")
         self.eyes_sent += 1
+
+    def send_command(self, text: str) -> None:
+        self._write(text)
 
     def _run(self) -> None:
         while not self._stop.is_set():
@@ -206,6 +213,9 @@ class BleLink(_Base):
     def send_eye(self, score: int) -> None:
         self._pending.append(f"EYE:{int(score)}")
         self.eyes_sent += 1
+
+    def send_command(self, text: str) -> None:
+        self._pending.append(text)
 
     def _on_notify(self, _sender, data: bytearray) -> None:
         text = data.decode("utf-8", "replace")
@@ -261,6 +271,9 @@ class SimLink(_Base):
         self._eye = float(score)
         self.eyes_sent += 1
 
+    def send_command(self, text: str) -> None:
+        self.log_lines.append(f"[SIM] {text} received (a real ESP32 would act on it)")
+
     def _run(self) -> None:
         t0 = time.time()
         while not self._stop.wait(1.0):
@@ -273,7 +286,7 @@ class SimLink(_Base):
             self._merge({"fw": "sim", "obd": "polling", "hz": 4.6,
                          "rpm": 780 + 40 * math.sin(t / 3), "spd": 0.0, "thr": 14.9,
                          "score": score, "lvl": lvl, "eye": self._eye, "part": False,
-                         "alert": False, "lcd1": lcd1[:16], "lcd2": f"  Score {score:.0f}/100"[:16]})
+                         "alert": lvl == "LOW", "lcd1": lcd1[:16], "lcd2": f"  Score {score:.0f}/100"[:16]})
 
 
 def make_link(kind: str, port: str = "", ble_name: str = "DRIFTS-ESP32", ble_address: str = ""):

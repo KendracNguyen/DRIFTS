@@ -16,7 +16,7 @@
 
 // Printed at boot and by STATUS, so the flashed image can be identified.
 // Matches the drifts_c6_8M_uartchip_<version>.bin file name.
-#define DRIFTS_FW_VERSION "v14"
+#define DRIFTS_FW_VERSION "v15"
 
 // ---------------------------------------------------------------
 // Pin assignments  --  TARGET: ESP32-C6-WROOM-1
@@ -215,8 +215,14 @@ constexpr int DROWSY_VIB_DUTY   = 255;   // 0-255 PWM duty
 constexpr int DROWSY_VIB_ON_MS  = 500;
 constexpr int DROWSY_VIB_OFF_MS = 300;
 constexpr int DROWSY_BUZZ_HZ    = PIEZO_FREQ_HZ;
-constexpr int DROWSY_BUZZ_ON_MS = 300;
-constexpr int DROWSY_BUZZ_OFF_MS = 300;
+// While fatigue is detected the buzzer repeats a 1 s beep, 1 s pause --
+// clearly an alarm, not one constant tone.
+constexpr int DROWSY_BUZZ_ON_MS = 1000;
+constexpr int DROWSY_BUZZ_OFF_MS = 1000;
+
+// BEEP command (serial, or any BLE device writing to the Pi result
+// characteristic): one beep of this length. Proves the buzzer from a phone.
+constexpr uint32_t BEEP_MS = 1000;
 
 // An alert must not latch forever if the Pi never sends NOT_DROWSY.
 constexpr uint32_t MAX_ALERT_MS = 20000;

@@ -134,6 +134,7 @@ void updateActuators() {
 void startAlert() {
     endTestMotor();
     endTestBuzzer();
+    piezoOff();   // cancels a BEEP or SWEEP so its timer cannot cut the alert tone
     alertRunning = true;
     startPulse(vibPulse, DROWSY_VIB_DUTY, DROWSY_VIB_ON_MS, DROWSY_VIB_OFF_MS, setMotor);
     startPulse(buzzPulse, DROWSY_BUZZ_HZ, DROWSY_BUZZ_ON_MS, DROWSY_BUZZ_OFF_MS, setBuzzer);

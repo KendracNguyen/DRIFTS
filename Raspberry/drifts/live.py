@@ -281,6 +281,9 @@ def make_handler(pipe: Pipeline):
             if u.path == "/capture" and q.get("label", [""])[0] in LABELS:
                 pipe.request_capture(q["label"][0], int(q.get("n", ["1"])[0]))
                 self._send(200, b"ok", "text/plain")
+            elif u.path == "/beep":
+                pipe.link.send_command("BEEP")      # ESP32 firmware v15+: one 1 s beep
+                self._send(200, b"ok", "text/plain")
             elif u.path == "/eye_send":
                 pipe.send_eye = q.get("on", ["1"])[0] == "1"
                 self._send(200, b"ok", "text/plain")
