@@ -442,7 +442,7 @@ void loop() {
                  "{\"rpm\":%.0f,\"spd\":%.1f,\"thr\":%.1f,\"g\":%.2f,\"yaw\":%.1f,\"steer\":%d,"
                  "\"obd\":\"%s\",\"hz\":%.1f,\"gate\":\"%s\",\"drv\":\"%s\","
                  "\"pi\":\"%s\",\"alert\":%s,\"test\":%s,"
-                 "\"score\":%.0f,\"lvl\":\"%s\",\"part\":%s}",
+                 "\"score\":%.0f,\"lvl\":\"%s\",\"part\":%s,\"dscore\":%.0f}",
                  snap.rpm, snap.speed, snap.throttle, Motion.longitudinalG(),
                  Motion.yawRateDps(), snap.steer_reversal_count,
                  Obd.stateName(), Obd.achievedHz(),
@@ -451,7 +451,8 @@ void loop() {
                  piStatus, isAlertActive() ? "true" : "false",
                  isPinTestActive() ? "true" : "false",
                  alertScore.score(), alertLevelName(alertScore.level()),
-                 alertScore.partial() ? "true" : "false");
+                 alertScore.partial() ? "true" : "false",
+                 alertScore.driving());       // driving score: read by the Tokyo Pi 5
         Hub.pushPhoneStatus(json);
     }
 

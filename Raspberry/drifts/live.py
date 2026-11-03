@@ -138,6 +138,12 @@ class Pipeline:
         self.pose_on = args.pose != "off" or self.face_on
         self.backend = "mediapipe" if self.face_on else args.pose
         self.perf = PerfMonitor()
+        # Extension points (Tokyo uses them): per-frame callbacks f(pipe, now),
+        # extra status fields, and fields overlaid on the ESP32 snapshot (e.g.
+        # an alert score computed on this computer instead of the ESP32's).
+        self.hooks: list = []
+        self.extra_status: dict = {}
+        self.esp_override: dict = {}
         self._perf, self._perf_t = self.perf.snapshot(), 0.0
         self.cal = Calibration(auto_samples=args.calib_frames)
         self.attn = AttentionTracker(yaw_limit=args.yaw_limit, pitch_down=args.pitch_limit,
@@ -347,11 +353,16 @@ class Pipeline:
                     self._draw_face(img, getattr(self.camera, "landmarks", None), self.args.mirror)
                 if self.pose_on:
                     self._draw_pose(img, getattr(self.camera, "keypoints", None), self.args.mirror)
+                for hook in self.hooks:
+                    try:
+                        hook(self, now)
+                    except Exception as exc:          # a bad hook must not stop the camera
+                        log.warning("hook %s failed: %s", getattr(hook, "__name__", hook), exc)
                 if now - self._perf_t >= 2.0:
                     self._perf, self._perf_t = self.perf.snapshot(), now
                 jpeg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 70])[1].tobytes()
                 if not self.history or now - self.history[-1][0] >= 1.0:
-                    esp = self.link.snapshot()
+                    esp = {**self.link.snapshot(), **self.esp_override}
                     self.history.append((round(now, 1), esp["score"], score, esp["rpm"], self.pose["yaw"]))
                     del self.history[:-3600]          # keep the last hour
                 n_fps += 1
@@ -375,7 +386,8 @@ class Pipeline:
             "rig": {"name": self.args.rig_name or self._perf["model"], "backend": self.backend,
                     "fps": eye["fps"], "inference_ms": getattr(self.camera, "inference_ms", None),
                     "perf": self._perf, **capability(self.backend)},
-            "esp": self.link.snapshot(), "log": list(self.link.log_lines)[-12:],
+            "esp": {**self.link.snapshot(), **self.esp_override}, "log": list(self.link.log_lines)[-12:],
+            **self.extra_status,
             "capture": {"session": self.capture.session, "counts": self.capture.counts,
                         "dir": str(self.capture.root.resolve()), "pending": len(self._burst)},
             "window_s": self.args.window, "time": time.time(), "started": self.started,
@@ -454,12 +466,13 @@ def make_handler(pipe: Pipeline):
     return Handler
 
 
-def main(argv=None) -> int:
-    p = argparse.ArgumentParser(prog="python -m drifts.live", description="DRIFTS live dashboard")
+def build_parser(prog: str = "python -m drifts.live") -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog=prog, description="DRIFTS live dashboard")
     p.add_argument("--esp", choices=["serial", "ble", "sim"], default="sim",
                    help="ESP32 link: serial (USB), ble (Pi in the car), or sim (no hardware)")
     p.add_argument("--port", default="COM5", help="serial port for --esp serial (COM5, /dev/ttyACM0)")
     p.add_argument("--camera", type=int, default=0, help="webcam index (laptop)")
+    p.add_argument("--camera-fps", type=int, default=None, help="camera frame rate (default: config.toml)")
     p.add_argument("--video", help="play a video file or a folder of images instead of a camera (loops)")
     p.add_argument("--pose", choices=["off", "imx500", "sim"], default="off",
                    help="head pose: imx500 = Raspberry Pi AI Camera, sim = scripted head on any camera")
@@ -488,13 +501,21 @@ def main(argv=None) -> int:
     p.add_argument("--mirror", action="store_true", help="mirror the image (selfie view)")
     p.add_argument("--capture-dir", default="captures", help="where training frames are saved")
     p.add_argument("--debug", action="store_true")
-    args = p.parse_args(argv)
+    p.add_argument("--listen-only", action="store_true",
+                   help="BLE: read ESP32 telemetry only, never write (leaves the ESP32 to its own Pi)")
+    return p
 
+
+def build(args) -> Pipeline:
+    """Link + camera source + Pipeline, started. Used by main() and by Tokyo."""
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO,
                         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%H:%M:%S")
 
     cfg = load_config()
-    link = make_link(args.esp, port=args.port, ble_name=cfg.ble.device_name, ble_address=cfg.ble.address)
+    if args.camera_fps:
+        cfg.camera.fps = args.camera_fps
+    link = make_link(args.esp, port=args.port, ble_name=cfg.ble.device_name, ble_address=cfg.ble.address,
+                     listen_only=args.listen_only)
     link.start()
 
     if args.pose == "imx500":
@@ -514,7 +535,11 @@ def main(argv=None) -> int:
             camera = SimPoseSource(inner=camera)
     pipe = Pipeline(camera, link, args)
     pipe.start()
+    return pipe
 
+
+def serve(pipe: Pipeline, args) -> int:
+    link = pipe.link
     server = ThreadingHTTPServer(("0.0.0.0", args.http_port), make_handler(pipe))
     log.info("Dashboard: http://localhost:%d   (from another device: http://<this-ip>:%d)",
              args.http_port, args.http_port)
@@ -529,6 +554,11 @@ def main(argv=None) -> int:
         link.stop()
         server.server_close()
     return 0
+
+
+def main(argv=None) -> int:
+    args = build_parser().parse_args(argv)
+    return serve(build(args), args)
 
 
 PAGE_FILE = Path(__file__).with_name("dashboard.html")

@@ -119,7 +119,7 @@ nav a.on{color:var(--maroon);font-weight:600}
     <div class="bar">PERCLOS<i><u id="b-per"></u></i><em id="v-per">--</em></div>
    </div>
   </div>
-  <div class="lcd" id="lcdrow" style="display:none"><pre id="lcd"></pre><span>LCD on the ESP32</span></div>
+  <div class="lcd" id="lcdrow" style="display:none"><pre id="lcd"></pre><span id="lcdlabel">LCD on the ESP32</span></div>
  </div>
 
  <div class="sec">Driver camera</div>
@@ -172,7 +172,7 @@ nav a.on{color:var(--maroon);font-weight:600}
    <button onclick="testLocal()">Test sound here</button><button onclick="beepEsp()">Beep ESP32 buzzer</button></div>
  </div>
  <div class="card iv" id="iv1"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1v-6h3zM3 19a2 2 0 002 2h1v-6H3z"/></svg></div>
-  <div class="t"><b>Audio alert</b><small>Piezo · 5 kHz · Level 1</small></div><span class="pill grey" id="p1">STANDBY</span></div>
+  <div class="t"><b>Audio alert</b><small id="p1sub">Piezo · 5 kHz · Level 1</small></div><span class="pill grey" id="p1">STANDBY</span></div>
  <div class="card iv" id="iv2"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></div>
   <div class="t"><b>Seat vibration</b><small>4× ERM array · PWM · Level 2</small></div><span class="pill grey" id="p2">STANDBY</span></div>
  <div class="card iv dim"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0014 0M12 17v5"/></svg></div>
@@ -324,7 +324,9 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  // score card
  const sc=p.score;$("score").textContent=fx(sc);$("ringv").textContent=fx(sc);
  $("arc").style.strokeDashoffset=238.8*(1-(sc==null?0:clamp(sc)/100));
- $("state").textContent=p.lvl?(STATE[p.lvl]||p.lvl)+(p.part?" · driving data only":""):"Waiting for ESP32…";
+ const out=s.outputs;
+ $("state").textContent=p.lvl?(STATE[p.lvl]||p.lvl)+(p.part?" · driving data only":"")+(out&&out.no_driving?" · eye only (no ESP32 data)":""):
+  (out?"Waiting for camera…":"Waiting for ESP32…");
  const espEye=p.eye!=null?p.eye:e.last_sent;bar("eye",espEye);
  bar("drv",sc!=null&&espEye!=null?clamp((sc-0.7*espEye)/0.3):null);
  bar("per",e.perclos==null?null:e.perclos*100);
@@ -337,7 +339,11 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  $("c-sent").textContent=`(${s.eyes_sent} sent)`;$("send").checked=s.eye_sending;
  fatigued=!!live&&(p.lvl==="CAUTION"||p.lvl==="LOW"||!!p.alert);alarmNote();
  // interventions: ACTIVE only while the ESP32 is actually firing the outputs
- const lvl=p.lvl;pill($("p1"),!!p.alert,lvl==="CAUTION"||lvl==="LOW",1);pill($("p2"),!!p.alert,lvl==="LOW",2);
+ const lvl=p.lvl;
+ // Tokyo drives its own outputs: Level 1 = buzzer, Level 2 = buzzer + motors.
+ if(out){pill($("p1"),out.level>=1,false,1);pill($("p2"),out.level>=2,false,2);
+  $("lcdlabel").textContent="LCD on the Pi 5";$("p1sub").textContent="Buzzer · 1 s on / 1 s off · Level 1"}
+ else{pill($("p1"),!!p.alert,lvl==="CAUTION"||lvl==="LOW",1);pill($("p2"),!!p.alert,lvl==="LOW",2)}
  // driver state: head pose + road attention (stage 2), eye/mouth (stage 3)
  const ps=s.pose||{};
  const ATT={on_road:["ON ROAD","on"],off_road:["OFF ROAD","off"],unknown:["NO HEAD POSE","unk"]};
