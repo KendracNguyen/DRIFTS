@@ -52,6 +52,12 @@ Do every one of these **with all power disconnected**.
 | ☐ | GPIO 4 has only the red LED + resistor to GND | No pull-up, nothing else on it | Strapping pin; only an LED is safe there |
 | ☐ | Each status LED's long leg (anode) toward its resistor, short leg to GND | Diode test lights it faintly | A reversed LED never lights; the lamp test at power-up shows it |
 | ☐ | MPU-6050 VCC on **3V3**, not 5V | | 5 V logic on C6 I2C pins can damage them |
+| ☐ | GPIO 23 to 74AHCT125 pin 2; pin 3 → 330 Ω → strip DIN | ≈ 0 Ω, then ≈ 330 Ω | Strip data path (rev 5) |
+| ☐ | 74AHCT125 pin 14 on **5V**, pins 1 and 7 on GND; unused 5/9/12 on GND, 4/10/13 on 5V | | Unpowered or floating = dark or flickering strip |
+| ☐ | Strip DIN at the end the arrows point **away** from | | Reversed strip never lights |
+| ☐ | C5 1000 µF across strip 5V/GND, stripe to GND | | Reversed electrolytic can burst |
+| ☐ | GPIO 19 → 1 kΩ → DFPlayer pin 2 (RX); DFPlayer pin 3 (TX) → GPIO 20 | ≈ 1 kΩ, then ≈ 0 Ω | Crossed UART; the 1 kΩ protects the pin |
+| ☐ | Neither speaker wire to GND | Open | Built-in bridge amplifier: a speaker wire on GND shorts it |
 
 ### MOSFET pinout — check the package, not memory
 
