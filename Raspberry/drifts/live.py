@@ -41,7 +41,8 @@ from drifts.camera import Camera
 from drifts.config import load_config
 from drifts.esp_link import make_link
 from drifts.eyes import CLOSED, NO_FACE, OPEN, EyeObservation, EyeTracker, PerclosWindow, eye_score
-from drifts.headpose import AttentionTracker, Calibration, estimate
+from drifts.headpose import AttentionTracker, Calibration, HeadPose, estimate
+from drifts.perf import PerfMonitor, capability
 
 log = logging.getLogger("drifts.live")
 
@@ -127,10 +128,17 @@ class Pipeline:
 
     def __init__(self, camera: Camera, link, args):
         self.camera, self.link, self.args = camera, link, args
-        # Haar eye tracker: optional on the Pi Zero with the AI Camera (CPU-bound).
-        self.tracker = None if args.no_eyes else EyeTracker(work_width=args.work_width)
-        # Head pose + road attention from camera keypoints (AI Camera or simulated).
-        self.pose_on = args.pose != "off"
+        # Pi 5 rig: the camera source itself delivers every face signal (dms-face).
+        self.face_on = hasattr(camera, "face")
+        # Haar eye tracker: not needed with the Pi 5 face backend; optional on the
+        # Pi Zero with the AI Camera (CPU-bound).
+        self.tracker = None if (args.no_eyes or self.face_on) else EyeTracker(work_width=args.work_width)
+        # Head pose + road attention from camera keypoints (AI Camera or simulated),
+        # or from the Pi 5 face backend.
+        self.pose_on = args.pose != "off" or self.face_on
+        self.backend = "mediapipe" if self.face_on else args.pose
+        self.perf = PerfMonitor()
+        self._perf, self._perf_t = self.perf.snapshot(), 0.0
         self.cal = Calibration(auto_samples=args.calib_frames)
         self.attn = AttentionTracker(yaw_limit=args.yaw_limit, pitch_down=args.pitch_limit,
                                      pitch_up=args.pitch_limit)
@@ -165,6 +173,8 @@ class Pipeline:
         self.cal.restart(self.args.calib_frames)
 
     def _update_pose(self, now: float) -> None:
+        if self.face_on:
+            return self._update_face_pose(now)
         kps = getattr(self.camera, "keypoints", None)
         raw = estimate(kps, prev=self._prev_raw) if kps is not None else None
         if raw is not None and raw.found:
@@ -184,6 +194,48 @@ class Pipeline:
                          calibrated=self.cal.done, calib_progress=prog,
                          people=getattr(self.camera, "people", 0),
                          inference_ms=getattr(self.camera, "inference_ms", None))
+
+    def _update_face_pose(self, now: float) -> None:
+        """Pi 5: head angles and iris gaze come from dms-face. With a driver
+        profile they are already relative to the calibrated road pose; without
+        one, the same auto-calibration as the AI Camera rig is applied."""
+        f = self.camera.face
+        raw = (HeadPose(found=True, yaw=f["yaw"], pitch=f["pitch"], roll=f["roll"], quality=1.0)
+               if f.get("found") and f.get("yaw") is not None else None)
+        if raw is not None and not getattr(self.camera, "profile_loaded", False):
+            self.cal.add(raw)
+            raw = self.cal.apply(raw)
+        calibrated = getattr(self.camera, "profile_loaded", False) or self.cal.done
+        gd = f.get("gaze_dev")
+        gaze_off = gd is not None and gd > self.args.gaze_dev
+        state = self.attn.update(now, raw or HeadPose(found=False), gaze_off=gaze_off)
+        prog = 1.0 if calibrated else len(self.cal._y) / max(1, self.cal.auto_samples)
+        self.pose.update(found=bool(raw), yaw=raw.yaw if raw else None, pitch=raw.pitch if raw else None,
+                         roll=raw.roll if raw else None, profile=False, quality=1.0 if raw else 0.0,
+                         attention=state, off_for=self.attn.off_for(now), distracted=self.attn.distracted(now),
+                         glances=self.attn.events, calibrated=calibrated, calib_progress=prog,
+                         gaze_off=gaze_off, people=getattr(self.camera, "people", 0),
+                         inference_ms=getattr(self.camera, "inference_ms", None))
+
+    def _draw_face(self, img, px, mirrored: bool) -> None:
+        """Eye and mouth outlines from the 478-point mesh (Pi 5 rig)."""
+        import cv2
+        import numpy as np
+        from drifts.face_mediapipe import EYE_CONTOURS, MOUTH_CONTOUR
+        if px is None:
+            return
+        w = img.shape[1]
+        def poly(idx, colour):
+            pts = np.array([[w - px[i][0] if mirrored else px[i][0], px[i][1]] for i in idx], np.int32)
+            cv2.polylines(img, [pts], True, colour, 1, cv2.LINE_AA)
+        f = self.camera.face
+        eye_col = (60, 60, 230) if f.get("eye_state") in ("closed", "closing") else (255, 200, 0)
+        for c in EYE_CONTOURS:
+            poly(c, eye_col)
+        poly(MOUTH_CONTOUR, (60, 60, 230) if f.get("yawning") else (200, 120, 255))
+        if f.get("night"):
+            cv2.putText(img, "NIGHT (IR)" + (" +CLAHE" if f.get("ir_enhanced") else ""), (10, 56),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (60, 200, 255), 1)
 
     def _draw_pose(self, img, kps, mirrored: bool) -> None:
         import cv2
@@ -261,14 +313,24 @@ class Pipeline:
                 if self.args.mirror:
                     frame = cv2.flip(frame, 1)
                 now = time.time()
-                obs = self.tracker.process(frame) if self.tracker else EyeObservation(NO_FACE)
+                if self.face_on:
+                    es = self.camera.face.get("eye_state") if self.camera.face.get("found") else None
+                    obs = EyeObservation(CLOSED if es in ("closed", "closing") else
+                                         OPEN if es in ("open", "opening") else NO_FACE)
+                else:
+                    obs = self.tracker.process(frame) if self.tracker else EyeObservation(NO_FACE)
                 if self.pose_on:
                     self._update_pose(now)
                 self.window.add(now, obs.state)
                 perclos = self.window.perclos()
                 score = eye_score(perclos)
+                if self.face_on:      # dms-face PERCLOS: P80 over 60 s, invalid frames excluded
+                    perclos = self.camera.face.get("perclos")
+                    score = self.camera.eye_score()
                 closed_for = self.window.closed_for(now)
                 warming = self.window.coverage(now) < min(3.0, self.args.window)
+                if self.face_on:
+                    warming = self.camera.face.get("perclos") is None
 
                 if self.send_eye and score is not None and not warming and now - last_send >= self.args.eye_every:
                     last_send = now
@@ -281,8 +343,12 @@ class Pipeline:
                     self.capture.save(frame, burst, perclos)
 
                 img = self._annotate(frame, obs, perclos, score, closed_for)
+                if self.face_on:
+                    self._draw_face(img, getattr(self.camera, "landmarks", None), self.args.mirror)
                 if self.pose_on:
                     self._draw_pose(img, getattr(self.camera, "keypoints", None), self.args.mirror)
+                if now - self._perf_t >= 2.0:
+                    self._perf, self._perf_t = self.perf.snapshot(), now
                 jpeg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 70])[1].tobytes()
                 if not self.history or now - self.history[-1][0] >= 1.0:
                     esp = self.link.snapshot()
@@ -304,7 +370,11 @@ class Pipeline:
             eye = dict(self.eye)
         return {
             "eye": eye, "eye_sending": self.send_eye, "eyes_sent": self.link.eyes_sent,
-            "eye_tracker": self.tracker is not None, "pose": dict(self.pose),
+            "eye_tracker": self.tracker is not None or self.face_on, "pose": dict(self.pose),
+            "face": dict(self.camera.face) if self.face_on else None,
+            "rig": {"name": self.args.rig_name or self._perf["model"], "backend": self.backend,
+                    "fps": eye["fps"], "inference_ms": getattr(self.camera, "inference_ms", None),
+                    "perf": self._perf, **capability(self.backend)},
             "esp": self.link.snapshot(), "log": list(self.link.log_lines)[-12:],
             "capture": {"session": self.capture.session, "counts": self.capture.counts,
                         "dir": str(self.capture.root.resolve()), "pending": len(self._burst)},
@@ -322,6 +392,8 @@ def make_handler(pipe: Pipeline):
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            # Lets the comparison page on the other rig read this one.
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(body)
 
@@ -336,12 +408,15 @@ def make_handler(pipe: Pipeline):
                                             "eye": [r[2] for r in h], "rpm": [r[3] for r in h],
                                             "yaw": [r[4] for r in h]}).encode(),
                            "application/json")
+            elif path == "/compare":
+                self._send(200, PAGE_FILE.with_name("compare.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/status.json":
                 self._send(200, json.dumps(pipe.status()).encode(), "application/json")
             elif path == "/stream.mjpg":
                 self.send_response(200)
                 self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
                 self.send_header("Cache-Control", "no-store")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 last = -1
                 try:
@@ -394,6 +469,15 @@ def main(argv=None) -> int:
     p.add_argument("--pitch-limit", type=float, default=20.0, help="off road beyond this pitch (deg)")
     p.add_argument("--calib-frames", type=int, default=30, help="frames averaged for the road pose")
     p.add_argument("--no-eyes", action="store_true", help="skip the Haar eye tracker (saves CPU on a Pi Zero)")
+    p.add_argument("--face", choices=["off", "mediapipe"], default="off",
+                   help="mediapipe = Pi 5 rig: all eight signals via dms-face (one MediaPipe inference/frame)")
+    p.add_argument("--dms-dir", default=None, help="dms-face checkout (default ~/dms-face or $DMS_FACE_DIR)")
+    p.add_argument("--profile", default="default", help="dms-face driver profile (run.py --calibrate)")
+    p.add_argument("--ir", choices=["auto", "on", "off"], default="auto",
+                   help="IR contrast enhancement: auto = when the image looks like night/IR")
+    p.add_argument("--yaw-sign", type=int, choices=[-1, 1], default=1, help="flip if yaw reads backwards")
+    p.add_argument("--gaze-dev", type=float, default=0.16, help="iris deviation counted as off road")
+    p.add_argument("--rig-name", default=None, help="label for the comparison page")
     p.add_argument("--video-fps", type=float, default=8.0, help="playback rate for --video")
     p.add_argument("--no-picamera", action="store_true", help="skip the Pi camera even if present")
     p.add_argument("--http-port", type=int, default=8080)
@@ -421,7 +505,11 @@ def main(argv=None) -> int:
             camera = VideoSource(args.video, fps=args.video_fps)
         else:
             camera = Camera(cfg.camera, device=args.camera, use_picamera=not args.no_picamera)
-        if args.pose == "sim":
+        if args.face == "mediapipe":
+            from drifts.face_mediapipe import DEFAULT_DMS_DIR, Pi5FaceSource
+            camera = Pi5FaceSource(dms_dir=args.dms_dir or DEFAULT_DMS_DIR, profile=args.profile,
+                                   camera=camera, ir=args.ir, yaw_sign=args.yaw_sign)
+        elif args.pose == "sim":
             from drifts.imx500_pose import SimPoseSource
             camera = SimPoseSource(inner=camera)
     pipe = Pipeline(camera, link, args)

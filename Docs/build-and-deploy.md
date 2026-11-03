@@ -199,6 +199,12 @@ Serial: `LCD`, `I2C SCAN`.
 (`python -m drifts.beep`), and the phone/laptop-only simulation alarm:
 [`buzzer-alerts.md`](buzzer-alerts.md).
 
+### Two-rig demo (Pi Zero 2 W + AI Camera vs Pi 5 + day/night camera)
+
+Same dashboard on both rigs, side-by-side comparison page, all eight face
+signals on the Pi 5 via dms-face + MediaPipe, IR night mode:
+[`two-rig-demo.md`](two-rig-demo.md).
+
 ### AI Camera head pose (stage 2)
 
 Raspberry Pi AI Camera on the Zero 2 W: soak test, head pose and road

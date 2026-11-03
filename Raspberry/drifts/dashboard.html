@@ -96,7 +96,7 @@ nav a.on{color:var(--maroon);font-weight:600}
 <header>
  <div class="hrow">
   <div><h1>DRIFTS</h1><div class="sub"><span class="dot off" id="dot"></span><span id="linktxt">connecting…</span></div></div>
-  <div class="drive">Drive time: <span id="drive">0h 00m</span><div id="fw" style="opacity:.75;margin-top:2px">fw --</div></div>
+  <div class="drive">Drive time: <span id="drive">0h 00m</span><div id="fw" style="opacity:.75;margin-top:2px">fw --</div><div id="rigchip" style="opacity:.9;margin-top:2px"></div></div>
  </div>
 </header>
 
@@ -141,7 +141,7 @@ nav a.on{color:var(--maroon);font-weight:600}
   <div style="margin-top:8px">
    <div class="row2"><span>Off-road glances &gt; 2 s</span><b id="glances">0</b></div>
    <div class="row2"><span>Gaze target</span><b id="gaze">--</b></div>
-   <div class="row2"><span>Yawn</span><span class="tag3">STAGE 3 · PFLD</span></div>
+   <div class="row2"><span>Yawn</span><span class="tag3" id="y-yawn">STAGE 3 · PFLD</span></div>
   </div>
  </div>
 
@@ -157,9 +157,10 @@ nav a.on{color:var(--maroon);font-weight:600}
  <div class="sec">Eye &amp; mouth</div>
  <div class="card">
   <div class="row2"><span>Eye openness</span><b id="eo">--</b></div>
-  <div class="row2"><span>EAR (eye aspect ratio)</span><span class="tag3">STAGE 3 · PFLD</span></div>
-  <div class="row2"><span>Blinking</span><span class="tag3">STAGE 3 · PFLD</span></div>
-  <div class="row2"><span>Mouth aperture</span><span class="tag3">STAGE 3 · PFLD</span></div>
+  <div class="row2"><span>EAR (eye aspect ratio)</span><span class="tag3" id="y-ear">STAGE 3 · PFLD</span></div>
+  <div class="row2"><span>Blinking</span><span class="tag3" id="y-blink">STAGE 3 · PFLD</span></div>
+  <div class="row2"><span>PERCLOS (P80, 60 s)</span><span class="tag3" id="y-perclos">STAGE 3 · PFLD</span></div>
+  <div class="row2"><span>Mouth aperture</span><span class="tag3" id="y-mouth">STAGE 3 · PFLD</span></div>
  </div>
 
  <div class="sec">Active interventions</div>
@@ -211,6 +212,20 @@ nav a.on{color:var(--maroon);font-weight:600}
 
 <!-- ============================== DEVICES ============================== -->
 <section class="tab" id="t-devices">
+ <div class="sec">Performance · this rig</div>
+ <div class="card kv" id="perfcard">
+  <span>Rig</span><b id="r-name">--</b>
+  <span>Face pipeline</span><b id="r-backend">--</b>
+  <span>Frame rate</span><b id="r-fps">--</b>
+  <span>Inference</span><b id="r-inf">--</b>
+  <span>CPU (all cores)</span><b id="r-cpu">--</b>
+  <span>SoC temperature</span><b id="r-temp">--</b>
+  <span>Memory used</span><b id="r-mem">--</b>
+  <span>Light</span><b id="r-night">--</b>
+ </div>
+ <div class="sec">Driver signals · this rig</div>
+ <div class="card" id="sigcard"></div>
+ <div class="note" style="margin:6px 4px">Compare two rigs side by side: <a href="/compare" style="color:var(--maroon)">/compare</a></div>
  <div class="sec">Devices</div>
  <div class="card kv">
   <span>ESP32 link</span><b id="d-link">--</b>
@@ -331,8 +346,8 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  else{const a=ATT[ps.attention]||ATT.unknown;$("att").textContent=a[0]+(ps.attention==="off_road"?` ${ps.off_for.toFixed(1)}s`:"");
   $("att").className="big2 "+a[1];
   $("attsub").textContent=ps.distracted?"Eyes off road over 2 s":ps.attention==="unknown"?"Driver not detected":
-   (ps.inference_ms!=null?`AI Camera · ${fx(ps.inference_ms,1)} ms inference`:"Head direction");
-  $("gaze").textContent=!ps.found?"--":ps.profile?"Turned away":ps.attention==="on_road"?"Road":
+   (s.face?"Iris gaze + head pose":ps.inference_ms!=null?`AI Camera · ${fx(ps.inference_ms,1)} ms inference`:"Head direction");
+  $("gaze").textContent=!ps.found?"--":ps.profile?"Turned away":ps.gaze_off?"Eyes off road (iris)":ps.attention==="on_road"?"Road":
    Math.abs(ps.yaw)>=Math.abs(ps.pitch)?(ps.yaw>0?"Right of road":"Left of road"):(ps.pitch>0?"Down (lap / console)":"Up")}
  $("glances").textContent=ps.glances||0;
  const ang=(k,v)=>{const g=$("g-"+k);if(v==null){g.style.width="0";$("v-"+k).textContent="--";return}
@@ -341,7 +356,27 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  ang("yaw",ps.profile?null:ps.yaw);ang("pitch",ps.profile?null:ps.pitch);ang("roll",ps.profile?null:ps.roll);
  $("calnote").textContent=!ps.enabled?"":ps.calibrated?"Calibrated to road pose":
   `Calibrating ${Math.round((ps.calib_progress||0)*100)}% · look at the road`;
- $("eo").textContent=s.eye_tracker?({open:"Open",closed:"Closed",no_face:"--"}[e.state]+" (camera estimate)"):"Off (--no-eyes)";
+ const fc=s.face;
+ const val=(id,txt)=>{const el=$(id);el.textContent=txt;el.className="";el.style.fontWeight="700"};
+ if(fc){
+  $("eo").textContent=!fc.found?"--":fc.openness==null?"--":`${Math.round(Math.max(0,Math.min(1,fc.openness))*100)}% open (${fc.eye_state})`;
+  val("y-ear",fc.ear==null?"--":fc.ear.toFixed(3)+(fc.eye_valid?"":" (head turned)"));
+  val("y-blink",fc.blink_rate==null?"warming up":`${fx(fc.blink_rate)} /min · ${fx(fc.mean_blink_ms)} ms`+(fc.closure_ms>400?` · closed ${fx(fc.closure_ms)} ms`:""));
+  val("y-perclos",fc.perclos==null?(fc.perclos_warming?"warming up (60 s)":"--"):`${fx(fc.perclos*100,1)}%`);
+  val("y-mouth",fc.mar==null?"--":`MAR ${fc.mar.toFixed(2)}`+(fc.yawning?" · YAWNING":""));
+  val("y-yawn",fc.yawning?"YAWNING":`${fc.yawns||0} in 10 min`);
+ } else $("eo").textContent=s.eye_tracker?({open:"Open",closed:"Closed",no_face:"--"}[e.state]+" (camera estimate)"):"Off (--no-eyes)";
+ // rig + performance
+ const rg=s.rig||{},pf=rg.perf||{};
+ const BK={mediapipe:"MediaPipe 478 landmarks (dms-face)",imx500:"AI Camera on-sensor pose (5 face points)",sim:"Simulated head",off:"Haar eye estimate"};
+ $("rigchip").textContent=`${rg.name||""} · ${rg.live||0}/${rg.total||8} signals`;
+ $("r-name").textContent=rg.name||"--";$("r-backend").textContent=BK[rg.backend]||rg.backend||"--";
+ $("r-fps").textContent=fx(rg.fps,1)+" fps";$("r-inf").textContent=rg.inference_ms==null?"--":fx(rg.inference_ms,1)+" ms";
+ $("r-cpu").textContent=pf.cpu==null?"--":fx(pf.cpu)+" %";$("r-temp").textContent=pf.temp_c==null?"--":fx(pf.temp_c,1)+" °C";
+ $("r-mem").textContent=pf.mem_mb==null?"--":fx(pf.mem_mb)+" MB";
+ $("r-night").textContent=fc?(fc.night?"Night (IR)":"Day")+(fc.ir_enhanced?" · IR enhanced":""):"--";
+ const LVL={live:["LIVE","pill on"],proxy:["PROXY","pill"],rough:["ROUGH","pill"],none:["NOT AVAILABLE","pill grey"]};
+ if(rg.signals)$("sigcard").innerHTML=rg.signals.map(x=>`<div class="row2"><span>${x.label}</span><span class="${LVL[x.level][1]}">${LVL[x.level][0]}</span></div>`).join("");
  // vehicle
  $("rpm").textContent=fx(p.rpm);$("spd").textContent=fx(p.spd);$("thr").textContent=fx(p.thr);
  $("obd").textContent=p.obd||"--";$("hz").textContent=fx(p.hz,1);

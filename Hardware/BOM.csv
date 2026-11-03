@@ -22,3 +22,6 @@ TVS1,TVS diode,1,SMBJ26A 600W,,1,conditional,Vehicle power only - load dump prot
 LCD1,16x2 character LCD,1,HD44780 5V blue backlight,HiLetgo 1602 LCD,6,have,Mount for passenger/tester view - see Docs/lcd-display.md
 LCD2,I2C LCD backpack,1,PCF8574 or PCF8574A 5V; addr 0x27 or 0x3F,HiLetgo 2004/1602 IIC adapter,3,have,Contrast pot on board; firmware auto-detects address
 LS1,I2C level shifter,1,Bidirectional BSS138 2-channel 3.3V-5V,Adafruit 757 or SparkFun BOB-12009,3,needed,Between C6 GPIO21/22 and the 5V backpack; never pull C6 pins to 5V
+U2b,Raspberry Pi 5 (demo rig B),1,4-8 GB; 64-bit OS; Active Cooler,Raspberry Pi 5,0,have,Two-rig demo - Docs/two-rig-demo.md
+U5c,Day/night camera (demo rig B),1,OV5647 auto IR-cut + IR LEDs; M12 lens,Arducam OV5647 Day-Night Vision,25,have,Needs Pi 5 camera cable 22-pin to 15-pin
+W1,Pi 5 camera cable,1,22-pin to 15-pin Standard-Mini,Raspberry Pi Camera Cable Standard-Mini,3,needed,For the Arducam on the Pi 5
