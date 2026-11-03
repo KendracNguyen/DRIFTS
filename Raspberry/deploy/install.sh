@@ -52,6 +52,20 @@ if [ "${PI5:-0}" = "1" ]; then
   echo "    Calibrate:  cd $DMS_DIR && ~/drifts/.venv/bin/python run.py --calibrate --profile <name> --no-display"
 fi
 
+# Face mesh (first model, all eight signals + the dashboard's dev view):
+# MediaPipe's face landmarker, no calibration profile. Opt in with:
+#   MESH=1 bash deploy/install.sh      (64-bit Pi OS; the Pi 5 rig's PI5=1 also works)
+# --no-deps keeps out MediaPipe's second OpenCV and audio stack; the four
+# packages it does need at import are listed explicitly.
+if [ "${MESH:-0}" = "1" ] || [ "${PI5:-0}" = "1" ]; then
+  echo "==> MediaPipe face landmarker"
+  sudo apt-get install -y -qq python3-matplotlib
+  .venv/bin/pip install -q --no-cache-dir --no-deps "mediapipe>=1.0.0"
+  .venv/bin/pip install -q --no-cache-dir absl-py flatbuffers certifi
+  .venv/bin/python -c "from drifts.facemesh import ensure_model; print('    model:', ensure_model())"
+  echo "    Run:  .venv/bin/python -m drifts.live --face mesh --esp ble    (dev view: 'Switch to dev view')"
+fi
+
 echo "==> systemd service"
 sed -e "s|@USER@|$USER_NAME|g" -e "s|@REPO@|$REPO|g" deploy/drifts.service \
   | sudo tee /etc/systemd/system/drifts.service >/dev/null

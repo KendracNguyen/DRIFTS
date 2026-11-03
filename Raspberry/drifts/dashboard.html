@@ -91,12 +91,62 @@ border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr
 nav a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--muted);text-decoration:none;cursor:pointer}
 nav a.on{color:var(--maroon);font-weight:600}
 .tab{display:none}.tab.on{display:block}
+
+/* ---------- dev view (symposium: full face analysis) ---------- */
+.devbtn{margin-top:8px;font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:99px;border:1px solid rgba(255,255,255,.7);
+background:transparent;color:#fff;cursor:pointer}
+.devbtn:hover{background:rgba(255,255,255,.12)}
+#dev{display:none;padding:6px 18px 28px}
+body.dev .app{max-width:1480px}
+body.dev main,body.dev nav{display:none}
+body.dev #dev{display:block}
+.dgrid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:16px;align-items:start}
+.dfeed{position:relative;border-radius:12px;overflow:hidden;background:#140c0e;aspect-ratio:4/3}
+.dfeed img{width:100%;height:100%;object-fit:contain;display:block}
+.dfeed .msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#e9d9db;
+padding:24px;text-align:center;font-size:14px;line-height:1.5}
+.layers{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.lay{font-size:12px;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--soft);cursor:pointer;
+display:flex;align-items:center;gap:6px;color:var(--muted);user-select:none}
+.lay.on{background:#fff;border-color:var(--maroon);color:var(--ink)}
+.lay i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.zoom{width:100%;border-radius:10px;display:block;background:#140c0e;aspect-ratio:968/180;object-fit:contain}
+.formula{font:13px/1.55 ui-monospace,Menlo,Consolas,monospace;background:var(--soft);border:1px solid var(--line);
+border-radius:10px;padding:8px 12px;margin-top:8px;color:var(--ink);overflow-x:auto}
+.formula b{color:var(--maroon)}.formula .y{color:#b98900}.formula .c{color:#1f86b5}
+.sigs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.sig{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 12px 10px;min-width:0}
+.sig .grp{font-size:10px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted)}
+.sig .nm{font-size:14px;font-weight:600;margin-top:1px}
+.sig .val{font-size:30px;font-weight:700;color:var(--maroon);font-variant-numeric:tabular-nums;line-height:1.15;margin-top:4px}
+.sig .val small{font-size:13px;font-weight:500;color:var(--muted);margin-left:3px}
+.sig .sub{font-size:12px;color:var(--muted);min-height:17px}
+.sig canvas{width:100%;height:56px;display:block;margin-top:6px}
+.sig .how{font-size:11px;color:var(--muted);border-top:1px solid var(--line);margin-top:6px;padding-top:6px}
+.sig.alert{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad) inset}
+.badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.6px;padding:2px 7px;border-radius:99px;vertical-align:3px;margin-left:6px}
+.badge.ok{background:#eaf6ee;color:var(--ok)}.badge.bad{background:#fbe8eb;color:var(--bad)}.badge.mid{background:#fdf3e2;color:var(--warn)}
+.fus{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.seg{display:inline-flex;border:1px solid var(--maroon);border-radius:9px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:6px 12px;font-size:12px}
+.seg button.on{background:var(--maroon);color:#fff}
+.meter{position:relative;height:10px;border-radius:9px;background:var(--track);margin:10px 0 4px}
+.meter u{position:absolute;left:0;top:0;bottom:0;border-radius:9px;background:var(--maroon);transition:width .3s}
+.meter s{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink);opacity:.5}
+.wbar{display:flex;height:22px;border-radius:7px;overflow:hidden;font-size:11px;font-weight:700;color:#fff;margin:8px 0}
+.wbar span{display:flex;align-items:center;justify-content:center;transition:flex-grow .4s;min-width:0;overflow:hidden;white-space:nowrap}
+.bigs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+.bigs div{background:var(--soft);border-radius:10px;padding:8px}.bigs small{font-size:11px;color:var(--muted)}
+.bigs b{display:block;font-size:24px;color:var(--maroon);font-variant-numeric:tabular-nums}
+@media (max-width:1100px){.dgrid{grid-template-columns:1fr}.sigs{grid-template-columns:repeat(2,minmax(0,1fr))}.fus{grid-template-columns:1fr}}
+@media (max-width:560px){.sigs{grid-template-columns:1fr}#dev{padding:6px 12px 24px}}
 </style></head>
 <body><div class="app">
 <header>
  <div class="hrow">
   <div><h1>DRIFTS</h1><div class="sub"><span class="dot off" id="dot"></span><span id="linktxt">connecting…</span></div></div>
-  <div class="drive">Drive time: <span id="drive">0h 00m</span><div id="fw" style="opacity:.75;margin-top:2px">fw --</div><div id="rigchip" style="opacity:.9;margin-top:2px"></div></div>
+  <div class="drive">Drive time: <span id="drive">0h 00m</span><div id="fw" style="opacity:.75;margin-top:2px">fw --</div><div id="rigchip" style="opacity:.9;margin-top:2px"></div>
+   <button class="devbtn" id="devbtn" onclick="toggleDev()">Switch to dev view</button></div>
  </div>
 </header>
 
@@ -259,6 +309,50 @@ nav a.on{color:var(--maroon);font-weight:600}
  </div>
 </section>
 </main>
+<!-- ============================== DEV VIEW ============================== -->
+<section id="dev">
+ <div class="dgrid">
+  <div>
+   <div class="sec">Face analysis · 478 landmarks</div>
+   <div class="card">
+    <div class="dfeed"><img id="devimg" alt="Face analysis overlay"><div class="msg" id="devmsg" style="display:none"></div></div>
+    <div class="layers" id="layers"></div>
+    <div class="note" id="devperf">--</div>
+   </div>
+  </div>
+  <div>
+   <div class="sec">Eyes and mouth up close</div>
+   <div class="card">
+    <img class="zoom" id="zoomimg" alt="Eye and mouth close-ups">
+    <div class="formula" id="f-ear-r">--</div>
+    <div class="formula" id="f-ear-l">--</div>
+    <div class="formula" id="f-mar">--</div>
+    <div class="note">EAR falls toward 0 as the lid closes (P2–P6 and P3–P5 shrink, P1–P4 stays).
+     Openness is EAR relative to this driver's own open-eye EAR (<span id="earopen">--</span>), so it adapts without calibration.</div>
+   </div>
+   <div class="sec">Glasses-aware fusion → ESP32</div>
+   <div class="card" id="fusion">
+    <div class="toggle" style="margin:0"><span><b style="color:var(--ink)">Glasses</b> <span id="g-badge" class="badge mid">--</span><br>
+     <span id="g-note">Bridge edge strength (smoothed)</span></span>
+     <div class="seg" id="gseg"><button data-m="auto">Auto</button><button data-m="on">On</button><button data-m="off">Off</button></div></div>
+    <div class="meter"><u id="g-meter"></u><s style="left:22%"></s></div>
+    <div class="note" style="margin-top:0">0 = bare skin across the nose bridge · mark = detection threshold (0.22) · now <b id="g-level">--</b></div>
+    <div class="wbar"><span id="w-eye" style="background:var(--maroon)">EYES</span><span id="w-head" style="background:#c9861a">HEAD</span></div>
+    <div class="note" style="margin-top:0" id="basis">--</div>
+    <div class="bigs">
+     <div><small>Eye score<br>100 × (1 − PERCLOS)</small><b id="s-eye">--</b></div>
+     <div><small>Head score<br>nods + droop</small><b id="s-head">--</b></div>
+     <div><small>Face score<br>→ ESP32 as EYE</small><b id="s-face">--</b></div>
+    </div>
+    <div class="note" id="nodnote">--</div>
+   </div>
+  </div>
+ </div>
+
+ <div class="sec">The eight driver signals</div>
+ <div class="sigs" id="sigs"></div>
+</section>
+
 
 <nav>
  <a class="on" data-t="home"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>Home</a>
@@ -414,4 +508,77 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  // history: refresh every 2 s while that tab is open
  if(s.time-last>=2&&$("t-history").classList.contains("on")){last=s.time;loadHistory()}}
 setInterval(tick,500);tick();
+
+// ============================== DEV VIEW ==============================
+const LAYERS=[["mesh","Mesh","#aac8aa"],["ear","EAR P1–P6","#ffd23c"],["mouth","Mouth","#dc8cff"],
+ ["axis","Nose axis","#3cdcff"],["iris","Irises","#f4f4f4;outline:1px solid #b9a9ab"],["glasses","Glasses ROI","#ffc800"]];
+// [key, group, name, unit, how it is computed, threshold lines, alert test]
+const SIG=[
+ ["gaze","Road attention & gaze","Off-road gaze","","iris offset between the eye corners + head pose; glances > 2 s counted",[0.16],s=>s.attention==="off"],
+ ["yawn","Road attention & gaze","Yawn","MAR","mouth held wide (MAR > 0.50) for ≥ 1.5 s",[0.5],s=>s.f.yawning],
+ ["yaw","Head position","Yaw","°","nose axis: + = turned to the driver's right; off road beyond ±30°",[30,-30],s=>Math.abs(s.p.yaw||0)>30],
+ ["pitch","Head position","Pitch","°","nose axis: + = looking down; a 12° drop that comes back = a nod",[20,-20],s=>(s.f.droop_s||0)>0],
+ ["roll","Head position","Roll","°","nose axis: + = tilted toward the right shoulder",[],s=>false],
+ ["mar","Misc","Mouth aperture","MAR","inner-lip openings ÷ mouth width (13–14, 82–87, 312–317 ÷ 78–308)",[0.5],s=>false],
+ ["ear","Misc","Eye openness","EAR","(|P2−P6| + |P3−P5|) ÷ 2|P1−P4|, both eyes averaged",[],s=>s.f.eye_state==="closed"],
+ ["blink","Misc","Blinking","/min","closed 50–500 ms = a blink; longer = a long closure",[],s=>(s.f.closed_for||0)>=1]];
+let devOn=false,devHist={},devLayers=new Set(LAYERS.map(l=>l[0]));
+function buildDev(){
+ $("layers").innerHTML=LAYERS.map(([k,n,c])=>`<span class="lay on" data-k="${k}"><i style="background:${c}"></i>${n}</span>`).join("");
+ document.querySelectorAll(".lay").forEach(el=>el.onclick=()=>{const k=el.dataset.k;
+  devLayers.has(k)?devLayers.delete(k):devLayers.add(k);el.classList.toggle("on",devLayers.has(k));
+  fetch("/dev_layers?"+LAYERS.map(l=>l[0]+"="+(devLayers.has(l[0])?1:0)).join("&"),{method:"POST"})});
+ $("sigs").innerHTML=SIG.map(([k,g,n,u,how])=>`<div class="sig" id="sg-${k}"><div class="grp">${g}</div><div class="nm">${n}</div>
+  <div class="val" id="sv-${k}">--<small>${u}</small></div><div class="sub" id="ss-${k}"></div>
+  <canvas id="sc-${k}" width="300" height="56"></canvas><div class="how">${how}</div></div>`).join("");
+ document.querySelectorAll("#gseg button").forEach(b=>b.onclick=()=>fetch("/glasses?mode="+b.dataset.m,{method:"POST"}));
+}
+function toggleDev(){devOn=!devOn;document.body.classList.toggle("dev",devOn);
+ $("devbtn").textContent=devOn?"Switch to driver view":"Switch to dev view";
+ $("devimg").src=devOn?"/dev.mjpg":"";$("zoomimg").src=devOn?"/zoom.mjpg":"";
+ try{localStorage.setItem("drifts-dev",devOn?"1":"0")}catch(e){}
+ if(devOn)devTick();window.scrollTo(0,0)}
+function push(k,v,t){const h=devHist[k]||(devHist[k]=[]);h.push([t,v]);while(h.length&&t-h[0][0]>60)h.shift()}
+function spark(k,lines){const c=$("sc-"+k);if(!c)return;const W=c.width=c.clientWidth*2,H=c.height=112,x=c.getContext("2d");
+ const h=devHist[k]||[];x.clearRect(0,0,W,H);const vals=h.map(p=>p[1]).filter(v=>v!=null);
+ if(!vals.length)return;let lo=Math.min(...vals,...lines),hi=Math.max(...vals,...lines);
+ if(hi-lo<1e-6){hi+=1;lo-=1}const pad=(hi-lo)*.12;lo-=pad;hi+=pad;const t1=h[h.length-1][0];
+ const X=t=>W-(t1-t)/60*W,Y=v=>H-(v-lo)/(hi-lo)*H;
+ x.setLineDash([6,6]);x.strokeStyle="#c9861a";x.lineWidth=2;lines.forEach(l=>{x.beginPath();x.moveTo(0,Y(l));x.lineTo(W,Y(l));x.stroke()});
+ x.setLineDash([]);x.strokeStyle="#7d1d2c";x.lineWidth=3;x.beginPath();let pen=false;
+ h.forEach(([t,v])=>{if(v==null){pen=false;return}pen?x.lineTo(X(t),Y(v)):x.moveTo(X(t),Y(v));pen=true});x.stroke()}
+const n2=(v,d=2)=>v==null?"--":Number(v).toFixed(d);
+async function devTick(){if(!devOn)return;let s;
+ try{s=await (await fetch("/status.json",{cache:"no-store"})).json()}catch(e){setTimeout(devTick,1000);return}
+ const f=s.face||{},p=s.pose||{},t=s.time,ok=s.dev&&s.dev.capable;
+ $("devmsg").style.display=ok?"none":"flex";
+ if(!ok)$("devmsg").innerHTML="The dev view needs the face-mesh backend.<br>Restart with:<br><code>python -m drifts.live --face mesh --camera 0</code>";
+ const rig=s.rig||{};$("devperf").textContent=`${rig.name||"--"} · ${rig.backend||"--"} · ${fx(rig.fps,1)} fps · inference ${fx(rig.inference_ms,0)} ms · ${f.found?"face found":"no face"}`;
+ const att=p.attention==="off"?"off":"on";
+ const vals={gaze:f.gaze_dev,yawn:f.mar,yaw:p.yaw,pitch:p.pitch,roll:p.roll,mar:f.mar,ear:f.ear,blink:f.blink_rate};
+ const subs={gaze:(p.attention==="off"?"OFF ROAD":"on road")+` · ${p.glances??0} glances > 2 s · iris ${n2(f.gaze_x)}`,
+  yawn:(f.yawning?"YAWNING · ":"")+`${f.yawns??0} in 10 min`,
+  yaw:`calibrated to road pose`,pitch:`drop ${n2(f.pitch_drop,0)}° from neutral · ${f.nods??0} nods/min`+((f.droop_s||0)>0?` · DROOP ${n2(f.droop_s,1)} s`:""),
+  roll:"",mar:f.mar==null?"":(f.mar<0.1?"closed":f.mar<0.4?"talking range":"wide open"),
+  ear:`L ${n2(f.ear_l)} · R ${n2(f.ear_r)} · open ${f.openness==null?"--":Math.round(f.openness*100)+"%"} · ${f.eye_state||"--"}`,
+  blink:`mean ${fx(f.mean_blink_ms,0)} ms · last ${fx(f.last_blink_ms,0)} ms · PERCLOS ${f.perclos==null?"--":Math.round(f.perclos*100)+"%"}`};
+ SIG.forEach(([k,g,n,u,how,lines,bad])=>{const v=vals[k];const d=(k==="yaw"||k==="pitch"||k==="roll")?0:(k==="blink"?0:2);
+  $("sv-"+k).innerHTML=(v==null?"--":(Math.abs(v)<Math.pow(10,-d)/2?0:v).toFixed(d).replace(/^-0$/,"0"))+`<small>${u}</small>`;$("ss-"+k).textContent=subs[k]||"";
+  push(k,v,t);spark(k,lines);$("sg-"+k).classList.toggle("alert",!!bad({f,p,attention:p.attention}))});
+ const tr=f.ear_terms||{};const ef=(lbl,e,a)=>a?`${lbl} EAR = (<span class="y">|P2−P6|</span> + <span class="y">|P3−P5|</span>) / (2·<span class="c">|P1−P4|</span>)<br>${"&nbsp;".repeat(lbl.length+5)}= (<span class="y">${a[0].toFixed(1)}</span> + <span class="y">${a[1].toFixed(1)}</span>) / (2·<span class="c">${a[2].toFixed(1)}</span>) px = <b>${n2(e,3)}</b>`:`${lbl} EAR = -- (no face)`;
+ $("f-ear-r").innerHTML=ef("Right",f.ear_r,tr.r);$("f-ear-l").innerHTML=ef("Left ",f.ear_l,tr.l);
+ $("f-mar").innerHTML=`Mouth MAR = mean(13–14, 82–87, 312–317) / |78–308|<br>${"&nbsp;".repeat(10)}= <b>${n2(f.mar,3)}</b>`+(f.mar>0.5?" (wide open)":"")+(f.yawning?" · YAWN":"");
+ $("earopen").textContent=f.ear_open==null?"--":"EAR "+n2(f.ear_open,3);
+ document.querySelectorAll("#gseg button").forEach(b=>b.classList.toggle("on",b.dataset.m===(f.glasses_mode||"auto")));
+ $("g-badge").textContent=f.glasses?"WEARING GLASSES":"NO GLASSES";$("g-badge").className="badge "+(f.glasses?"mid":"ok");
+ $("g-note").textContent=f.glasses_mode&&f.glasses_mode!=="auto"?`Set by hand (${f.glasses_mode}) · detector reads ${n2(f.glasses_level)}`:"Auto: bridge edge strength, smoothed over 1.5 s";
+ $("g-meter").style.width=Math.min(100,(f.glasses_level||0)/1.0*100)+"%";$("g-level").textContent=n2(f.glasses_level);
+ const we=f.w_eye??0.8,wh=f.w_head??0.2;$("w-eye").style.flexGrow=we;$("w-head").style.flexGrow=wh;
+ $("w-eye").textContent=we>0?`EYES ${Math.round(we*100)}%`:"";$("w-head").textContent=wh>0?`HEAD ${Math.round(wh*100)}%`:"";
+ $("basis").textContent=(f.basis||"--")+(f.glasses?" — lenses make EAR less reliable, so the nose axis counts for more":"");
+ $("s-eye").textContent=fx(f.eye_score);$("s-head").textContent=fx(f.head_score);$("s-face").textContent=fx(f.face_score);
+ $("nodnote").textContent=`Nods in the last minute: ${f.nods??0} (total ${f.nods_total??0}) · droop ${n2(f.droop_s,1)} s · long eye closures ${f.long_closures??0}`+(f.perclos_warming?" · PERCLOS warming up (10 s)":"");
+ setTimeout(devTick,250)}
+buildDev();
+try{if(localStorage.getItem("drifts-dev")==="1"||location.hash==="#dev")toggleDev()}catch(e){}
 </script></body></html>

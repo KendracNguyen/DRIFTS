@@ -11,6 +11,10 @@ A web page that shows, side by side and live:
 The eye score is sent to the ESP32 as `EYE:<n>` every 2 s, so closing your
 eyes in front of the camera moves the real alert score, LEDs and LCD.
 
+**Dev view (all eight face signals).** Start with `--face mesh` and click
+**Switch to dev view** in the header: landmarks, EAR P1–P6, the nose axis,
+glasses detection and every signal charted live. See [dev-view.md](dev-view.md).
+
 ```
 camera ──► eye tracker ──► PERCLOS ──► EYE:<n> ──► ESP32 ──► score, LEDs, LCD
                                                      │
