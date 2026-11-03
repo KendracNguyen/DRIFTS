@@ -9,8 +9,10 @@ stays as it is (`Esp32/`, `Raspberry/`).
 | Compute | ESP32-C6 + Pi Zero 2 W | **Raspberry Pi 5** |
 | Camera | Pi camera / AI Camera | **Camera Module 3 NoIR** (+ IR illuminator) |
 | Face signals | 2-4 of 8 (Zero) | **8 of 8** (MediaPipe, via dms-face) |
-| Alert outputs | ESP32 GPIO | **Pi 5 GPIO**: buzzer, 4 vibration motors |
-| Status light | 3 LEDs | **160-LED WS2812B strip** above the LCD |
+| Alert outputs | ESP32 GPIO | **Pi 5 GPIO**: buzzer, 4 vibration motor modules |
+| Status light | 3 LEDs + 14-LED WS2812B strip (v17) | **14-LED WS2812B strip** above the LCD, same frames |
+| Voice | DFPlayer Mini on the ESP32 (v17) | **Small USB speaker**, same phrases |
+| Night | — | **940 nm IR LEDs**, on automatically at night |
 | LCD | ESP32 I2C | **Pi 5 I2C**, same screens |
 | OBD | ESP32 BLE central | **Pi 5 Bluetooth** directly |
 
@@ -22,7 +24,8 @@ stays as it is (`Esp32/`, `Raspberry/`).
 | **2** | **Camera + face:** dms-face (MediaPipe, 478 landmarks) + mouth/yawn + night, from the two-rig demo | **Done** (laptop / stand-in tested; NoIR arrives 11/8) |
 | 3 | OBD over the Pi 5's own Bluetooth | **Skipped for now:** the first model's ESP32 keeps reading the dongle and shares its driving score |
 | **4** | **Alert score + app:** 0.7 × camera eye + 0.3 × ESP32 driving → levels → outputs, web dashboard | **Done** |
-| 5 | Levels 3-4: voice check-in, rest-stop routing | Later |
+| **R9** | **Rev 9 wiring:** pin map, 14-LED strip on SPI, IR illuminator, spoken alerts | **Done** (sim-tested), see [Docs/wiring.md](Docs/wiring.md) |
+| 5 | Levels 3-4: check-in (button), rest-stop routing | Later |
 
 ## How the pieces connect
 
@@ -37,7 +40,7 @@ stays as it is (`Esp32/`, `Raspberry/`).
    alert score = 0.7 × eye + 0.3 × driving  ◄────────────────────┘ (listen only: Tokyo never writes)
         │
         ▼  level (hysteresis, 3 s hold; dms-face DROWSY forces Level 2)
-   buzzer · 4 motors · 160-LED strip · 16x2 LCD · web dashboard (:8080)
+   buzzer · 4 motors · 14-LED strip · 16x2 LCD · voice · IR (night) · web dashboard (:8080)
 ```
 
 - The ESP32 needs **firmware v16** to share its driving score over Bluetooth
@@ -92,31 +95,34 @@ a score on a boundary does not stutter the outputs.
 Wiring first: [`Docs/wiring.md`](Docs/wiring.md).
 
 ```bash
-cd ~/drifts/Tokyo && bash install.sh        # I2C, PWM overlay, venv, libraries; then reboot
+cd ~/drifts/Tokyo && bash install.sh        # I2C, SPI, PWM overlay, venv, libraries; then reboot
 .venv/bin/python -m tokyo test buzzer
 .venv/bin/python -m tokyo test motors
 .venv/bin/python -m tokyo test strip
 .venv/bin/python -m tokyo test lcd
+.venv/bin/python -m tokyo test ir
+.venv/bin/python -m tokyo test voice           # or: say 4
 .venv/bin/python -m tokyo demo              # score 90 -> 60 -> 35 -> 85, all outputs together
 ```
 Every command also runs on a laptop with `--sim`, printing what each output
 would do (the strip as a text bar).
 
-Settings (pins, motor duty, buzzer type, strip brightness and current cap,
-level bands) are in `tokyo/config.py`; override any of them in `tokyo.toml`.
+Settings (pins, motor duty, buzzer type, strip backend and brightness, IR mode,
+audio device, level bands) are in `tokyo/config.py`; override any of them in `tokyo.toml`.
 
 ## Code
 
 ```
 tokyo/config.py         pin map + settings, tokyo.toml overrides
-tokyo/outputs.py        buzzer (active / passive), motors (kernel hardware PWM, gpiozero fallback)
-tokyo/ledstrip.py       160-LED status + alert-score bar, brightness / current cap, Pi 5 PIO backend
+tokyo/outputs.py        buzzer (active / passive), motors + IR LEDs (kernel hardware PWM, gpiozero fallback)
+tokyo/ledstrip.py       14-LED status pixel + score bar (same frames as the ESP32), SPI (pi5neo) / PIO backends
+tokyo/voice.py          spoken alerts: Voice/phrases.json clips, same rules as the ESP32's DFPlayer
 tokyo/lcd.py            HD44780 + PCF8574 over smbus2; screens identical to the first model
 tokyo/interventions.py  score -> level (hysteresis, hold) -> buzzer / motor patterns
 tokyo/score.py          alert score: 0.7 eye + 0.3 driving, with explicit fallbacks
 tokyo/app.py            python -m tokyo run: face pipeline + score + outputs + dashboard
 tokyo/__main__.py       test / demo / run
-tests/                  21 tests, no hardware
+tests/                  37 tests, no hardware
 ```
 
 The LCD screens were checked against the first model's C++ (`lcd_screen.h`):

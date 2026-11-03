@@ -1,10 +1,20 @@
-# Copy to tokyo.toml and change what you need. Defaults are in tokyo/config.py.
+# Copy to tokyo.toml and change what you need. Defaults are in tokyo/config.py
+# (pins as in the DRIFTS Rev 9 wiring sheet, with the fixes in Docs/wiring.md).
 [motors]
-duty = 0.6            # 3 V motors on 5 V; driver modules: usually 1.0
+duty = 1.0            # 4 motor modules with onboard driver, all IN pins on GPIO 13
 
 [buzzer]
-kind = "active"       # TMB12A03; "passive" for a plain piezo
+kind = "active"       # 3 V magnetic active buzzer on GPIO 18 (on/off only)
 
 [strip]
+backend = "spi"       # pi5neo on GPIO 10; "pio" + pin = N for another GPIO
+count = 14
 brightness = 0.25
-max_current_a = 1.5
+
+[ir]
+mode = "auto"         # on when the camera sees night; "on" / "off"
+duty = 1.0
+
+[voice]
+enabled = true
+device = "auto"       # the USB speaker (first USB card in aplay -l); or e.g. "plughw:CARD=Device,DEV=0"

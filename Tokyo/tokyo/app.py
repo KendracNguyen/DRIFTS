@@ -11,7 +11,8 @@ Data flow (one Pi 5; OBD stays with the first model):
                                                                     ├-> 0.7 eye + 0.3 driving
   first model's ESP32 --BLE telemetry (listen only)--> driving score┘        │
                                                                              v
-          level (hysteresis, hold) -> buzzer / motors / LED strip / LCD + web dashboard
+          level (hysteresis, hold) -> buzzer / motors / LED strip / LCD / voice + web dashboard
+          camera night detection -> IR illuminator (mode auto)
 
 Tokyo never writes to the ESP32 (no EYE, no PING), so the first model's own
 Pi Zero stays the one that steers it. The dashboard is the shared one from
@@ -32,8 +33,9 @@ from tokyo.config import load_config            # noqa: E402
 from tokyo.interventions import Interventions   # noqa: E402
 from tokyo.lcd import Lcd, compose              # noqa: E402
 from tokyo.ledstrip import LedStrip, StripState  # noqa: E402
-from tokyo.outputs import Buzzer, Motors        # noqa: E402
+from tokyo.outputs import Buzzer, IrLight, Motors  # noqa: E402
 from tokyo.score import LEVEL_NAMES, LocalScore  # noqa: E402
+from tokyo.voice import Voice, VoiceInputs      # noqa: E402
 
 
 def on_pi5() -> bool:
@@ -52,9 +54,13 @@ class TokyoOutputs:
         self.iv = Interventions(self.buzzer, self.motors, cfg.buzzer, cfg.motors, cfg.interventions)
         self.strip = LedStrip(cfg.strip, sim)
         self.lcd = Lcd(cfg.lcd.bus, cfg.lcd.addresses, sim=sim) if cfg.lcd.enabled else None
+        self.ir = IrLight(cfg.ir, sim)
+        self.voice = Voice(cfg.voice, sim)
         self.score = LocalScore()
         self._t0 = None
         self._lcd_t = 0.0
+        self._frame_id = None
+        self._frame_t = None
 
     def __call__(self, pipe, now: float) -> None:
         if self._t0 is None:
@@ -67,8 +73,18 @@ class TokyoOutputs:
         drowsy = face.get("state") == "drowsy"        # dms-face fused DROWSY (incl. microsleep)
         lvl = self.iv.tick(now, r.score, alarm=drowsy)
 
+        camera_ok = self._camera_ok(pipe, now)
+        driving_ok = not r.no_driving          # only spoken after it was once there
+        pose = getattr(pipe, "pose", None) or {}
+        spoke = self.voice.update(VoiceInputs(level=lvl, driving_ok=driving_ok, camera_ok=camera_ok,
+                                              calibrated=pose.get("calibrated")), now)
+        if spoke and lvl >= 1:
+            self.iv.mute_buzzer(now + spoke[1] + 0.25)          # words over the alarm, not under it
+        self.ir.set(self.ir.want(bool(face.get("night"))))
+
         self.strip.update(StripState(score=r.score, level=lvl, alarm=lvl >= 2, alarm_since=self.iv.levels.since,
-                                     links_ok=bool(face.get("found")) and not r.no_driving,
+                                     links_ok=camera_ok is not False and not r.no_driving,
+                                     partial=r.partial,
                                      system_issue=bool(face) and not face.get("profile_loaded", True)), now)
         lines = compose(now - self._t0, r.score, lvl, alarm=lvl >= 2, partial=r.partial)
         if self.lcd is not None and now - self._lcd_t >= self.cfg.lcd.refresh_s:
@@ -82,11 +98,23 @@ class TokyoOutputs:
             "level": lvl, "buzzer": self.buzzer.on, "motors": self.motors.on, "drowsy": drowsy,
             "strip_amps": round(self.strip.amps, 2), "lcd": bool(self.lcd and self.lcd.present),
             "driving": r.driving, "no_driving": r.no_driving, "sim": self.sim,
+            "ir": self.ir.on, "voice": self.voice.last, "voice_missing": len(self.voice.missing),
             "source": "Tokyo Pi 5: 0.7 x camera eye + 0.3 x ESP32 driving"}
+
+    def _camera_ok(self, pipe, now: float):
+        """False once no new frame has arrived for link_lost_s; None if unknown."""
+        fid = getattr(pipe, "frame_id", None)
+        if not isinstance(fid, int):
+            return None
+        if fid != self._frame_id:
+            self._frame_id, self._frame_t = fid, now
+        return fid > 0 and now - self._frame_t < self.cfg.voice.link_lost_s
 
     def stop(self) -> None:
         self.iv.stop()
         self.strip.off()
+        self.ir.set(False)
+        self.voice.stop()
 
 
 def run(argv=None) -> int:

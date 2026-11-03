@@ -8,22 +8,23 @@ CFG=/boot/firmware/config.txt
 echo "==> System packages"
 sudo apt-get update -qq
 sudo apt-get install -y -qq python3-venv python3-lgpio python3-gpiozero python3-smbus2 i2c-tools \
-  python3-picamera2 python3-opencv opencv-data python3-numpy bluez git
+  python3-picamera2 python3-opencv opencv-data python3-numpy python3-spidev alsa-utils bluez git
 
-echo "==> I2C and hardware PWM (GPIO 12 motors, GPIO 13 buzzer)"
+echo "==> I2C (LCD), SPI (LED strip on GPIO 10), hardware PWM (GPIO 12 IR LEDs, GPIO 13 motors)"
 grep -q '^dtparam=i2c_arm=on' "$CFG" || echo 'dtparam=i2c_arm=on' | sudo tee -a "$CFG" >/dev/null
+grep -q '^dtparam=spi=on' "$CFG" || echo 'dtparam=spi=on' | sudo tee -a "$CFG" >/dev/null
 grep -q '^dtoverlay=pwm-2chan' "$CFG" || \
   echo 'dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4' | sudo tee -a "$CFG" >/dev/null
-sudo usermod -aG gpio,i2c "$(whoami)"
+sudo usermod -aG gpio,i2c,spi,audio "$(whoami)"
 
 echo "==> PWM sysfs access without sudo"
 echo 'SUBSYSTEM=="pwm*", PROGRAM="/bin/sh -c '"'"'chgrp -R gpio /sys/class/pwm && chmod -R g+w /sys/class/pwm'"'"'"' \
   | sudo tee /etc/udev/rules.d/99-tokyo-pwm.rules >/dev/null
 
-echo "==> LED strip: Pi 5 PIO device (/dev/pio0) access"
+echo "==> LED strip, optional PIO backend (strip.backend = \"pio\"): /dev/pio0 access"
 echo 'SUBSYSTEM=="*-pio", GROUP="gpio", MODE="0660"' | sudo tee /etc/udev/rules.d/99-tokyo-pio.rules >/dev/null
 sudo udevadm control --reload-rules && sudo udevadm trigger || true
-[ -e /dev/pio0 ] || echo "    /dev/pio0 missing: run 'sudo apt full-upgrade' (newer firmware/kernel) and reboot"
+[ -e /dev/pio0 ] || echo "    (only for the pio backend) /dev/pio0 missing: 'sudo apt full-upgrade' and reboot"
 
 echo "==> Python environment"
 # --system-site-packages: gpiozero / lgpio / smbus2 come from apt.
@@ -41,7 +42,8 @@ git -C "$DMS_DIR" fetch -q origin && git -C "$DMS_DIR" checkout -q "$DMS_COMMIT"
 
 echo
 echo "Done. Reboot once (sudo reboot), then:"
-echo "  .venv/bin/python -m tokyo test all                 # outputs"
+echo "  .venv/bin/python -m tokyo test all                 # outputs: buzzer, motors, strip, LCD, IR, voice"
+echo "  aplay -l                                           # the USB speaker should be listed (found automatically)"
 echo "  .venv/bin/python $DMS_DIR/tests/test_core.py       # face pipeline self-test"
 echo "  cd $DMS_DIR && ~/drifts/Tokyo/.venv/bin/python run.py --calibrate --profile <name> --no-display"
 echo "  .venv/bin/python -m tokyo run --profile <name>    # the full app"

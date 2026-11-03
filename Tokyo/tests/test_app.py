@@ -48,11 +48,16 @@ def test_ok_then_levels_then_recovery():
     assert o["level"] == 0 and e["lvl"] == "OK" and abs(e["score"] - (0.7 * 95 + 0.3 * 90)) < 1e-9
     cam.perclos = 0.45                                   # eye 55 -> 0.7*55 + 27 = 65.5
     o, e = tick(out, pipe, cam, 110.0)
-    assert o["level"] == 1 and o["buzzer"] and not o["motors"] and e["lvl"] == "CAUTION"
+    assert o["level"] == 1 and not o["motors"] and e["lvl"] == "CAUTION"
+    assert out.voice.last == "LEVEL1" and not o["buzzer"]           # buzzer waits for the words
+    o, e = tick(out, pipe, cam, 114.0)                                # clip over: 1 s / 1 s pattern
+    assert o["buzzer"]
     assert e["lcd1"] == " INTERVENTION 1 "
     cam.perclos = 0.80                                   # eye 20 -> 41
     o, e = tick(out, pipe, cam, 120.0)
-    assert o["level"] == 2 and o["buzzer"] and o["motors"] and e["alert"] is True
+    assert o["level"] == 2 and o["motors"] and e["alert"] is True and out.voice.last == "LEVEL2"
+    o, e = tick(out, pipe, cam, 124.2)                   # after the 3.4 s warning: buzzer back
+    assert o["buzzer"] and o["motors"]
     cam.perclos = 0.05
     o, e = tick(out, pipe, cam, 130.0)
     assert o["level"] == 0 and not o["buzzer"] and not o["motors"]
@@ -78,3 +83,25 @@ def test_no_face_data_yet():
     cam.perclos = None
     o, e = tick(out, pipe, cam, 1.0)
     assert e["part"] is True and e["score"] == 90        # driving only, as alertness.h
+
+
+def test_voice_ir_and_strip_through_the_app():
+    out, pipe, cam, link = make()
+    pipe.frame_id = 1
+    cam.face["night"] = True
+    o, e = tick(out, pipe, cam, 0.0)
+    assert o["ir"] is True                                     # IR auto: on at night
+    pipe.frame_id = 2
+    tick(out, pipe, cam, 3.5)
+    assert out.voice.last == "READY"
+    cam.perclos = 0.80                                         # -> Level 2
+    pipe.frame_id = 3
+    o, e = tick(out, pipe, cam, 10.0)
+    assert o["level"] == 2 and out.voice.last == "LEVEL2"
+    assert out.iv.mute_until > 10.0 and not o["buzzer"] and o["motors"]   # buzzer holds for the words
+    assert out.strip.dev.last[1:] == [(63, 0, 0)] * 13         # alarm bar, 25 % brightness
+    tick(out, pipe, cam, 20.0)                                 # frames stopped at 10 s
+    tick(out, pipe, cam, 26.0)
+    assert out.voice.last == "CAMERA_LOST"
+    assert out.strip.dev.last[0] in ((63, 0, 0), (0, 0, 0))   # status pixel: red blink
+    out.stop()

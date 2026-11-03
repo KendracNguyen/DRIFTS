@@ -168,8 +168,11 @@ nav a.on{color:var(--maroon);font-weight:600}
   <div class="toggle" style="margin:0"><span><b style="color:var(--ink)">Alarm on this device</b><br>
    <span id="alarm-note">Off · switch on to beep here when fatigue is detected</span></span>
    <label class="sw"><input type="checkbox" id="alarm"><span></span></label></div>
+  <div class="toggle" style="margin:8px 0 0"><span><b style="color:var(--ink)">Speak alerts</b><br>
+   <span>Voice on each level change, as on the car's speaker</span></span>
+   <label class="sw"><input type="checkbox" id="voice" checked><span></span></label></div>
   <div class="btns" style="grid-template-columns:1fr 1fr;margin-top:10px">
-   <button onclick="testLocal()">Test sound here</button><button onclick="beepEsp()">Beep ESP32 buzzer</button></div>
+   <button onclick="testLocal();setTimeout(()=>speak('LEVEL1'),1100)">Test sound here</button><button onclick="beepEsp()">Beep ESP32 buzzer</button></div>
  </div>
  <div class="card iv" id="iv1"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1v-6h3zM3 19a2 2 0 002 2h1v-6H3z"/></svg></div>
   <div class="t"><b>Audio alert</b><small id="p1sub">Piezo · 5 kHz · Level 1</small></div><span class="pill grey" id="p1">STANDBY</span></div>
@@ -282,11 +285,26 @@ function tone(ms){const a=audio();if(!a)return;const o=a.createOscillator(),g=a.
 function buzz(ms){if(navigator.vibrate)navigator.vibrate(ms)}
 function testLocal(){tone(1000);buzz(1000)}
 async function beepEsp(){try{await fetch("/beep",{method:"POST"})}catch(e){}}
+// Spoken alerts, as the ESP32 (DFPlayer) and Tokyo (Pi 5) speak them. Same
+// words as Voice/phrases.json (tests/test_dashboard_voice.py checks they match).
+const SAY={LEVEL1:"You seem tired. Consider taking a break soon.",
+ LEVEL2:"Warning. Signs of drowsiness detected. Please pull over when safe.",
+ RECOVERED:"Alertness back to normal. Thank you."};
+let spokenLvl="OK",lastL2=0,speakingUntil=0;
+function speak(key){if(!window.speechSynthesis)return;const u=new SpeechSynthesisUtterance(SAY[key]);
+ u.rate=1.0;speechSynthesis.cancel();speechSynthesis.speak(u);
+ speakingUntil=Date.now()+SAY[key].length*75+500}          // ~75 ms per character, buzzer waits
+function voiceUpdate(lvl){if(!alarmOn||!$("voice").checked){spokenLvl=lvl;return}
+ const now=Date.now();
+ if(lvl!==spokenLvl){if(lvl==="LOW"){speak("LEVEL2");lastL2=now}
+  else if(lvl==="CAUTION"&&spokenLvl==="OK")speak("LEVEL1");else if(lvl==="OK")speak("RECOVERED");spokenLvl=lvl}
+ else if(lvl==="LOW"&&now-lastL2>=60000){speak("LEVEL2");lastL2=now}}
 function alarmNote(){$("alarm-note").textContent=!alarmOn?"Off · switch on to beep here when fatigue is detected":
- fatigued?"ALARM · fatigue detected":"Armed · beeps 1 s on / 1 s off when fatigue is detected";
+ fatigued?"ALARM · fatigue detected":"Armed · beeps 1 s on / 1 s off"+($("voice").checked?" and speaks":"")+" when fatigue is detected";
  $("alarmcard").style.borderColor=alarmOn&&fatigued?"var(--maroon)":""}
 $("alarm").onchange=e=>{alarmOn=e.target.checked;if(alarmOn)audio();alarmNote()};
-setInterval(()=>{if(!alarmOn||!fatigued){phase=false;return}phase=!phase;if(phase){tone(1000);buzz(1000)}},1000);
+setInterval(()=>{if(!alarmOn||!fatigued){phase=false;return}phase=!phase;
+ if(phase&&Date.now()>=speakingUntil){tone(1000);buzz(1000)}},1000);
 const STATE={OK:"Alert · drive safe",CAUTION:"Moderate fatigue detected",LOW:"Severe fatigue · pull over safely"};
 let hist={score:[],eye:[],rpm:[]};
 async function loadHistory(){try{hist=await (await fetch("/history.json",{cache:"no-store"})).json()}catch(e){}drawCharts()}
@@ -338,6 +356,7 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  $("c-score").textContent=e.warming?"…":fx(e.score);$("c-fps").textContent=fx(e.fps,1)+" fps";
  $("c-sent").textContent=`(${s.eyes_sent} sent)`;$("send").checked=s.eye_sending;
  fatigued=!!live&&(p.lvl==="CAUTION"||p.lvl==="LOW"||!!p.alert);alarmNote();
+ if(live)voiceUpdate(p.alert?"LOW":(p.lvl||"OK"));
  // interventions: ACTIVE only while the ESP32 is actually firing the outputs
  const lvl=p.lvl;
  // Tokyo drives its own outputs: Level 1 = buzzer, Level 2 = buzzer + motors.

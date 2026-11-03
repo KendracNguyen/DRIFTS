@@ -25,3 +25,11 @@ LS1,I2C level shifter,1,Bidirectional BSS138 2-channel 3.3V-5V,Adafruit 757 or S
 U2b,Raspberry Pi 5 (demo rig B),1,4-8 GB; 64-bit OS; Active Cooler,Raspberry Pi 5,0,have,Two-rig demo - Docs/two-rig-demo.md
 U5c,Day/night camera (demo rig B),1,OV5647 auto IR-cut + IR LEDs; M12 lens,Arducam OV5647 Day-Night Vision,25,have,Needs Pi 5 camera cable 22-pin to 15-pin
 W1,Pi 5 camera cable,1,22-pin to 15-pin Standard-Mini,Raspberry Pi Camera Cable Standard-Mini,3,needed,For the Arducam on the Pi 5
+STRIP1,WS2812B LED strip (14 LEDs cut),1,2.7 mm ultra-narrow 160 LED/m 5 V,3.2FT WS2812B 160 LED ultra narrow,12,have,Above the LCD - Docs/led-strip.md; one strip makes pieces for both systems
+U9,74AHCT125 quad buffer,2,3.3 V to 5 V for WS2812B data; DIP-14,TI SN74AHCT125N,1,needed,One for the ESP32 strip one for Tokyo; tie unused inputs to GND
+C5,Electrolytic capacitor,2,1000 uF 10 V,,1,needed,Across strip 5 V/GND at the strip
+R10,Resistor,3,330 ohm 1/4 W (strip data) + 1 k (DFPlayer RX),,0,needed,
+U10,DFPlayer Mini MP3 module,1,UART 9600; 3 W amp; microSD,DFRobot DFR0299 or clone,3,needed,Spoken alerts on the first model - Docs/voice.md
+SPK1,Speaker,1,3 W 4-8 ohm 40 mm,,3,needed,For the DFPlayer (first model)
+SD1,microSD card,1,<= 32 GB FAT32,,5,needed,Holds /mp3/0001.mp3... from Voice/sd_card
+U11,Small USB speaker (Tokyo),1,USB audio class (plays over USB not just powered by it),HONKYOB USB Mini Speaker (Amazon B075M7FHM1),12,ordered,Tokyo voice - no GPIO used; a speaker with only a 3.5 mm plug will NOT work (the Pi 5 has no jack)

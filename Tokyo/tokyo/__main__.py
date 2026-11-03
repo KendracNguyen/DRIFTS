@@ -2,8 +2,11 @@
 
     python -m tokyo test buzzer      # 1 s on/off pattern for 6 s
     python -m tokyo test motors      # 0.5 s on / 0.3 s off for 5 s
-    python -m tokyo test strip       # status, score bar sweep, alarm flash
+    python -m tokyo test strip       # every score band and status pattern (same steps as LEDSTRIP on the ESP32)
     python -m tokyo test lcd         # boot screens, then each level
+    python -m tokyo test ir          # IR illuminator on 3 s
+    python -m tokyo test voice       # every phrase in Voice/phrases.json
+    python -m tokyo say 4            # one phrase by id or name (like SAY:4 on the ESP32)
     python -m tokyo test all
     python -m tokyo demo             # score 90 -> 60 -> 35 -> 85: all outputs together
     add --sim to run anywhere without hardware (prints what would happen)
@@ -22,17 +25,34 @@ from tokyo.config import load_config
 from tokyo.interventions import Interventions
 from tokyo.lcd import Lcd, compose
 from tokyo.ledstrip import LedStrip, StripState
-from tokyo.outputs import Buzzer, Motors
+from tokyo.outputs import Buzzer, IrLight, Motors
+from tokyo.voice import Voice, VoiceInputs
 
 
 def _bar(frame) -> str:
-    """One character per 4 LEDs, for --sim output."""
+    """One character per LED, for --sim output: G / Y / R, . = off."""
     def ch(px):
         r, g, b = px
         if r == g == b == 0:
             return "."
-        return "R" if g < 0.25 * r else "A" if r > g else "G"     # amber = (255, 120, 0)
-    return "".join(ch(frame[i]) for i in range(0, len(frame), 4))
+        return "R" if g < 0.25 * r else "Y" if r > g else "G"
+    return "".join(ch(px) for px in frame)
+
+
+STRIP_STEPS = [   # (label, StripState kwargs) -- same order as the ESP32's LEDSTRIP command
+    ("score 100 green, full bar", dict(score=100)),
+    ("score 85 green", dict(score=85)),
+    ("score 70 green, 3/4 bar", dict(score=70)),
+    ("score 69 yellow", dict(score=69)),
+    ("score 40 yellow, 1/2 bar", dict(score=40)),
+    ("score 39 red", dict(score=39)),
+    ("score 10 red, 1/4 bar", dict(score=10)),
+    ("score 5 critical: whole bar fast red", dict(score=5)),
+    ("score 85 partial: half brightness", dict(score=85, partial=True)),
+    ("alarm: whole bar red 1 s / 1 s", dict(score=30, alarm=True)),
+    ("status: connection failure (red slow)", dict(score=85, links_ok=False)),
+    ("status: system issue (yellow slow)", dict(score=85, system_issue=True)),
+]
 
 
 def _run(seconds: float, step) -> None:
@@ -75,23 +95,45 @@ def test_motors(cfg, sim):
 
 def test_strip(cfg, sim):
     s = LedStrip(cfg.strip, sim)
-    print(f"LED strip GPIO {cfg.strip.pin}: {cfg.strip.count} LEDs, brightness {cfg.strip.brightness:.0%}, "
-          f"cap {cfg.strip.max_current_a} A")
-    phases = [("status OK + bar sweep 0->100", None), ("Level 1 amber bar", None), ("Level 2 red bar", None),
-              ("alarm flash", None), ("link missing (green blinks)", None)]
-    for name, _ in phases:
-        print(f"  {name}")
+    c = cfg.strip
+    where = f"SPI {c.spi_device} (GPIO 10)" if c.backend == "spi" else f"GPIO {c.pin} (PIO)"
+    print(f"LED strip on {where}: {c.count} LEDs, brightness {c.brightness:.0%}")
+    for label, kw in STRIP_STEPS:
+        print(f"  {label}")
         t0 = time.monotonic()
-        while time.monotonic() - t0 < 2.0:
-            t = time.monotonic() - t0
-            st = StripState(score=t / 2 * 100 if name.startswith("status") else 60 if "1" in name else 35,
-                            level=0 if name.startswith("status") else 1 if "1" in name else 2,
-                            alarm=name == "alarm flash", alarm_since=t0, links_ok="missing" not in name)
-            s.update(st, time.monotonic(), force=True)
+        while time.monotonic() - t0 < (0.2 if sim else 1.5):
+            s.update(StripState(alarm_since=t0, **kw), time.monotonic(), force=True)
             time.sleep(0.05)
         if sim:
             print(f"    [{_bar(s.dev.last)}]  ~{s.amps:.2f} A")
     s.off()
+
+
+def test_ir(cfg, sim):
+    ir = IrLight(cfg.ir, sim)
+    print(f"IR illuminator GPIO {cfg.ir.pin}: duty {cfg.ir.duty:.0%} at {cfg.ir.pwm_hz} Hz, on 3 s "
+          "(look through a phone camera: the LEDs glow faintly purple)")
+    ir.set(True)
+    time.sleep(0 if sim else 3.0)
+    ir.set(False)
+
+
+def test_voice(cfg, sim, only=None):
+    v = Voice(cfg.voice, sim)
+    if v.missing:
+        print(f"  missing clips: {', '.join(v.missing)} -- run python Voice/make_clips.py")
+    if not v.player_ok:
+        print(f"  '{cfg.voice.player}' not found: sudo apt install alsa-utils")
+    names = [only] if only else list(v.phrases)
+    for name in names:
+        if not v.say(name):
+            print(f"  unknown phrase {name!r}: use an id or name from Voice/phrases.json")
+            return
+        queued, v.dir.pending = v.dir.pending, None
+        v._play(queued, time.monotonic())
+        print(f"  {v.last:<12} {v.phrases[v.last]['text']}")
+        while v.playing(time.monotonic()) and not sim:
+            time.sleep(0.05)
 
 
 def test_lcd(cfg, sim):
@@ -110,6 +152,7 @@ def demo(cfg, sim):
     iv = Interventions(bz, m, cfg.buzzer, cfg.motors, cfg.interventions)
     strip = LedStrip(cfg.strip, sim)
     lcd = Lcd(cfg.lcd.bus, cfg.lcd.addresses, sim=sim)
+    voice = Voice(cfg.voice, sim)
     script = [(0, 90), (6, 60), (16, 35), (28, 85), (40, None)]
     print("Demo: score 90 -> 60 (Intervention 1) -> 35 (Intervention 2) -> 85 (recovers)")
     t0, last_print = time.monotonic(), -1
@@ -120,6 +163,11 @@ def demo(cfg, sim):
             if score is None:
                 break
             lvl = iv.tick(t, score)
+            spoke = voice.update(VoiceInputs(level=lvl), t)
+            if spoke:
+                print(f"  {t:4.0f} s  voice: \"{voice.phrases[spoke[0]]['text']}\"")
+                if lvl >= 1:
+                    iv.mute_buzzer(t + spoke[1] + 0.25)
             strip.update(StripState(score=score, level=lvl, alarm=lvl >= 2, alarm_since=t0 + iv.levels.since), time.monotonic())
             l1, l2 = compose(t + 5.0, score, lvl, alarm=lvl >= 2)
             lcd.show(l1, l2)
@@ -131,6 +179,7 @@ def demo(cfg, sim):
     finally:
         iv.stop()
         strip.off()
+        voice.stop()
 
 
 def main(argv=None) -> int:
@@ -138,9 +187,17 @@ def main(argv=None) -> int:
     if argv[:1] == ["run"]:
         from tokyo.app import run
         return run(argv[1:])
+    if argv[:1] == ["say"]:
+        sim = "--sim" in argv
+        rest = [a for a in argv[1:] if a != "--sim"]
+        if len(rest) != 1:
+            print("usage: python -m tokyo say <id|NAME> [--sim]")
+            return 2
+        test_voice(load_config(), sim, only=rest[0].upper() if not rest[0].isdigit() else int(rest[0]))
+        return 0
     ap = argparse.ArgumentParser(prog="python -m tokyo", description="Tokyo (Pi 5) hardware tool")
     ap.add_argument("cmd", choices=["test", "demo"])
-    ap.add_argument("what", nargs="?", default="all", choices=["buzzer", "motors", "strip", "lcd", "all"])
+    ap.add_argument("what", nargs="?", default="all", choices=["buzzer", "motors", "strip", "lcd", "ir", "voice", "all"])
     ap.add_argument("--sim", action="store_true", help="no hardware: print what would happen")
     ap.add_argument("--config", help="path to tokyo.toml")
     args = ap.parse_args(argv)
@@ -148,7 +205,8 @@ def main(argv=None) -> int:
     if args.cmd == "demo":
         demo(cfg, args.sim)
         return 0
-    tests = {"buzzer": test_buzzer, "motors": test_motors, "strip": test_strip, "lcd": test_lcd}
+    tests = {"buzzer": test_buzzer, "motors": test_motors, "strip": test_strip, "lcd": test_lcd,
+             "ir": test_ir, "voice": test_voice}
     for name in (tests if args.what == "all" else [args.what]):
         tests[name](cfg, args.sim)
         print()

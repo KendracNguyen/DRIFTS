@@ -11,15 +11,19 @@ import pytest
 from tokyo.config import Config, InterventionConfig, StripConfig, load_config
 from tokyo.interventions import Interventions, LevelTracker, pattern_on
 from tokyo.lcd import COLS, Lcd, compose
-from tokyo.ledstrip import AMBER, GREEN, OFF, RED, StripState, apply_limits, estimate_current_a, render
-from tokyo.outputs import Buzzer, Motors, SysfsPwm
+from tokyo.ledstrip import (GREEN, OFF, RED, YELLOW, StripState, apply_limits, bar_lit, estimate_current_a,
+                            render)
+from tokyo.outputs import Buzzer, IrLight, Motors, SysfsPwm
+from tokyo.voice import VoiceDirector, VoiceInputs, load_phrases
 
 
 # ------------------------------------------------------------------ config
 def test_config_defaults_and_override(tmp_path):
     cfg = Config()
-    assert (cfg.motors.pin, cfg.buzzer.pin, cfg.strip.pin) == (12, 13, 18)
-    assert cfg.strip.count == 160 and cfg.buzzer.on_s == 1.0 and cfg.buzzer.off_s == 1.0
+    # Rev 9 wiring: motors 13, buzzer 18, strip SPI MOSI 10, IR 12
+    assert (cfg.motors.pin, cfg.buzzer.pin, cfg.strip.pin, cfg.ir.pin) == (13, 18, 10, 12)
+    assert cfg.strip.count == 14 and cfg.strip.backend == "spi" and cfg.buzzer.kind == "active"
+    assert cfg.buzzer.on_s == 1.0 and cfg.buzzer.off_s == 1.0 and cfg.motors.duty == 1.0
     f = tmp_path / "tokyo.toml"
     f.write_text("[motors]\nduty = 1.0\n[strip]\nbrightness = 0.1\n[lcd]\naddresses = [63]\n")
     c = load_config(f)
@@ -68,7 +72,7 @@ def test_motors_and_buzzer_sim():
     cfg = Config()
     m = Motors(cfg.motors, sim=True)
     m.set(True)
-    assert m.on and m.pwm.duty == 0.6 and m.pwm.hz == 20000
+    assert m.on and m.pwm.duty == 1.0 and m.pwm.hz == 20000
     m.set(False)
     assert not m.on and m.pwm.duty == 0.0
     b = Buzzer(cfg.buzzer, sim=True)                      # active: on/off
@@ -84,31 +88,106 @@ def test_motors_and_buzzer_sim():
 
 
 # ------------------------------------------------------------------ LED strip
-def test_render_layout():
-    cfg = StripConfig(count=40, status_leds=8)
-    f = render(StripState(score=50, level=1), cfg, now=0.1)
-    assert f[:8] == [GREEN] * 8 and f[8] == OFF               # status + gap
-    bar = f[9:]
-    assert bar.count(AMBER) == round(31 * 0.5) and bar[-1] == OFF
-    full = render(StripState(score=100, level=0), cfg, 0.1)
-    assert full[9:] == [GREEN] * 31
-    low = render(StripState(score=20, level=2), cfg, 0.1)
-    assert RED in low
+# Same table as Esp32/test/test_strip_voice.cpp: both systems light the same LEDs.
+STRIP_TABLE = [(100, 13, GREEN), (85, 11, GREEN), (70, 10, GREEN),
+               (69, 10, YELLOW), (55, 8, YELLOW), (40, 7, YELLOW),
+               (39, 6, RED), (25, 5, RED), (10, 3, RED)]
+
+
+@pytest.mark.parametrize("score,lit,colour", STRIP_TABLE)
+def test_render_bands_match_esp32(score, lit, colour):
+    f = render(StripState(score=score), StripConfig(), now=0.1)
+    assert len(f) == 14 and f[0] == GREEN
+    bar = f[1:]
+    assert bar[:lit] == [colour] * lit and bar[lit:] == [OFF] * (13 - lit)
+
+
+def test_render_bar_never_shrinks_as_score_rises():
+    assert all(bar_lit(s + 1, 13) >= bar_lit(s, 13) for s in range(10, 100))
+
+
+def test_render_critical_partial_and_no_score():
+    cfg = StripConfig()
+    on, off = render(StripState(score=5), cfg, 0.1), render(StripState(score=5), cfg, 0.2)
+    assert on[1:] == [RED] * 13 and off[1:] == [OFF] * 13          # 4 Hz
+    half = render(StripState(score=85, partial=True), cfg, 0.1)
+    assert half[1] == (0, 127, 20) and half[1:].count(OFF) == 2
+    assert render(StripState(score=None), cfg, 0.1)[1:] == [OFF] * 13
 
 
 def test_render_alarm_flash_in_phase_with_buzzer():
-    cfg = StripConfig(count=20, status_leds=4)
+    cfg = StripConfig()
     on = render(StripState(score=30, level=2, alarm=True, alarm_since=10.0), cfg, now=10.5)
     off = render(StripState(score=30, level=2, alarm=True, alarm_since=10.0), cfg, now=11.5)
-    assert on[5:] == [RED] * 15 and off[5:] == [OFF] * 15
+    assert on[1:] == [RED] * 13 and off[1:] == [OFF] * 13
 
 
-def test_render_status_blinks():
-    cfg = StripConfig(count=20, status_leds=4)
-    missing = [render(StripState(links_ok=False), cfg, t)[0] for t in (0.1, 0.6)]
-    assert missing == [GREEN, OFF]
-    issue = render(StripState(system_issue=True), cfg, 0.1)[0]
-    assert issue == AMBER
+def test_render_status_pixel():
+    cfg = StripConfig()
+    lost = [render(StripState(links_ok=False, system_issue=True), cfg, t)[0] for t in (0.1, 0.6)]
+    assert lost == [RED, OFF]                       # connection failure wins
+    assert render(StripState(system_issue=True), cfg, 0.1)[0] == YELLOW
+    assert render(StripState(), cfg, 0.6)[0] == GREEN
+
+
+def test_ir_modes():
+    cfg = Config()
+    ir = IrLight(cfg.ir, sim=True)
+    assert ir.want(night=True) and not ir.want(night=False)       # auto
+    ir.set(True)
+    assert ir.on and ir.pwm.hz == 25000 and ir.pwm.duty == 1.0
+    cfg.ir.mode = "off"
+    assert not ir.want(night=True)
+
+
+# ------------------------------------------------------------------ voice
+def test_phrases_and_clips_exist():
+    ph = load_phrases()
+    assert ph["LEVEL2"]["id"] == 4 and ph["READY"]["id"] == 1
+    clips = Path(__file__).resolve().parents[2] / "Voice" / "clips"
+    for name, p in ph.items():
+        assert (clips / f"{p['id']:02d}_{name}.wav").exists(), name
+
+
+def test_voice_director_levels():
+    d = VoiceDirector(repeat_s=60, link_lost_s=5)
+    assert d.update(VoiceInputs(), 0.0, False) is None
+    assert d.update(VoiceInputs(), 3.0, False) == "READY"
+    assert d.update(VoiceInputs(level=1), 10.0, False) == "LEVEL1"
+    assert d.update(VoiceInputs(level=2), 10.1, True) is None          # waits for the clip
+    assert d.update(VoiceInputs(level=2), 13.0, False) == "LEVEL2"
+    assert d.update(VoiceInputs(level=2), 43.0, False) is None
+    assert d.update(VoiceInputs(level=2), 73.5, False) == "LEVEL2"     # repeats each minute
+    assert d.update(VoiceInputs(level=1), 74.0, False) is None
+    assert d.update(VoiceInputs(level=0), 75.0, False) == "RECOVERED"
+
+
+def test_voice_director_links_and_calibration():
+    d = VoiceDirector(link_lost_s=5)
+    d.update(VoiceInputs(), 0.0, False)
+    d.update(VoiceInputs(), 3.0, False)                                 # READY
+    assert d.update(VoiceInputs(driving_ok=False, camera_ok=False), 20.0, False) is None   # never seen
+    d.update(VoiceInputs(driving_ok=True, camera_ok=True, calibrated=False), 21.0, False)
+    assert d.update(VoiceInputs(driving_ok=True, camera_ok=True, calibrated=True), 22.0, False) == "CALIBRATED"
+    d.update(VoiceInputs(driving_ok=False, camera_ok=True), 23.0, False)
+    assert d.update(VoiceInputs(driving_ok=False, camera_ok=True), 28.0, False) == "OBD_LOST"
+    d.update(VoiceInputs(driving_ok=False, camera_ok=False), 29.0, False)
+    assert d.update(VoiceInputs(driving_ok=False, camera_ok=False), 34.0, False) == "CAMERA_LOST"
+    assert d.update(VoiceInputs(driving_ok=False, camera_ok=False), 90.0, False) is None    # once
+
+
+def test_buzzer_holds_off_while_speaking():
+    cfg = Config()
+    b, m = Buzzer(cfg.buzzer, sim=True), Motors(cfg.motors, sim=True)
+    iv = Interventions(b, m, cfg.buzzer, cfg.motors, InterventionConfig(min_hold_s=0))
+    iv.tick(0.0, 40)
+    assert b.on and m.on
+    iv.mute_buzzer(3.5)
+    iv.tick(0.2, 40)
+    assert not b.on and m.on                         # words over the alarm; motors continue
+    iv.tick(4.1, 40)
+    assert b.on                                      # rejoins the 1 s / 1 s pattern
+    iv.stop()
 
 
 def test_current_cap():
@@ -186,3 +265,12 @@ def test_lcd_writes_only_changes():
     assert lcd.show("ALERT     87/100", "   Drive Safe   ") == 20     # non-blank characters
     assert lcd.show("ALERT     86/100", "   Drive Safe   ") == 1
     assert lcd.show("ALERT     86/100", "   Drive Safe   ") == 0
+
+
+def test_voice_finds_the_usb_speaker():
+    from tokyo.voice import find_usb_card
+    out = ("**** List of PLAYBACK Hardware Devices ****\n"
+           "card 0: vc4hdmi0 [vc4-hdmi-0], device 0: MAI PCM i2s-hifi-0 [MAI PCM i2s-hifi-0]\n"
+           "card 2: Device [USB2.0 Device], device 0: USB Audio [USB Audio]\n")
+    assert find_usb_card(out) == "plughw:CARD=Device,DEV=0"
+    assert find_usb_card("card 0: vc4hdmi0 [vc4-hdmi-0], device 0: MAI PCM\n") is None

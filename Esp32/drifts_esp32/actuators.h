@@ -21,6 +21,10 @@ void updateActuators();
 void startAlert();
 void stopAll();
 bool isAlertActive();
+uint32_t alertStartMs();          // millis() when the current alert began (LED strip phase)
+// Hold the alert buzzer off for ms (a voice clip is playing). No effect
+// outside an alert; the motors are not affected.
+void muteBuzzerFor(uint32_t ms);
 
 // Pin test: hold the motor at DROWSY_VIB_DUTY for motorMs and the buzzer on
 // for buzzerMs (alert tone, or DC across the piezo when buzzerDc). Cancels any alert

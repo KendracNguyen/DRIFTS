@@ -25,6 +25,9 @@
     BRAKE         inject one harsh-brake event
     STATUS        print the current state
     LEDS          cycle every LED pattern (wiring check)
+    LEDSTRIP      step the WS2812B strip through every band and status pattern
+    SAY:<n>       speak voice clip n (Voice/phrases.json; also accepted over BLE)
+    VOICE         DFPlayer status
     SCORE <n>     force the alert score to n (0-100) for 30 s; SCORE OFF ends it
     EYE:<n>       eye score 0-100, as the Pi will send it (also accepted over BLE)
     DRV:s:t:b     simulator driving sample (reserved for the Logitech G29; stored only)
@@ -37,6 +40,8 @@
 #include "piezo.h"
 #include "alertness.h"
 #include "status_leds.h"
+#include "led_strip.h"
+#include "voice.h"
 #include "lcd_i2c.h"
 #include "ble_hub.h"
 #include "obd_ble.h"
@@ -92,6 +97,8 @@ void setup() {
 
     Leds.begin();   // lamp test: all three LEDs on for LED_LAMP_TEST_MS
     Lcd.begin();    // "Welcome to DRIFTS", then "Drive Safe", then the live score
+    Strip.begin();  // white sweep, then status pixel + score bar
+    Voice.begin();  // DFPlayer: "DRIFTS ready" a few seconds after boot
 
     initActuators();
     Serial.println("[MAIN] Actuators ready");
@@ -123,7 +130,7 @@ void setup() {
                       MIN_SPEED_KPH, GATE_COVERAGE * 100.0f);
     }
 
-    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / LEDS / SCORE n / LCD / I2C SCAN / SWEEP / BEEP");
+    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / LEDS / LEDSTRIP / SCORE n / LCD / I2C SCAN / SWEEP / BEEP / SAY:n / VOICE");
 #if PIEZO_SWEEP_TEST
     piezoSweepStart();
 #endif
@@ -159,6 +166,8 @@ static void printStatus() {
                   GATE_BENCH_MODE ? "bench mode" : (!imuPresent ? "IMU missing" : "none"),
                   Lcd.present() ? "on" : "absent");
     if (Lcd.present()) Serial.printf("[LCD] |%s| |%s|\n", Lcd.line1(), Lcd.line2());
+    Serial.printf("[STRIP] %s | bar %d/%d LEDs\n", Strip.present() ? "on" : "off", Strip.lit(), STRIP_BAR_LEN);
+    Voice.printStatus();
 }
 
 // EYE:<n> and DRV:s:t:b, from the Pi over BLE or typed on the console.
@@ -252,6 +261,12 @@ static void handleSerial() {
         i2cScan();
     } else if (cmd.equalsIgnoreCase("LEDS")) {
         Leds.startSelfTest(millis());
+    } else if (cmd.equalsIgnoreCase("LEDSTRIP")) {
+        Strip.startSelfTest(millis());
+    } else if (Voice.trySayCommand(cmd.c_str(), "serial")) {
+        // handled
+    } else if (cmd.equalsIgnoreCase("VOICE")) {
+        Voice.printStatus();
     } else if (cmd.equalsIgnoreCase("SCORE OFF")) {
         alertScore.clearForce();
         Serial.println("[SCORE] Override off");
@@ -357,6 +372,8 @@ void loop() {
             piStatus = "not_drowsy";
             Hub.setPiIdle();
             enterIdle("Pi reported NOT_DROWSY");
+        } else if (Voice.trySayCommand(result.c_str(), "BLE")) {
+            // handled: the Pi says CALIBRATED / CAMERA_LOST this way
         } else if (tryBeep(result, "BLE")) {
             // handled
         } else if (tryPinTest(result, "Pi")) {
@@ -426,6 +443,22 @@ void loop() {
     ledIn.alertActive = isAlertActive();
     ledIn.level = alertScore.level();
     Leds.update(ledIn, now);
+
+    StripInputs stripIn;
+    stripIn.score = alertScore.score();
+    stripIn.partial = alertScore.partial();
+    stripIn.alarm = isAlertActive();
+    stripIn.alarmStartMs = alertStartMs();
+    stripIn.linksOk = ledIn.dongleOk && ledIn.piOk;
+    stripIn.systemIssue = ledIn.systemIssue;
+    Strip.update(stripIn, now);
+
+    VoiceInputs voiceIn;
+    voiceIn.level = alertScore.level();
+    voiceIn.alertActive = isAlertActive();
+    voiceIn.dongleOk = ledIn.dongleOk;
+    voiceIn.piOk = ledIn.piOk;
+    Voice.service(voiceIn, now);
 
     ScreenView screen;
     screen.score = alertScore.score();

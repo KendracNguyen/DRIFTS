@@ -16,7 +16,7 @@
 
 // Printed at boot and by STATUS, so the flashed image can be identified.
 // Matches the drifts_c6_8M_uartchip_<version>.bin file name.
-#define DRIFTS_FW_VERSION "v16"
+#define DRIFTS_FW_VERSION "v17"
 
 // ---------------------------------------------------------------
 // Pin assignments  --  TARGET: ESP32-C6-WROOM-1
@@ -71,6 +71,24 @@ constexpr int LED_RED_PIN    = 4;   // drowsiness
 // the LEDs where a passenger sees them rather than the driver.
 constexpr int LED_BRIGHTNESS = 255;
 constexpr uint32_t LED_LAMP_TEST_MS = 1000;   // all on at power-up
+
+// WS2812B strip, 14 LEDs above the LCD (led_strip.h, Docs/led-strip.md).
+// GPIO 23 -> 74AHCT125 (3.3 V -> 5 V) -> 330 R -> strip DIN. The strip runs
+// from the 5 V rail with 1000 uF across it at the strip end; GND common.
+// Never feed DIN straight from the C6: WS2812B needs >= 3.5 V for a 1.
+constexpr bool STRIP_ENABLED = true;
+constexpr int STRIP_PIN = 23;
+// 0-255 on top of the frame colours. 64 = 25 %: 14 LEDs then draw < 0.25 A
+// and do not dazzle at night.
+constexpr int STRIP_BRIGHTNESS = 64;
+
+// DFPlayer Mini for spoken alerts (voice.h, Docs/voice.md). UART1, 9600 baud.
+// GPIO 19 -> 1 k -> DFPlayer RX (the 1 k stops the 5 V module's input
+// clamping the C6 pin and removes a hiss); DFPlayer TX -> GPIO 20.
+constexpr bool VOICE_ENABLED = true;
+constexpr int VOICE_TX_PIN = 19;
+constexpr int VOICE_RX_PIN = 20;
+constexpr int VOICE_VOLUME = 25;   // 0-30
 
 // MPU-6050 on the I2C bus. See "Longitudinal acceleration" below for why
 // the IMU lives on the ESP32 rather than on the Pi.

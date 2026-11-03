@@ -1,0 +1,21 @@
+{
+  "_comment": "DRIFTS voice phrases, shared by the first model (ESP32 + DFPlayer Mini) and Tokyo (Pi 5). The id is the clip number on both: never renumber, only add. Edit the text, then run: python Voice/make_clips.py",
+  "voice": {
+    "model": "en_US-libritts_r-medium",
+    "speaker": 0,
+    "length_scale": 1.05,
+    "_license": "Piper voice en_US-libritts_r-medium, trained on LibriTTS-R (CC BY 4.0)"
+  },
+  "phrases": [
+    {"id": 1,  "name": "READY",       "text": "DRIFTS ready. Drive safe."},
+    {"id": 2,  "name": "CALIBRATED",  "text": "Calibration complete."},
+    {"id": 3,  "name": "LEVEL1",      "text": "You seem tired. Consider taking a break soon."},
+    {"id": 4,  "name": "LEVEL2",      "text": "Warning. Signs of drowsiness detected. Please pull over when safe."},
+    {"id": 5,  "name": "RECOVERED",   "text": "Alertness back to normal. Thank you."},
+    {"id": 6,  "name": "OBD_LOST",    "text": "Vehicle data connection lost."},
+    {"id": 7,  "name": "PI_LOST",     "text": "Camera unit disconnected."},
+    {"id": 8,  "name": "CAMERA_LOST", "text": "Camera not detected."},
+    {"id": 9,  "name": "CHECK_IN",    "text": "Are you okay? Press the button to confirm."},
+    {"id": 10, "name": "TEST",        "text": "This is a DRIFTS voice test."}
+  ]
+}

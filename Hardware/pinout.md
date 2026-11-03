@@ -25,6 +25,9 @@ CH343 USB chip place pins differently from the Espressif DevKitC.
 | **GPIO 18** | Piezo LS1 pin 2 (neither leg to GND) | R7 100 Ω | `PIEZO_B_PIN` — same signal as 11, inverted |
 | **GPIO 21** | MPU-6050 SDA **and** level shifter LV1 | — | `IMU_SDA_PIN` |
 | **GPIO 22** | MPU-6050 SCL **and** level shifter LV2 | — | `IMU_SCL_PIN` |
+| **GPIO 23** | LED strip DIN (14 × WS2812B) | **74AHCT125** + 330 Ω | `STRIP_PIN`, see [Docs/led-strip.md](../Docs/led-strip.md) |
+| **GPIO 19** | DFPlayer Mini RX | 1 kΩ | `VOICE_TX_PIN`, see [Docs/voice.md](../Docs/voice.md) |
+| **GPIO 20** | DFPlayer Mini TX | — | `VOICE_RX_PIN` |
 
 ## LCD wiring, pin by pin
 
