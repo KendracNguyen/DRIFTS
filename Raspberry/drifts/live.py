@@ -7,6 +7,8 @@ training-frame capture, served as a web page.
     sudo systemctl stop drifts && python -m drifts.live --esp ble
     # No hardware at all:
     python -m drifts.live --esp sim
+    # All eight face signals + the dev view (laptop webcam first, then the Pi):
+    python -m drifts.live --face mesh --camera 0 --esp sim      # see Docs/dev-view.md
 
 Then open http://localhost:8080 (or http://<pi-address>:8080 from a phone on
 the same network).
@@ -40,6 +42,7 @@ from urllib.parse import parse_qs, urlparse
 from drifts.camera import Camera
 from drifts.config import load_config
 from drifts.esp_link import make_link
+from drifts.facemesh import LAYERS as DEV_LAYERS
 from drifts.eyes import CLOSED, NO_FACE, OPEN, EyeObservation, EyeTracker, PerclosWindow, eye_score
 from drifts.headpose import AttentionTracker, Calibration, HeadPose, estimate
 from drifts.perf import PerfMonitor, capability
@@ -136,7 +139,15 @@ class Pipeline:
         # Head pose + road attention from camera keypoints (AI Camera or simulated),
         # or from the Pi 5 face backend.
         self.pose_on = args.pose != "off" or self.face_on
-        self.backend = "mediapipe" if self.face_on else args.pose
+        self.backend = getattr(camera, "backend", "mediapipe") if self.face_on else args.pose
+        # Dev view: the full-analysis overlay and close-ups are drawn only while
+        # someone is watching them (they cost CPU on a Pi Zero).
+        self.dev_capable = hasattr(camera, "render_dev")
+        self.dev_until = 0.0
+        self.dev_layers = set(DEV_LAYERS)
+        self.dev_jpeg: Optional[bytes] = None
+        self.zoom_jpeg: Optional[bytes] = None
+        self.dev_id = 0
         self.perf = PerfMonitor()
         # Extension points (Tokyo uses them): per-frame callbacks f(pipe, now),
         # extra status fields, and fields overlaid on the ESP32 snapshot (e.g.
@@ -361,6 +372,15 @@ class Pipeline:
                 if now - self._perf_t >= 2.0:
                     self._perf, self._perf_t = self.perf.snapshot(), now
                 jpeg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 70])[1].tobytes()
+                if self.dev_capable and now < self.dev_until:
+                    raw = getattr(self.camera, "last_frame", None)
+                    if raw is not None:
+                        dev = self.camera.render_dev(raw, self.dev_layers, mirror=self.args.mirror)
+                        zoom = self.camera.render_zoom(raw)
+                        dj = cv2.imencode(".jpg", dev, [cv2.IMWRITE_JPEG_QUALITY, 80])[1].tobytes()
+                        zj = cv2.imencode(".jpg", zoom, [cv2.IMWRITE_JPEG_QUALITY, 85])[1].tobytes()
+                        with self._lock:
+                            self.dev_jpeg, self.zoom_jpeg, self.dev_id = dj, zj, self.dev_id + 1
                 if not self.history or now - self.history[-1][0] >= 1.0:
                     esp = {**self.link.snapshot(), **self.esp_override}
                     self.history.append((round(now, 1), esp["score"], score, esp["rpm"], self.pose["yaw"]))
@@ -383,6 +403,7 @@ class Pipeline:
             "eye": eye, "eye_sending": self.send_eye, "eyes_sent": self.link.eyes_sent,
             "eye_tracker": self.tracker is not None or self.face_on, "pose": dict(self.pose),
             "face": dict(self.camera.face) if self.face_on else None,
+            "dev": {"capable": self.dev_capable, "layers": sorted(self.dev_layers)},
             "rig": {"name": self.args.rig_name or self._perf["model"], "backend": self.backend,
                     "fps": eye["fps"], "inference_ms": getattr(self.camera, "inference_ms", None),
                     "perf": self._perf, **capability(self.backend)},
@@ -424,6 +445,28 @@ def make_handler(pipe: Pipeline):
                 self._send(200, PAGE_FILE.with_name("compare.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/status.json":
                 self._send(200, json.dumps(pipe.status()).encode(), "application/json")
+            elif path in ("/dev.mjpg", "/zoom.mjpg"):
+                if not pipe.dev_capable:
+                    self._send(404, b"dev view needs --face mesh", "text/plain")
+                    return
+                attr = "dev_jpeg" if path == "/dev.mjpg" else "zoom_jpeg"
+                self.send_response(200)
+                self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                last = -1
+                try:
+                    while True:
+                        pipe.dev_until = time.time() + 3.0       # keep rendering while watched
+                        with pipe._lock:
+                            jpeg, fid = getattr(pipe, attr), pipe.dev_id
+                        if jpeg is not None and fid != last:
+                            last = fid
+                            self.wfile.write(b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                                             + str(len(jpeg)).encode() + b"\r\n\r\n" + jpeg + b"\r\n")
+                        time.sleep(0.03)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
             elif path == "/stream.mjpg":
                 self.send_response(200)
                 self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
@@ -457,6 +500,12 @@ def make_handler(pipe: Pipeline):
             elif u.path == "/beep":
                 pipe.link.send_command("BEEP")      # ESP32 firmware v15+: one 1 s beep
                 self._send(200, b"ok", "text/plain")
+            elif u.path == "/glasses" and hasattr(pipe.camera, "set_glasses_mode"):
+                pipe.camera.set_glasses_mode(q.get("mode", ["auto"])[0])
+                self._send(200, b"ok", "text/plain")
+            elif u.path == "/dev_layers":
+                pipe.dev_layers = {k for k in DEV_LAYERS if q.get(k, ["1"])[0] == "1"}
+                self._send(200, b"ok", "text/plain")
             elif u.path == "/eye_send":
                 pipe.send_eye = q.get("on", ["1"])[0] == "1"
                 self._send(200, b"ok", "text/plain")
@@ -482,8 +531,12 @@ def build_parser(prog: str = "python -m drifts.live") -> argparse.ArgumentParser
     p.add_argument("--pitch-limit", type=float, default=20.0, help="off road beyond this pitch (deg)")
     p.add_argument("--calib-frames", type=int, default=30, help="frames averaged for the road pose")
     p.add_argument("--no-eyes", action="store_true", help="skip the Haar eye tracker (saves CPU on a Pi Zero)")
-    p.add_argument("--face", choices=["off", "mediapipe"], default="off",
-                   help="mediapipe = Pi 5 rig: all eight signals via dms-face (one MediaPipe inference/frame)")
+    p.add_argument("--face", choices=["off", "mesh", "mediapipe"], default="off",
+                   help="mesh = all eight signals from MediaPipe's face landmarker (laptop, Pi Zero 2 W, Pi 5), "
+                        "with the dev view; mediapipe = Pi 5 rig via dms-face")
+    p.add_argument("--face-model", default=None, help="face_landmarker.task (default: downloaded to Raspberry/models)")
+    p.add_argument("--glasses", choices=["auto", "on", "off"], default="auto",
+                   help="--face mesh: glasses detection (on = always lean on head pose)")
     p.add_argument("--dms-dir", default=None, help="dms-face checkout (default ~/dms-face or $DMS_FACE_DIR)")
     p.add_argument("--profile", default="default", help="dms-face driver profile (run.py --calibrate)")
     p.add_argument("--ir", choices=["auto", "on", "off"], default="auto",
@@ -526,7 +579,11 @@ def build(args) -> Pipeline:
             camera = VideoSource(args.video, fps=args.video_fps)
         else:
             camera = Camera(cfg.camera, device=args.camera, use_picamera=not args.no_picamera)
-        if args.face == "mediapipe":
+        if args.face == "mesh":
+            from drifts.facemesh import FaceMeshSource
+            camera = FaceMeshSource(camera=camera, model=args.face_model, ir=args.ir, yaw_sign=args.yaw_sign,
+                                    glasses=args.glasses)
+        elif args.face == "mediapipe":
             from drifts.face_mediapipe import DEFAULT_DMS_DIR, Pi5FaceSource
             camera = Pi5FaceSource(dms_dir=args.dms_dir or DEFAULT_DMS_DIR, profile=args.profile,
                                    camera=camera, ir=args.ir, yaw_sign=args.yaw_sign)

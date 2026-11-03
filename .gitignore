@@ -16,3 +16,6 @@ Esp32/test/test_strip_voice
 
 # arduino-cli build output
 Esp32/drifts_esp32/build/
+
+# downloaded model files
+Raspberry/models/

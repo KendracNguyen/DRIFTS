@@ -71,6 +71,8 @@ CAPABILITY = {
                "yawn": "none", "mouth": "none", "ear": "none", "blink": "none"},
     # Pi 5 + OV5647 day/night: 478 MediaPipe landmarks incl. iris (dms-face + mouth.py).
     "mediapipe": {k: "live" for k, _ in SIGNALS},
+    # First model with the face mesh (facemesh.py): MediaPipe Face Landmarker, any camera.
+    "mesh": {k: "live" for k, _ in SIGNALS},
     # Development: scripted head, Haar eye estimate.
     "sim": {"off_road_gaze": "proxy", "yaw": "live", "roll": "live", "pitch": "rough",
             "yawn": "none", "mouth": "none", "ear": "none", "blink": "none"},
