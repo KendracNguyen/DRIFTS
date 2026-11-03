@@ -176,6 +176,8 @@ class Pipeline:
         self._stop = threading.Event()
         self._burst: list[str] = []
         self.started = time.time()
+        self.error: Optional[str] = None          # why the camera thread stopped, for the page
+        self.camera_note: Optional[str] = None    # e.g. "no webcam found: showing a blank image"
         # 1 Hz session history for the History tab: (t, alert score, eye score, rpm)
         self.history: list[tuple] = []
 
@@ -317,8 +319,18 @@ class Pipeline:
         return img
 
     def _run(self) -> None:
+        try:
+            self._loop()
+        except Exception as exc:
+            # Without this the camera thread dies silently and the page just
+            # shows a black feed at 0 fps. Say why, in the log and on the page.
+            log.exception("Camera pipeline stopped")
+            self.error = f"{type(exc).__name__}: {exc}"
+
+    def _loop(self) -> None:
         import cv2
         self.camera.start()
+        self.camera_note = describe_camera(self.camera)
         last_send = 0.0
         t_fps, n_fps = time.time(), 0
         try:
@@ -412,7 +424,17 @@ class Pipeline:
             "capture": {"session": self.capture.session, "counts": self.capture.counts,
                         "dir": str(self.capture.root.resolve()), "pending": len(self._burst)},
             "window_s": self.args.window, "time": time.time(), "started": self.started,
+            "error": self.error, "camera_note": self.camera_note,
         }
+
+
+def describe_camera(cam) -> Optional[str]:
+    """A warning for the page when there is no real camera behind the source."""
+    inner = getattr(cam, "camera", cam)
+    if getattr(inner, "_picam2", None) is None and getattr(inner, "_cv_cap", "n/a") is None:
+        return ("No webcam opened, so this is a blank test image. Close other apps using the camera "
+                "(Zoom, Teams, the Windows Camera app, another browser tab), or try --camera 1.")
+    return None
 
 
 def make_handler(pipe: Pipeline):

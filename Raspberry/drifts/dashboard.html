@@ -38,6 +38,8 @@ margin:18px 4px 8px}
 padding:6px 9px;border-radius:6px}
 .feed{position:relative;border-radius:12px;overflow:hidden;background:#1a1012;aspect-ratio:4/3}
 .feed img{width:100%;height:100%;object-fit:contain;display:block}
+.feed .msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;text-align:center;
+color:#f3dfe2;font-size:13px;line-height:1.5;background:rgba(26,16,18,.82)}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .chip{font-size:12px;padding:4px 10px;border-radius:99px;background:var(--soft);border:1px solid var(--line);color:var(--ink)}
 .chip b{color:var(--maroon)}
@@ -174,7 +176,7 @@ border-radius:10px;padding:8px 12px;margin-top:8px;color:var(--ink);overflow-x:a
 
  <div class="sec">Driver camera</div>
  <div class="card">
-  <div class="feed"><img src="/stream.mjpg" alt="Live driver camera"></div>
+  <div class="feed"><img src="/stream.mjpg" alt="Live driver camera"><div class="msg" id="feedmsg" style="display:none"></div></div>
   <div class="chips">
    <span class="chip" id="c-eyes">Eyes --</span>
    <span class="chip">PERCLOS <b id="c-per">--</b></span>
@@ -429,6 +431,7 @@ const skipNull=a=>a.filter(v=>v!=null);
 let last=0;
 async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-store"})).json()}
  catch(e){$("linktxt").textContent="dashboard offline";$("dot").className="dot off";return}
+ feedProblem(s);
  const p=s.esp,e=s.eye,live=p.updated&&(s.time-p.updated)<5;
  $("dot").className="dot"+(live?"":" off");$("linktxt").textContent="ESP32 · "+p.link;
  $("fw").textContent="fw "+(p.fw||"--");
@@ -548,11 +551,16 @@ function spark(k,lines){const c=$("sc-"+k);if(!c)return;const W=c.width=c.client
  x.setLineDash([]);x.strokeStyle="#7d1d2c";x.lineWidth=3;x.beginPath();let pen=false;
  h.forEach(([t,v])=>{if(v==null){pen=false;return}pen?x.lineTo(X(t),Y(v)):x.moveTo(X(t),Y(v));pen=true});x.stroke()}
 const n2=(v,d=2)=>v==null?"--":Number(v).toFixed(d);
+// Camera problems (crashed pipeline, no webcam) shown on the feed itself.
+function feedProblem(s){const m=s.error?"Camera stopped: "+s.error+"<br><small>Full error in the terminal. Fix it, then restart drifts.live.</small>":
+ s.camera_note||"";["feedmsg","devmsg"].forEach(id=>{const el=$(id);if(!el)return;if(m){el.innerHTML=m;el.style.display="flex"}
+ else if(id==="feedmsg")el.style.display="none"})}
 async function devTick(){if(!devOn)return;let s;
  try{s=await (await fetch("/status.json",{cache:"no-store"})).json()}catch(e){setTimeout(devTick,1000);return}
  const f=s.face||{},p=s.pose||{},t=s.time,ok=s.dev&&s.dev.capable;
  $("devmsg").style.display=ok?"none":"flex";
  if(!ok)$("devmsg").innerHTML="The dev view needs the face-mesh backend.<br>Restart with:<br><code>python -m drifts.live --face mesh --camera 0</code>";
+ if(ok)feedProblem(s);
  const rig=s.rig||{};$("devperf").textContent=`${rig.name||"--"} · ${rig.backend||"--"} · ${fx(rig.fps,1)} fps · inference ${fx(rig.inference_ms,0)} ms · ${f.found?"face found":"no face"}`;
  const att=p.attention==="off"?"off":"on";
  const vals={gaze:f.gaze_dev,yawn:f.mar,yaw:p.yaw,pitch:p.pitch,roll:p.roll,mar:f.mar,ear:f.ear,blink:f.blink_rate};
