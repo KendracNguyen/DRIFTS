@@ -199,6 +199,13 @@ Serial: `LCD`, `I2C SCAN`.
 (`python -m drifts.beep`), and the phone/laptop-only simulation alarm:
 [`buzzer-alerts.md`](buzzer-alerts.md).
 
+### AI Camera head pose (stage 2)
+
+Raspberry Pi AI Camera on the Zero 2 W: soak test, head pose and road
+attention on the dashboard (`--pose imx500`), lighting for low light:
+[`ai-camera-stage2.md`](ai-camera-stage2.md). Decision record:
+[`ai-camera-evaluation.md`](ai-camera-evaluation.md).
+
 ### Live dashboard (camera + OBD)
 
 Live camera with eye tracking, OBD values, alert level and LCD text in a

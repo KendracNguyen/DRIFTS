@@ -60,6 +60,17 @@ padding:6px 9px;border-radius:6px}
 .tile{background:var(--soft);border-radius:12px;padding:10px}.tile small{font-size:11px;color:var(--muted)}
 .tile b{display:block;font-size:24px;color:var(--maroon);font-variant-numeric:tabular-nums}
 .note{font-size:12px;color:var(--muted);margin-top:8px}
+.att{display:flex;align-items:center;gap:12px}
+.att .big2{font-size:22px;font-weight:700;letter-spacing:.5px}
+.att .on{color:var(--ok)}.att .off{color:var(--bad)}.att .unk{color:var(--muted)}
+.row2{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:7px 0;border-top:1px solid var(--line)}
+.row2:first-of-type{border-top:0}.row2 span{color:var(--muted)}
+.tag3{font-size:10.5px;font-weight:700;letter-spacing:.6px;padding:3px 8px;border-radius:99px;border:1px dashed #cdbfc1;color:var(--muted)}
+.ang{display:grid;grid-template-columns:52px 1fr 52px;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin:7px 0}
+.ang i{position:relative;display:block;height:8px;border-radius:9px;background:var(--track)}
+.ang i:before{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:#cdbfc1}
+.ang i u{position:absolute;top:0;height:100%;background:var(--maroon);border-radius:9px;transition:all .3s}
+.ang em{font-style:normal;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
 .rest{padding:0;overflow:hidden}
 .map{height:96px;background:linear-gradient(90deg,#f1e4e5,#f8eeee 40%,#efe0e2);position:relative}
 .map:before{content:"";position:absolute;left:0;right:0;top:55%;height:2px;background:#d9c3c6}
@@ -124,6 +135,33 @@ nav a.on{color:var(--maroon);font-weight:600}
    <label class="sw"><input type="checkbox" id="send" checked><span></span></label></div>
  </div>
 
+ <div class="sec">Road attention &amp; gaze</div>
+ <div class="card" id="attcard">
+  <div class="att"><div class="big2 unk" id="att">--</div><div class="note" style="margin:0" id="attsub"></div></div>
+  <div style="margin-top:8px">
+   <div class="row2"><span>Off-road glances &gt; 2 s</span><b id="glances">0</b></div>
+   <div class="row2"><span>Gaze target</span><b id="gaze">--</b></div>
+   <div class="row2"><span>Yawn</span><span class="tag3">STAGE 3 · PFLD</span></div>
+  </div>
+ </div>
+
+ <div class="sec">Head position</div>
+ <div class="card" id="headcard">
+  <div class="ang">Yaw<i><u id="g-yaw"></u></i><em id="v-yaw">--</em></div>
+  <div class="ang">Pitch<i><u id="g-pitch"></u></i><em id="v-pitch">--</em></div>
+  <div class="ang">Roll<i><u id="g-roll"></u></i><em id="v-roll">--</em></div>
+  <div class="toggle" style="margin-top:6px"><span id="calnote">--</span>
+   <button style="padding:7px 12px" onclick="fetch('/calibrate',{method:'POST'})">Calibrate</button></div>
+ </div>
+
+ <div class="sec">Eye &amp; mouth</div>
+ <div class="card">
+  <div class="row2"><span>Eye openness</span><b id="eo">--</b></div>
+  <div class="row2"><span>EAR (eye aspect ratio)</span><span class="tag3">STAGE 3 · PFLD</span></div>
+  <div class="row2"><span>Blinking</span><span class="tag3">STAGE 3 · PFLD</span></div>
+  <div class="row2"><span>Mouth aperture</span><span class="tag3">STAGE 3 · PFLD</span></div>
+ </div>
+
  <div class="sec">Active interventions</div>
  <div class="card" id="alarmcard" style="margin-bottom:8px">
   <div class="toggle" style="margin:0"><span><b style="color:var(--ink)">Alarm on this device</b><br>
@@ -164,6 +202,9 @@ nav a.on{color:var(--maroon);font-weight:600}
   <div class="note">Dashed lines: 70 (Intervention 1 below) and 50 (Intervention 2 below)</div></div>
  <div class="sec">Eye score (camera)</div>
  <div class="card"><svg class="chart" id="ch-eye" viewBox="0 0 400 120" preserveAspectRatio="none"></svg></div>
+ <div class="sec">Head yaw (° · + = driver's right)</div>
+ <div class="card"><svg class="chart" id="ch-yaw" viewBox="0 0 400 120" preserveAspectRatio="none"></svg>
+  <div class="note">Centre line = road pose; dashed = ±30° off-road limit</div></div>
  <div class="sec">RPM</div>
  <div class="card"><svg class="chart" id="ch-rpm" viewBox="0 0 400 120" preserveAspectRatio="none"></svg></div>
 </section>
@@ -255,7 +296,8 @@ function chart(id,data,max,bands){const svg=$(id);if(!svg)return;data=(data||[])
      `<polyline points="${pts}" fill="none" stroke="#7d1d2c" stroke-width="2" vector-effect="non-scaling-stroke"/>`}
  else s+=`<text x="200" y="64" text-anchor="middle" fill="#9a8a8d" font-size="13">collecting…</text>`;svg.innerHTML=s}
 function drawCharts(){chart("ch-score",hist.score,100,[70,50]);chart("ch-eye",hist.eye,100,[]);
- chart("ch-rpm",hist.rpm,Math.max(1000,...hist.rpm.map(v=>v||0))*1.1,[])}
+ chart("ch-rpm",hist.rpm,Math.max(1000,...hist.rpm.map(v=>v||0))*1.1,[]);
+ chart("ch-yaw",(hist.yaw||[]).map(v=>v==null?null:v+60),120,[30,60,90])}
 const skipNull=a=>a.filter(v=>v!=null);
 let last=0;
 async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-store"})).json()}
@@ -281,6 +323,25 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  fatigued=!!live&&(p.lvl==="CAUTION"||p.lvl==="LOW"||!!p.alert);alarmNote();
  // interventions: ACTIVE only while the ESP32 is actually firing the outputs
  const lvl=p.lvl;pill($("p1"),!!p.alert,lvl==="CAUTION"||lvl==="LOW",1);pill($("p2"),!!p.alert,lvl==="LOW",2);
+ // driver state: head pose + road attention (stage 2), eye/mouth (stage 3)
+ const ps=s.pose||{};
+ const ATT={on_road:["ON ROAD","on"],off_road:["OFF ROAD","off"],unknown:["NO HEAD POSE","unk"]};
+ if(!ps.enabled){$("att").textContent="Head pose off";$("att").className="big2 unk";
+  $("attsub").textContent="Start with --pose imx500 (AI Camera) or --pose sim";$("gaze").textContent="--"}
+ else{const a=ATT[ps.attention]||ATT.unknown;$("att").textContent=a[0]+(ps.attention==="off_road"?` ${ps.off_for.toFixed(1)}s`:"");
+  $("att").className="big2 "+a[1];
+  $("attsub").textContent=ps.distracted?"Eyes off road over 2 s":ps.attention==="unknown"?"Driver not detected":
+   (ps.inference_ms!=null?`AI Camera · ${fx(ps.inference_ms,1)} ms inference`:"Head direction");
+  $("gaze").textContent=!ps.found?"--":ps.profile?"Turned away":ps.attention==="on_road"?"Road":
+   Math.abs(ps.yaw)>=Math.abs(ps.pitch)?(ps.yaw>0?"Right of road":"Left of road"):(ps.pitch>0?"Down (lap / console)":"Up")}
+ $("glances").textContent=ps.glances||0;
+ const ang=(k,v)=>{const g=$("g-"+k);if(v==null){g.style.width="0";$("v-"+k).textContent="--";return}
+  const c=Math.max(-45,Math.min(45,v)),w=Math.abs(c)/90*100;g.style.width=w+"%";g.style.left=(c<0?50-w:50)+"%";
+  $("v-"+k).textContent=(v>0?"+":"")+v.toFixed(0)+"°"};
+ ang("yaw",ps.profile?null:ps.yaw);ang("pitch",ps.profile?null:ps.pitch);ang("roll",ps.profile?null:ps.roll);
+ $("calnote").textContent=!ps.enabled?"":ps.calibrated?"Calibrated to road pose":
+  `Calibrating ${Math.round((ps.calib_progress||0)*100)}% · look at the road`;
+ $("eo").textContent=s.eye_tracker?({open:"Open",closed:"Closed",no_face:"--"}[e.state]+" (camera estimate)"):"Off (--no-eyes)";
  // vehicle
  $("rpm").textContent=fx(p.rpm);$("spd").textContent=fx(p.spd);$("thr").textContent=fx(p.thr);
  $("obd").textContent=p.obd||"--";$("hz").textContent=fx(p.hz,1);

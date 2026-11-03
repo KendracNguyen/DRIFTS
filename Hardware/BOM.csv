@@ -4,7 +4,8 @@ U2,Raspberry Pi Zero 2 W,1,Quad A53 512MB,Raspberry Pi Zero 2 W,15,have,Camera a
 U3,BLE OBD-II dongle,1,Bluetooth Low Energy NOT Classic,Veepeak OBDCheck BLE+,30,ordered,GATT FFE0/FFE1 or FFF0/FFF1/FFF2
 U3b,BLE OBD-II dongle spare,1,Bluetooth Low Energy NOT Classic,Vgate iCar Pro BLE 4.0,25,recommended,Different GATT layout 18F0/2AF0/2AF1 on purpose
 U4,MPU-6050 breakout,1,6-axis I2C 0x68 3.3V,GY-521,5,have,Check onboard 4.7k pullups
-U5,Camera module,1,640x480 CSI,OV5647,18,have,Connects to Pi not ESP32
+U5,Camera module,1,640x480 CSI,OV5647,18,have,Connects to Pi not ESP32; fallback camera (NoIR + IR LEDs preferred for night)
+U5b,Raspberry Pi AI Camera,1,Sony IMX500 on-sensor AI; IR-cut filter (no IR),Raspberry Pi AI Camera,70,planned,Stage 2/3 driver camera - Docs/ai-camera-stage2.md; needs Zero 22-pin cable
 Q1,Logic-level N-MOSFET,1,Vgs-th under 2V Id over 1A,AO3400A or IRLZ44N,1,needed,Motor driver
 D1,Flyback diode,1,Fast switching,1N4148 or 1N4001,1,needed,MANDATORY across motor
 M1,ERM vibration motor,4,3V 60-100mA,generic coin ERM,20,have,Confirm rated voltage - see README 5.2
