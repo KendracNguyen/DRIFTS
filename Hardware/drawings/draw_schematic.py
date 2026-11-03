@@ -3,7 +3,7 @@
     pip install matplotlib
     python Hardware/drawings/draw_schematic.py
 
-Writes DRIFTS_Schematic_rev3.pdf and .png next to this script. Edit the
+Writes DRIFTS_Schematic_rev<REV>.pdf and .png next to this script. Edit the
 coordinates below and re-run to make the next revision. Units are 0.1 inch;
 y grows downward.
 """
@@ -16,8 +16,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Polygon, Rectangle
 
-REV = 4
-W, H = 240, 202
+REV = 5
+W, H = 240, 264
 
 WIRE = "#1a6b1a"
 EDGE = "#7a1010"
@@ -115,8 +115,9 @@ def no_connect(x, y):
 
 # ---------------------------------------------------------------- title
 text(W / 2, 3, f"DRIFTS — Schematic (NewBrain architecture) · rev {REV}", size=16, ha="center", weight="bold")
-text(W / 2, 6.2, "Team 1 · ESP32-C6 dev kit + Raspberry Pi Zero 2 W · rev 4: differential piezo (GPIO11 + GPIO18, 5 kHz) · "
-     "rev 3: status LEDs ×3, 16x2 I2C LCD + level shifter · generated drawing (not a KiCad file)",
+text(W / 2, 6.2, "Team 1 · ESP32-C6 dev kit + Raspberry Pi Zero 2 W · rev 5: WS2812B strip ×14 (GPIO23 + 74AHCT125), "
+     "DFPlayer Mini voice (GPIO19/20) · rev 4: differential piezo · rev 3: status LEDs, I2C LCD + level shifter · "
+     "generated drawing (not a KiCad file)",
      size=8.5, ha="center", style="italic")
 
 # ---------------------------------------------------------------- power input
@@ -167,8 +168,9 @@ text(207, 31.5, "Veepeak (BLE, not Classic)", size=6.5, ha="center", style="ital
 
 # ---------------------------------------------------------------- ESP32-C6
 u1 = box(92, 48, 18, 56, "U1 ESP32-C6\nWROOM-1 N8 dev kit",
-         left=[("5V", 54), ("3V3", 62), ("GND", 70), ("GPIO22", 80), ("GPIO21", 88)],
-         right=[("GPIO10 PWM", 56), ("GPIO11 tone", 64), ("GPIO18 tone inv", 68), ("GPIO2", 72), ("GPIO3", 78), ("GPIO4", 84)],
+         left=[("5V", 54), ("3V3", 62), ("GND", 70), ("GPIO22", 80), ("GPIO21", 88), ("GPIO23", 96)],
+         right=[("GPIO10 PWM", 56), ("GPIO11 tone", 64), ("GPIO18 tone inv", 68), ("GPIO2", 72), ("GPIO3", 78),
+                ("GPIO4", 84), ("GPIO19 TX", 92), ("GPIO20 RX", 98)],
          title_lines=2)
 wire(u1["5V"], (88.5, 54))
 flag(88.5, 54, "+5V")
@@ -306,9 +308,65 @@ cap_v(210, 75, "C2  220µF (bulk)", polar=True)
 wire((210, 75.6), (210, 77), color=EDGE, lw=1.4)
 gnd(210, 77, drop=1)
 
+# ---------------------------------------------------------------- rev 5: LED strip
+frame(2, 166, 116, 46, "LED strip · WS2812B ×14 above the LCD (data 3.3 V → 5 V)")
+# GPIO23 leaves U1 on the left, runs down beside it to the buffer
+wire(u1["GPIO23"], (89, 96), (89, 178), (80, 178))
+u9 = box(58, 172, 22, 36, "U9 74AHCT125\nquad buffer (DIP-14)",
+         left=[("1Y  3", 178), ("1OE  1", 184), ("GND  7", 190), ("2A 3A 4A", 196), ("2Y 3Y 4Y", 202)],
+         right=[("2  1A", 178), ("14  VCC", 184), ("2OE 3OE 4OE", 190)], title_lines=2)
+wire(u9["14  VCC"], (85, 184))
+dot(85, 184)
+flag(85, 184, "+5V")
+wire(u9["2OE 3OE 4OE"], (85, 190), (85, 184))
+wire(u9["1OE  1"], (52, 184))
+gnd(52, 184, drop=1.2)
+wire(u9["GND  7"], (48, 190))
+gnd(48, 190, drop=1.2)
+wire(u9["2A 3A 4A"], (54, 196))
+gnd(54, 196, drop=1.2)
+wire(u9["2Y 3Y 4Y"], (55, 202))
+no_connect(55, 202)
+wire(u9["1Y  3"], (36, 178))
+res_h(30, 178, "R10  330Ω")
+st = box(4, 172, 18, 30, "STRIP1\nWS2812B ×14", right=[("DIN", 178), ("5V", 186), ("GND", 194)], title_lines=2)
+wire((30, 178), st["DIN"])
+wire(st["5V"], (40, 186), (40, 189.4), color=WIRE)
+dot(31, 186)
+flag(31, 186, "+5V")
+cap_v(40, 190, "C5\n1000µF", polar=True)
+wire((40, 190.6), (40, 194), st["GND"])
+dot(31, 194)
+gnd(31, 194, drop=1.4)
+text(5, 206, "DIN = the end the arrows point away from · 25 % brightness: < 0.25 A", size=6.5, style="italic")
+
+# ---------------------------------------------------------------- rev 5: DFPlayer voice
+frame(124, 166, 114, 46, "Voice · DFPlayer Mini (UART1, 9600 baud)")
+wire(u1["GPIO19 TX"], (114, 92), (114, 184), (130, 184))
+res_h(130, 184, "R11  1kΩ")
+u10 = box(150, 172, 22, 32, "U10 DFPlayer\nMini", left=[("1 VCC", 178), ("2 RX", 184), ("3 TX", 190), ("7 GND", 196)],
+          right=[("SPK_1  6", 180), ("SPK_2  8", 190)], title_lines=2)
+wire((136, 184), u10["2 RX"])
+wire(u1["GPIO20 RX"], (111, 98), (111, 190), u10["3 TX"])
+wire(u10["1 VCC"], (144, 178))
+flag(144, 178, "+5V")
+wire(u10["7 GND"], (144, 196))
+gnd(144, 196, drop=1.4)
+# LS2 speaker: magnet block + cone
+ax.add_patch(Rectangle((184, 181), 4, 8, fc=FILL, ec=EDGE, lw=1.4, zorder=3))
+ax.add_patch(Polygon([(188, 181), (194, 176.5), (194, 193.5), (188, 189)], closed=True, fc=FILL, ec=EDGE, lw=1.4, zorder=3))
+wire(u10["SPK_1  6"], (180, 180), (180, 183), (184, 183))
+wire(u10["SPK_2  8"], (180, 190), (180, 187), (184, 187))
+text(197, 180, "LS2 speaker", size=7.5, weight="bold", color=EDGE)
+text(197, 183.4, "4–8 Ω, ≤ 3 W", size=7.5)
+text(197, 186.8, "neither wire to GND", size=7.5)
+text(197, 190.2, "(3 W amp built in)", size=7.5)
+text(126, 205, "microSD (FAT32): /mp3/0001.mp3 … from Voice/sd_card · TX→RX crossed: GPIO19→RX, TX→GPIO20 · "
+     "DAC_R/L, IO, ADKEY, USB, BUSY unused", size=6.5, style="italic")
+
 # ---------------------------------------------------------------- notes
-ax.plot([2, W - 2], [164, 164], color="#aaa", lw=1)
-text(2, 167, "NOTES", size=10, weight="bold")
+ax.plot([2, W - 2], [216, 216], color="#aaa", lw=1)
+text(2, 219, "NOTES", size=10, weight="bold")
 notes = [
     [
         "1. U6 = HW-319A-V7.0.1 LM2596 module. Trim the output to 5.0 V with the",
@@ -338,13 +396,17 @@ notes = [
         "10. Do not use: 5, 8, 9, 15 (strapping); 6, 7 (JTAG); 12, 13 (USB);",
         "   16, 17 (UART0 to CH343); 14, 24–30 (flash). GPIO4 = red LED only.",
         "11. Same-named flags (+5V, +3V3, GND) are one net, as in KiCad.",
-        "12. Firmware v13: LCD shows INTERVENTION 1/2 (score 50–69 / <50),",
-        "   same bands as the LEDs. See Docs/lcd-display.md, Hardware/pinout.md.",
+        "12. Firmware v18: LCD INTERVENTION 1/2 (score 50–69 / <50). LEDSTRIP,",
+        "   RAINBOW, SAY:n, VOICE test the rev 5 parts. See Hardware/pinout.md.",
+        "13. U9 74AHCT125 (VCC 5 V): the strip needs ≥ 3.5 V for a 1; the BSS138",
+        "   (U7) is too slow for 800 kHz. Tie unused 2A–4A to GND, 2OE–4OE to 5 V.",
+        "14. U10 DFPlayer: 1k (R11) in series with its RX. Strip + DFPlayer share",
+        "   the 5 V rail: from the buck (U6) in the car; USB is fine on the bench.",
     ],
 ]
 for col, lines in enumerate(notes):
     for i, line in enumerate(lines):
-        text(2 + col * 80, 171 + i * 3.1, line, size=7.5)
+        text(2 + col * 80, 223 + i * 3.1, line, size=7.5)
 
 out = Path(__file__).resolve().parent / f"DRIFTS_Schematic_rev{REV}"
 fig.savefig(out.with_suffix(".pdf"))
