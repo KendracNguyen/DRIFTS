@@ -2,6 +2,11 @@
 
 DRIFTS v2 couples vehicle CAN bus telemetry with edge machine learning (MobileNetV2) to deliver low-power, real-time driver drowsiness detection.
 
+> **Two projects in this repository.** The first model (below): ESP32-C6 +
+> Raspberry Pi Zero 2 W (`Esp32/`, `Raspberry/`). **Tokyo** (`Tokyo/`): the
+> same system on a single Raspberry Pi 5, with a Camera Module 3 NoIR, a
+> WS2812B LED strip and all eight face signals. See [`Tokyo/README.md`](Tokyo/README.md).
+
 ```mermaid
 graph LR
     subgraph "Car"
