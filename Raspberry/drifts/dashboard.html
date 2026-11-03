@@ -94,54 +94,83 @@ nav a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11
 nav a.on{color:var(--maroon);font-weight:600}
 .tab{display:none}.tab.on{display:block}
 
-/* ---------- dev view (symposium: full face analysis) ---------- */
+/* ---------- dev view: dark, maroon accents (symposium face analysis) ---------- */
+:root{--c-eyes:#4fc3f7;--c-head:#ffb74d;--c-mouth:#b388ff;--c-nose:#ff5c7a}
 .devbtn{margin-top:8px;font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:99px;border:1px solid rgba(255,255,255,.7);
 background:transparent;color:#fff;cursor:pointer}
 .devbtn:hover{background:rgba(255,255,255,.12)}
-#dev{display:none;padding:6px 18px 28px}
-body.dev .app{max-width:1480px}
+#devview{display:none}
+html.dev,body.dev{background:#0f090b}
+body.dev{--bg:#140c0e;--card:#1c1315;--ink:#f3e7e9;--muted:#a8969b;--line:#33252a;--track:#2c1f23;--soft:#231719;
+--acc:#e8677d;color:var(--ink);background:#0f090b}
+body.dev .app{max-width:1520px;background:var(--bg);box-shadow:none}
+body.dev header{background:linear-gradient(90deg,#5e1420,#7d1d2c)}
 body.dev main,body.dev nav{display:none}
-body.dev #dev{display:block}
-.dgrid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:16px;align-items:start}
-.dfeed{position:relative;border-radius:12px;overflow:hidden;background:#140c0e;aspect-ratio:4/3}
+body.dev #devview{display:block;padding:14px 18px 150px}
+.dv-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;align-items:start}
+.dv-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.dv-h{font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.d-eyes{background:var(--c-eyes)}.d-head{background:var(--c-head)}.d-mouth{background:var(--c-mouth)}.d-nose{background:var(--c-nose)}
+.dfeed{position:relative;border-radius:10px;overflow:hidden;background:#000;aspect-ratio:4/3}
 .dfeed img{width:100%;height:100%;object-fit:contain;display:block}
 .dfeed .msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#e9d9db;
-padding:24px;text-align:center;font-size:14px;line-height:1.5}
+padding:24px;text-align:center;font-size:14px;line-height:1.5;background:rgba(0,0,0,.6)}
 .layers{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.lay{font-size:12px;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--soft);cursor:pointer;
+.lay{font-size:12px;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:transparent;cursor:pointer;
 display:flex;align-items:center;gap:6px;color:var(--muted);user-select:none}
-.lay.on{background:#fff;border-color:var(--maroon);color:var(--ink)}
-.lay i{width:10px;height:10px;border-radius:3px;display:inline-block}
-.zoom{width:100%;border-radius:10px;display:block;background:#140c0e;aspect-ratio:968/180;object-fit:contain}
-.formula{font:13px/1.55 ui-monospace,Menlo,Consolas,monospace;background:var(--soft);border:1px solid var(--line);
-border-radius:10px;padding:8px 12px;margin-top:8px;color:var(--ink);overflow-x:auto}
-.formula b{color:var(--maroon)}.formula .y{color:#b98900}.formula .c{color:#1f86b5}
-.sigs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.sig{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 12px 10px;min-width:0}
-.sig .grp{font-size:10px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted)}
-.sig .nm{font-size:14px;font-weight:600;margin-top:1px}
-.sig .val{font-size:30px;font-weight:700;color:var(--maroon);font-variant-numeric:tabular-nums;line-height:1.15;margin-top:4px}
-.sig .val small{font-size:13px;font-weight:500;color:var(--muted);margin-left:3px}
-.sig .sub{font-size:12px;color:var(--muted);min-height:17px}
-.sig canvas{width:100%;height:56px;display:block;margin-top:6px}
-.sig .how{font-size:11px;color:var(--muted);border-top:1px solid var(--line);margin-top:6px;padding-top:6px}
-.sig.alert{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad) inset}
-.badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.6px;padding:2px 7px;border-radius:99px;vertical-align:3px;margin-left:6px}
-.badge.ok{background:#eaf6ee;color:var(--ok)}.badge.bad{background:#fbe8eb;color:var(--bad)}.badge.mid{background:#fdf3e2;color:var(--warn)}
-.fus{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-.seg{display:inline-flex;border:1px solid var(--maroon);border-radius:9px;overflow:hidden}
-.seg button{border:0;border-radius:0;padding:6px 12px;font-size:12px}
-.seg button.on{background:var(--maroon);color:#fff}
-.meter{position:relative;height:10px;border-radius:9px;background:var(--track);margin:10px 0 4px}
-.meter u{position:absolute;left:0;top:0;bottom:0;border-radius:9px;background:var(--maroon);transition:width .3s}
-.meter s{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink);opacity:.5}
-.wbar{display:flex;height:22px;border-radius:7px;overflow:hidden;font-size:11px;font-weight:700;color:#fff;margin:8px 0}
-.wbar span{display:flex;align-items:center;justify-content:center;transition:flex-grow .4s;min-width:0;overflow:hidden;white-space:nowrap}
-.bigs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
-.bigs div{background:var(--soft);border-radius:10px;padding:8px}.bigs small{font-size:11px;color:var(--muted)}
-.bigs b{display:block;font-size:24px;color:var(--maroon);font-variant-numeric:tabular-nums}
-@media (max-width:1100px){.dgrid{grid-template-columns:1fr}.sigs{grid-template-columns:repeat(2,minmax(0,1fr))}.fus{grid-template-columns:1fr}}
-@media (max-width:560px){.sigs{grid-template-columns:1fr}#dev{padding:6px 12px 24px}}
+.lay.on{border-color:#6b3a44;color:var(--ink);background:var(--soft)}
+.perf{font-size:12px;color:var(--muted);margin-top:8px;font-variant-numeric:tabular-nums}
+/* clusters */
+.cl{padding:12px 0;border-top:1px solid var(--line)}.cl:first-child{border-top:0;padding-top:2px}
+.cl-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:8px}
+.cl-h small{font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted);font-size:11.5px}
+.sg{display:grid;grid-template-columns:118px 1fr auto;align-items:center;gap:10px;padding:5px 0}
+.sg .n{font-size:13px;color:var(--ink)}.sg .n small{display:block;color:var(--muted);font-size:11px}
+.sg .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;min-width:74px}
+.sg .v small{font-size:11px;font-weight:500;color:var(--muted);margin-left:2px}
+.mbar{position:relative;height:8px;border-radius:9px;background:var(--track)}
+.mbar u{position:absolute;left:0;top:0;bottom:0;border-radius:9px;transition:width .25s}
+.mbar s{position:absolute;top:-4px;bottom:-4px;width:2px;background:#d9c7cb;opacity:.55}
+.sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.pts{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:99px;background:var(--soft);border:1px solid var(--line);color:var(--muted);font-variant-numeric:tabular-nums}
+.pts.hot{color:#fff;background:#7d1d2c;border-color:#7d1d2c}
+.twocol{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:center}
+.viz{width:100%;max-width:240px;justify-self:end;display:block;background:#120a0c;border:1px solid var(--line);border-radius:10px}
+#dv-grid-left{position:sticky;top:150px}
+.zoomimg{width:100%;max-width:440px;border-radius:8px;display:block;background:#000;margin-top:8px}
+.pill2{font-size:10.5px;font-weight:700;letter-spacing:.8px;padding:3px 9px;border-radius:99px;border:1px solid}
+.pill2.on{color:#7ee2a0;border-color:#2f6b45;background:#13261a}.pill2.off{color:#ff8a9b;border-color:#7d1d2c;background:#2a1015}
+.pill2.mid{color:var(--muted);border-color:var(--line)}
+.formula2{font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;color:var(--muted);margin-top:6px;overflow-x:auto;white-space:nowrap}
+.formula2 b{color:var(--c-eyes)}
+/* bottom bar */
+.bbar{position:fixed;left:0;right:0;bottom:0;z-index:7;background:rgba(20,12,14,.96);border-top:1px solid #4a2830;
+backdrop-filter:blur(6px);display:none}
+body.dev .bbar{display:block}
+.bb-in{max-width:1520px;margin:0 auto;padding:12px 18px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:22px;align-items:center}
+.comp{display:flex;align-items:center;gap:14px;min-width:0}
+.comp .big{font-size:40px;font-weight:800;color:var(--acc);line-height:1;font-variant-numeric:tabular-nums;min-width:74px}
+.comp .lbl{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700}
+.stack{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--track);margin:6px 0 4px}
+.stack span{height:100%;transition:width .3s}
+.gl{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
+.seg2{display:inline-flex;border:1px solid #6b3a44;border-radius:8px;overflow:hidden}
+.seg2 button{border:0;border-radius:0;padding:3px 9px;font-size:11px;background:transparent;color:var(--muted)}
+.seg2 button.on{background:#7d1d2c;color:#fff}
+.fsm{display:flex;align-items:center;gap:6px}
+.node{font-size:11px;font-weight:700;letter-spacing:.8px;padding:7px 11px;border-radius:9px;border:1px solid var(--line);color:var(--muted);background:var(--soft);transition:.2s}
+.node.on.n0{color:#7ee2a0;border-color:#2f6b45;background:#13261a}
+.node.on.n1{color:#ffd27a;border-color:#7a5a1d;background:#2b2010}
+.node.on.n2{color:#fff;border-color:#e8677d;background:#7d1d2c;box-shadow:0 0 18px rgba(232,103,125,.45)}
+.arrow{color:#5a4248;font-size:13px}
+.outs{display:flex;gap:8px}
+.out{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;color:var(--muted);min-width:56px;padding:6px 8px;border-radius:9px;border:1px solid var(--line)}
+.out i{width:12px;height:12px;border-radius:50%;background:#3a2a2e}
+.out.on{color:var(--ink);border-color:#6b3a44}.out.on i{background:var(--acc);box-shadow:0 0 10px var(--acc)}
+.blinkon i{animation:bl 1s steps(2) infinite}@keyframes bl{50%{opacity:.25}}
+.zoomimg{} @media (max-width:1100px){#dv-grid-left{position:static}.dv-grid{grid-template-columns:minmax(0,1fr)}.bb-in{grid-template-columns:1fr;gap:10px}body.dev #devview{padding-bottom:330px}}
+@media (max-width:560px){.twocol{grid-template-columns:1fr}.sg{grid-template-columns:96px 1fr auto}body.dev #devview{padding:10px 10px 360px}}
 </style></head>
 <body><div class="app">
 <header>
@@ -312,48 +341,77 @@ border-radius:10px;padding:8px 12px;margin-top:8px;color:var(--ink);overflow-x:a
 </section>
 </main>
 <!-- ============================== DEV VIEW ============================== -->
-<section id="dev">
- <div class="dgrid">
-  <div>
-   <div class="sec">Face analysis · 478 landmarks</div>
-   <div class="card">
-    <div class="dfeed"><img id="devimg" alt="Face analysis overlay"><div class="msg" id="devmsg" style="display:none"></div></div>
-    <div class="layers" id="layers"></div>
-    <div class="note" id="devperf">--</div>
-   </div>
+<section id="devview">
+ <div class="dv-grid">
+  <!-- left: camera with the cluster-coloured landmark overlay -->
+  <div class="dv-card" id="dv-grid-left">
+   <div class="dv-h">Face analysis · 478 landmarks</div>
+   <div class="dfeed"><img id="devimg" alt="Face analysis overlay"><div class="msg" id="devmsg" style="display:none"></div></div>
+   <div class="layers" id="layers"></div>
+   <div class="perf" id="devperf">--</div>
   </div>
-  <div>
-   <div class="sec">Eyes and mouth up close</div>
-   <div class="card">
-    <img class="zoom" id="zoomimg" alt="Eye and mouth close-ups">
-    <div class="formula" id="f-ear-r">--</div>
-    <div class="formula" id="f-ear-l">--</div>
-    <div class="formula" id="f-mar">--</div>
-    <div class="note">EAR falls toward 0 as the lid closes (P2–P6 and P3–P5 shrink, P1–P4 stays).
-     Openness is EAR relative to this driver's own open-eye EAR (<span id="earopen">--</span>), so it adapts without calibration.</div>
-   </div>
-   <div class="sec">Glasses-aware fusion → ESP32</div>
-   <div class="card" id="fusion">
-    <div class="toggle" style="margin:0"><span><b style="color:var(--ink)">Glasses</b> <span id="g-badge" class="badge mid">--</span><br>
-     <span id="g-note">Bridge edge strength (smoothed)</span></span>
-     <div class="seg" id="gseg"><button data-m="auto">Auto</button><button data-m="on">On</button><button data-m="off">Off</button></div></div>
-    <div class="meter"><u id="g-meter"></u><s style="left:22%"></s></div>
-    <div class="note" style="margin-top:0">0 = bare skin across the nose bridge · mark = detection threshold (0.22) · now <b id="g-level">--</b></div>
-    <div class="wbar"><span id="w-eye" style="background:var(--maroon)">EYES</span><span id="w-head" style="background:#c9861a">HEAD</span></div>
-    <div class="note" style="margin-top:0" id="basis">--</div>
-    <div class="bigs">
-     <div><small>Eye score<br>100 × (1 − PERCLOS)</small><b id="s-eye">--</b></div>
-     <div><small>Head score<br>nods + droop</small><b id="s-head">--</b></div>
-     <div><small>Face score<br>→ ESP32 as EYE</small><b id="s-face">--</b></div>
+  <!-- right: the signals, grouped by what they measure -->
+  <div class="dv-card" id="clusters">
+   <div class="cl">
+    <div class="cl-h"><span class="dot d-eyes"></span>Eyes <small>EAR · blinking · gaze target</small></div>
+    <div class="sg"><div class="n">Eye openness<small>EAR</small></div><div><div class="mbar"><u id="dv-b-ear" style="background:var(--c-eyes)"></u><s id="dv-t-ear"></s></div>
+      <div class="sub" id="dv-s-ear">--</div></div><div><div class="v" id="dv-v-ear">--</div><span class="pts" id="dv-p-ear">--</span></div></div>
+    <div class="formula2" id="dv-f-ear">--</div>
+    <div class="sg"><div class="n">Blinking<small>rate · PERCLOS</small></div><div><div class="mbar"><u id="dv-b-blink" style="background:var(--c-eyes)"></u></div>
+      <div class="sub" id="dv-s-blink">--</div></div><div><div class="v" id="dv-v-blink">--</div><span class="pts" id="dv-p-blink">--</span></div></div>
+    <div class="twocol" style="margin-top:6px">
+     <div><div class="sg" style="grid-template-columns:1fr auto"><div class="n">Gaze target<small>on / off road</small></div><span class="pill2 mid" id="dv-v-gaze">--</span></div>
+      <div class="sub" id="dv-s-gaze">--</div><div style="margin-top:6px"><span class="pts" id="dv-p-gaze">--</span></div></div>
+     <svg class="viz" id="gazebox" viewBox="0 0 200 120"></svg>
     </div>
-    <div class="note" id="nodnote">--</div>
+    <img class="zoomimg" id="zoomimg" alt="Eye close-ups with P1-P6">
+   </div>
+   <div class="cl">
+    <div class="cl-h"><span class="dot d-head"></span>Head pose <small>from the nose axis · relative to the road pose</small></div>
+    <div class="twocol">
+     <svg class="viz" id="xybox" viewBox="0 0 200 150"></svg>
+     <div>
+      <div class="sg" style="grid-template-columns:1fr auto"><div class="n">Yaw<small id="dv-yawdir">left / right</small></div><div><div class="v" id="dv-v-yaw">--</div><span class="pts" id="dv-p-yaw">--</span></div></div>
+      <div class="sg" style="grid-template-columns:1fr auto"><div class="n">Pitch<small id="dv-pitchdir">up / down</small></div><div><div class="v" id="dv-v-pitch">--</div><span class="pts" id="dv-p-pitch">--</span></div></div>
+      <div class="sg" style="grid-template-columns:1fr auto"><div class="n">Head tilt<small>roll</small></div><div><div class="v" id="dv-v-roll">--</div><span class="pts" id="dv-p-roll">--</span></div></div>
+     </div>
+    </div>
+    <div class="sub" id="dv-s-head">--</div>
+   </div>
+   <div class="cl">
+    <div class="cl-h"><span class="dot d-mouth"></span>Mouth <small>MAR · yawn</small></div>
+    <div class="sg"><div class="n">Mouth<small>MAR</small></div><div><div class="mbar"><u id="dv-b-mar" style="background:var(--c-mouth)"></u><s style="left:62.5%"></s></div>
+      <div class="sub" id="dv-s-mar">--</div></div><div><div class="v" id="dv-v-mar">--</div><span class="pts" id="dv-p-mar">--</span></div></div>
+    <div class="sg"><div class="n">Yawn<small>last 10 min</small></div><div class="sub" id="dv-s-yawn">--</div><div><div class="v" id="dv-v-yawn">--</div><span class="pts" id="dv-p-yawn">--</span></div></div>
+    <img class="zoomimg" id="mouthimg" alt="Mouth close-up" style="max-width:220px">
+   </div>
+   <div class="cl">
+    <div class="cl-h"><span class="dot d-nose"></span>Anchor · nose <small>reference point for head pose (not scored)</small></div>
+    <div class="sub" id="dv-s-nose">--</div>
    </div>
   </div>
  </div>
-
- <div class="sec">The eight driver signals</div>
- <div class="sigs" id="sigs"></div>
 </section>
+<!-- bottom bar: composite score + alert tier + outputs -->
+<div class="bbar" id="bbar"><div class="bb-in">
+ <div class="comp">
+  <div><div class="lbl">Drowsiness</div><div class="big" id="dv-c-score">--</div></div>
+  <div style="flex:1;min-width:0">
+   <div class="lbl">Weighted sum of the 8 signals <span id="c-wset" style="text-transform:none;letter-spacing:0;font-weight:500"></span></div>
+   <div class="stack" id="c-stack"></div>
+   <div class="gl">Glasses <span id="g-state" class="pill2 mid">--</span>
+    <span class="seg2" id="gseg"><button data-m="auto">Auto</button><button data-m="on">On</button><button data-m="off">Off</button></span>
+    <span id="c-esp">→ ESP32 EYE --</span></div>
+  </div>
+ </div>
+ <div><div class="lbl" style="font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px">DRIFTS alert tier</div>
+  <div class="fsm"><span class="node n0" id="n0">NONE</span><span class="arrow">→</span><span class="node n1" id="n1">WARNING</span><span class="arrow">→</span><span class="node n2" id="n2">INTERVENTION</span></div>
+  <div class="sub" id="tiernote">--</div></div>
+ <div class="outs">
+  <div class="out" id="o-motor"><i></i>Motors</div><div class="out" id="o-buzz"><i></i>Buzzer</div><div class="out" id="o-led"><i id="o-ledi"></i>LEDs</div>
+ </div>
+</div></div>
+
 
 
 <nav>
@@ -513,79 +571,109 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
 setInterval(tick,500);tick();
 
 // ============================== DEV VIEW ==============================
-const LAYERS=[["mesh","Mesh","#aac8aa"],["ear","EAR P1–P6","#ffd23c"],["mouth","Mouth","#dc8cff"],
- ["axis","Nose axis","#3cdcff"],["iris","Irises","#f4f4f4;outline:1px solid #b9a9ab"],["glasses","Glasses ROI","#ffc800"]];
-// [key, group, name, unit, how it is computed, threshold lines, alert test]
-const SIG=[
- ["gaze","Road attention & gaze","Off-road gaze","","iris offset between the eye corners + head pose; glances > 2 s counted",[0.16],s=>s.attention==="off"],
- ["yawn","Road attention & gaze","Yawn","MAR","mouth held wide (MAR > 0.50) for ≥ 1.5 s",[0.5],s=>s.f.yawning],
- ["yaw","Head position","Yaw","°","nose axis: + = turned to the driver's right; off road beyond ±30°",[30,-30],s=>Math.abs(s.p.yaw||0)>30],
- ["pitch","Head position","Pitch","°","nose axis: + = looking down; a 12° drop that comes back = a nod",[20,-20],s=>(s.f.droop_s||0)>0],
- ["roll","Head position","Roll","°","nose axis: + = tilted toward the right shoulder",[],s=>false],
- ["mar","Misc","Mouth aperture","MAR","inner-lip openings ÷ mouth width (13–14, 82–87, 312–317 ÷ 78–308)",[0.5],s=>false],
- ["ear","Misc","Eye openness","EAR","(|P2−P6| + |P3−P5|) ÷ 2|P1−P4|, both eyes averaged",[],s=>s.f.eye_state==="closed"],
- ["blink","Misc","Blinking","/min","closed 50–500 ms = a blink; longer = a long closure",[],s=>(s.f.closed_for||0)>=1]];
-let devOn=false,devHist={},devLayers=new Set(LAYERS.map(l=>l[0]));
+// Dark analysis page for the symposium: camera + cluster-coloured landmarks on
+// the left, the signals grouped by what they measure on the right, and the
+// composite score with the alert tier and active outputs along the bottom.
+const CL={eyes:"var(--c-eyes)",head:"var(--c-head)",mouth:"var(--c-mouth)",nose:"var(--c-nose)"};
+const SIGCL={ear:"eyes",blink:"eyes",gaze:"eyes",yaw:"head",pitch:"head",roll:"head",mar:"mouth",yawn:"mouth"};
+const SIGNM={ear:"EAR",blink:"Blink",gaze:"Gaze",yaw:"Yaw",pitch:"Pitch",roll:"Tilt",mar:"MAR",yawn:"Yawn"};
+const LAYERS=[["mesh","Wireframe","#5c484e"],["eyes","Eyes","var(--c-eyes)"],["head","Head pose","var(--c-head)"],
+ ["mouth","Mouth","var(--c-mouth)"],["nose","Nose anchor","var(--c-nose)"],["glasses","Glasses box","#ffc800"]];
+let devOn=false,devLayers=new Set(["mesh","eyes","head","mouth","nose"]),earHist=[];
 function buildDev(){
- $("layers").innerHTML=LAYERS.map(([k,n,c])=>`<span class="lay on" data-k="${k}"><i style="background:${c}"></i>${n}</span>`).join("");
+ $("layers").innerHTML=LAYERS.map(([k,n,c])=>`<span class="lay${devLayers.has(k)?" on":""}" data-k="${k}"><span class="dot" style="background:${c}"></span>${n}</span>`).join("");
  document.querySelectorAll(".lay").forEach(el=>el.onclick=()=>{const k=el.dataset.k;
   devLayers.has(k)?devLayers.delete(k):devLayers.add(k);el.classList.toggle("on",devLayers.has(k));
   fetch("/dev_layers?"+LAYERS.map(l=>l[0]+"="+(devLayers.has(l[0])?1:0)).join("&"),{method:"POST"})});
- $("sigs").innerHTML=SIG.map(([k,g,n,u,how])=>`<div class="sig" id="sg-${k}"><div class="grp">${g}</div><div class="nm">${n}</div>
-  <div class="val" id="sv-${k}">--<small>${u}</small></div><div class="sub" id="ss-${k}"></div>
-  <canvas id="sc-${k}" width="300" height="56"></canvas><div class="how">${how}</div></div>`).join("");
  document.querySelectorAll("#gseg button").forEach(b=>b.onclick=()=>fetch("/glasses?mode="+b.dataset.m,{method:"POST"}));
 }
-function toggleDev(){devOn=!devOn;document.body.classList.toggle("dev",devOn);
+function toggleDev(){devOn=!devOn;document.body.classList.toggle("dev",devOn);document.documentElement.classList.toggle("dev",devOn);
  $("devbtn").textContent=devOn?"Switch to driver view":"Switch to dev view";
- $("devimg").src=devOn?"/dev.mjpg":"";$("zoomimg").src=devOn?"/zoom.mjpg":"";
+ document.querySelector('meta[name="theme-color"]').content=devOn?"#140c0e":"#7d1d2c";
+ for(const [id,src] of [["devimg","/dev.mjpg"],["zoomimg","/zoom.mjpg"],["mouthimg","/mouth.mjpg"]])$(id).src=devOn?src:"";
+ if(devOn)fetch("/dev_layers?"+LAYERS.map(l=>l[0]+"="+(devLayers.has(l[0])?1:0)).join("&"),{method:"POST"});
  try{localStorage.setItem("drifts-dev",devOn?"1":"0")}catch(e){}
  if(devOn)devTick();window.scrollTo(0,0)}
-function push(k,v,t){const h=devHist[k]||(devHist[k]=[]);h.push([t,v]);while(h.length&&t-h[0][0]>60)h.shift()}
-function spark(k,lines){const c=$("sc-"+k);if(!c)return;const W=c.width=c.clientWidth*2,H=c.height=112,x=c.getContext("2d");
- const h=devHist[k]||[];x.clearRect(0,0,W,H);const vals=h.map(p=>p[1]).filter(v=>v!=null);
- if(!vals.length)return;let lo=Math.min(...vals,...lines),hi=Math.max(...vals,...lines);
- if(hi-lo<1e-6){hi+=1;lo-=1}const pad=(hi-lo)*.12;lo-=pad;hi+=pad;const t1=h[h.length-1][0];
- const X=t=>W-(t1-t)/60*W,Y=v=>H-(v-lo)/(hi-lo)*H;
- x.setLineDash([6,6]);x.strokeStyle="#c9861a";x.lineWidth=2;lines.forEach(l=>{x.beginPath();x.moveTo(0,Y(l));x.lineTo(W,Y(l));x.stroke()});
- x.setLineDash([]);x.strokeStyle="#7d1d2c";x.lineWidth=3;x.beginPath();let pen=false;
- h.forEach(([t,v])=>{if(v==null){pen=false;return}pen?x.lineTo(X(t),Y(v)):x.moveTo(X(t),Y(v));pen=true});x.stroke()}
-const n2=(v,d=2)=>v==null?"--":Number(v).toFixed(d);
 // Camera problems (crashed pipeline, no webcam) shown on the feed itself.
 function feedProblem(s){const m=s.error?"Camera stopped: "+s.error+"<br><small>Full error in the terminal. Fix it, then restart drifts.live.</small>":
  s.camera_note||"";["feedmsg","devmsg"].forEach(id=>{const el=$(id);if(!el)return;if(m){el.innerHTML=m;el.style.display="flex"}
  else if(id==="feedmsg")el.style.display="none"})}
+const n2=(v,d=2)=>v==null?"--":Number(v).toFixed(d);
+const sgn=(v,d=0)=>v==null?"--":(Math.abs(v)<.5&&d===0?"0":(v>0?"+":"")+Number(v).toFixed(d));
+function pts(id,part){const el=$(id);if(!part||part.points==null){el.textContent="no data";el.className="pts";return}
+ el.textContent=`+${part.points.toFixed(1)} pts`;el.className="pts"+(part.d>=.5?" hot":"")}
+function mbar(id,frac){$(id).style.width=Math.max(0,Math.min(100,frac*100))+"%"}
+// gaze target: where the driver is looking, with the road zone as a box
+function drawGaze(p,f){const W=200,H=120,cx=100,cy=60,sx=100/50,sy=60/40;
+ const gx=(p.yaw??0)+(f.gaze_x??0)*60,gy=(p.pitch??0);
+ const x=Math.max(6,Math.min(W-6,cx+gx*sx)),y=Math.max(6,Math.min(H-6,cy+gy*sy));
+ const off=p.attention==="off"||f.gaze_off;
+ $("gazebox").innerHTML=`<rect x="${cx-30*sx}" y="${cy-20*sy}" width="${60*sx}" height="${40*sy}" rx="6" fill="rgba(126,226,160,.07)" stroke="#2f6b45" stroke-dasharray="4 3"/>
+ <text x="${cx}" y="${cy-20*sy-5}" fill="#6f9c80" font-size="9" text-anchor="middle">ROAD</text>
+ <line x1="${cx}" y1="4" x2="${cx}" y2="${H-4}" stroke="#2c1f23"/><line x1="4" y1="${cy}" x2="${W-4}" y2="${cy}" stroke="#2c1f23"/>
+ ${f.found?`<circle cx="${x}" cy="${y}" r="13" fill="none" stroke="${off?"#ff5c7a":"#4fc3f7"}" stroke-width="1.5"/>
+ <circle cx="${x}" cy="${y}" r="4" fill="${off?"#ff5c7a":"#4fc3f7"}"/>
+ <line x1="${x-19}" y1="${y}" x2="${x-9}" y2="${y}" stroke="${off?"#ff5c7a":"#4fc3f7"}"/><line x1="${x+9}" y1="${y}" x2="${x+19}" y2="${y}" stroke="${off?"#ff5c7a":"#4fc3f7"}"/>`:
+ `<text x="${cx}" y="${cy+4}" fill="#a8969b" font-size="11" text-anchor="middle">no face</text>`}`}
+// head pose: yaw on X, pitch on Y, roll as the tilt of the marker
+function drawXY(p,f){const W=200,H=150,cx=100,cy=75,sx=90/60,sy=65/45;
+ const y=p.yaw,pi=p.pitch,r=p.roll??0,ok=f.found&&y!=null&&pi!=null;
+ const x=ok?Math.max(8,Math.min(W-8,cx+y*sx)):cx,yy=ok?Math.max(8,Math.min(H-8,cy+pi*sy)):cy;
+ const a=-r*Math.PI/180,L=16;
+ $("xybox").innerHTML=`<line x1="${cx}" y1="6" x2="${cx}" y2="${H-6}" stroke="#3a2a2e"/><line x1="6" y1="${cy}" x2="${W-6}" y2="${cy}" stroke="#3a2a2e"/>
+ <rect x="${cx-30*sx}" y="${cy-20*sy}" width="${60*sx}" height="${40*sy}" fill="none" stroke="#7a5a1d" stroke-dasharray="4 3" rx="4"/>
+ <text x="${W-6}" y="${cy-4}" fill="#8a777c" font-size="9" text-anchor="end">yaw R →</text><text x="6" y="${cy-4}" fill="#8a777c" font-size="9">← L</text>
+ <text x="${cx+4}" y="12" fill="#8a777c" font-size="9">pitch up</text><text x="${cx+4}" y="${H-5}" fill="#8a777c" font-size="9">down</text>
+ ${ok?`<line x1="${x-L*Math.cos(a)}" y1="${yy-L*Math.sin(a)}" x2="${x+L*Math.cos(a)}" y2="${yy+L*Math.sin(a)}" stroke="#ffb74d" stroke-width="2.5" stroke-linecap="round"/>
+ <circle cx="${x}" cy="${yy}" r="5" fill="#ffb74d"/><circle cx="${cx}" cy="${cy}" r="3" fill="#ff5c7a"/>`:
+ `<text x="${cx}" y="${cy+20}" fill="#a8969b" font-size="11" text-anchor="middle">no face</text>`}`}
 async function devTick(){if(!devOn)return;let s;
  try{s=await (await fetch("/status.json",{cache:"no-store"})).json()}catch(e){setTimeout(devTick,1000);return}
- const f=s.face||{},p=s.pose||{},t=s.time,ok=s.dev&&s.dev.capable;
+ const f=s.face||{},p=s.pose||{},ok=s.dev&&s.dev.capable,P=f.parts||{};
  $("devmsg").style.display=ok?"none":"flex";
  if(!ok)$("devmsg").innerHTML="The dev view needs the face-mesh backend.<br>Restart with:<br><code>python -m drifts.live --face mesh --camera 0</code>";
  if(ok)feedProblem(s);
  const rig=s.rig||{};$("devperf").textContent=`${rig.name||"--"} · ${rig.backend||"--"} · ${fx(rig.fps,1)} fps · inference ${fx(rig.inference_ms,0)} ms · ${f.found?"face found":"no face"}`;
- const att=p.attention==="off"?"off":"on";
- const vals={gaze:f.gaze_dev,yawn:f.mar,yaw:p.yaw,pitch:p.pitch,roll:p.roll,mar:f.mar,ear:f.ear,blink:f.blink_rate};
- const subs={gaze:(p.attention==="off"?"OFF ROAD":"on road")+` · ${p.glances??0} glances > 2 s · iris ${n2(f.gaze_x)}`,
-  yawn:(f.yawning?"YAWNING · ":"")+`${f.yawns??0} in 10 min`,
-  yaw:`calibrated to road pose`,pitch:`drop ${n2(f.pitch_drop,0)}° from neutral · ${f.nods??0} nods/min`+((f.droop_s||0)>0?` · DROOP ${n2(f.droop_s,1)} s`:""),
-  roll:"",mar:f.mar==null?"":(f.mar<0.1?"closed":f.mar<0.4?"talking range":"wide open"),
-  ear:`L ${n2(f.ear_l)} · R ${n2(f.ear_r)} · open ${f.openness==null?"--":Math.round(f.openness*100)+"%"} · ${f.eye_state||"--"}`,
-  blink:`mean ${fx(f.mean_blink_ms,0)} ms · last ${fx(f.last_blink_ms,0)} ms · PERCLOS ${f.perclos==null?"--":Math.round(f.perclos*100)+"%"}`};
- SIG.forEach(([k,g,n,u,how,lines,bad])=>{const v=vals[k];const d=(k==="yaw"||k==="pitch"||k==="roll")?0:(k==="blink"?0:2);
-  $("sv-"+k).innerHTML=(v==null?"--":(Math.abs(v)<Math.pow(10,-d)/2?0:v).toFixed(d).replace(/^-0$/,"0"))+`<small>${u}</small>`;$("ss-"+k).textContent=subs[k]||"";
-  push(k,v,t);spark(k,lines);$("sg-"+k).classList.toggle("alert",!!bad({f,p,attention:p.attention}))});
- const tr=f.ear_terms||{};const ef=(lbl,e,a)=>a?`${lbl} EAR = (<span class="y">|P2−P6|</span> + <span class="y">|P3−P5|</span>) / (2·<span class="c">|P1−P4|</span>)<br>${"&nbsp;".repeat(lbl.length+5)}= (<span class="y">${a[0].toFixed(1)}</span> + <span class="y">${a[1].toFixed(1)}</span>) / (2·<span class="c">${a[2].toFixed(1)}</span>) px = <b>${n2(e,3)}</b>`:`${lbl} EAR = -- (no face)`;
- $("f-ear-r").innerHTML=ef("Right",f.ear_r,tr.r);$("f-ear-l").innerHTML=ef("Left ",f.ear_l,tr.l);
- $("f-mar").innerHTML=`Mouth MAR = mean(13–14, 82–87, 312–317) / |78–308|<br>${"&nbsp;".repeat(10)}= <b>${n2(f.mar,3)}</b>`+(f.mar>0.5?" (wide open)":"")+(f.yawning?" · YAWN":"");
- $("earopen").textContent=f.ear_open==null?"--":"EAR "+n2(f.ear_open,3);
+ // eyes
+ const eo=f.ear_open||0.3;mbar("dv-b-ear",(f.ear??0)/(eo*1.2));$("dv-t-ear").style.left=Math.min(100,(0.35*eo+0.3*0.65*eo)/(eo*1.2)*100)+"%";
+ $("dv-v-ear").innerHTML=n2(f.ear)+"<small>EAR</small>";
+ $("dv-s-ear").textContent=`L ${n2(f.ear_l)} · R ${n2(f.ear_r)} · ${f.openness==null?"--":Math.round(f.openness*100)+"% open"} · ${(f.eye_state||"--").replace("_"," ")}`+(f.closed_for>=1?` ${f.closed_for.toFixed(1)} s`:"");
+ const tr=(f.ear_terms||{}).r;$("dv-f-ear").innerHTML=tr?`right eye: (|P2−P6| + |P3−P5|) / 2|P1−P4| = (${tr[0].toFixed(1)} + ${tr[1].toFixed(1)}) / (2·${tr[2].toFixed(1)}) = <b>${n2(f.ear_r,3)}</b>`:"EAR = (|P2−P6| + |P3−P5|) / 2|P1−P4|";
+ mbar("dv-b-blink",(f.perclos??0)/0.3);$("dv-v-blink").innerHTML=(f.blink_rate==null?"--":Math.round(f.blink_rate))+"<small>/min</small>";
+ $("dv-s-blink").textContent=`PERCLOS ${f.perclos==null?"warming up":Math.round(f.perclos*100)+"%"} · mean ${fx(f.mean_blink_ms,0)} ms · long closures ${f.long_closures??0}`;
+ const off=p.attention==="off"||f.gaze_off;$("dv-v-gaze").textContent=!f.found?"NO FACE":off?"OFF ROAD":"ON ROAD";$("dv-v-gaze").className="pill2 "+(!f.found?"mid":off?"off":"on");
+ $("dv-s-gaze").textContent=`iris ${sgn(f.gaze_x,2)} · off ${n2(f.gaze_off_s,1)} s · ${p.glances??0} glances > 2 s`;
+ drawGaze(p,f);
+ // head
+ $("dv-v-yaw").innerHTML=sgn(p.yaw)+"<small>°</small>";$("dv-v-pitch").innerHTML=sgn(p.pitch)+"<small>°</small>";$("dv-v-roll").innerHTML=sgn(p.roll)+"<small>°</small>";
+ $("dv-yawdir").textContent=p.yaw==null?"left / right":Math.abs(p.yaw)<5?"straight ahead":p.yaw>0?"turned right":"turned left";
+ $("dv-pitchdir").textContent=p.pitch==null?"up / down":Math.abs(p.pitch)<5?"level":p.pitch>0?"looking down":"looking up";
+ $("dv-s-head").textContent=`Nods in the last minute ${f.nods??0} · droop ${n2(f.droop_s,1)} s · ${p.calibrated?"calibrated to the road pose":"calibrating the road pose…"}`;
+ drawXY(p,f);
+ // mouth
+ mbar("dv-b-mar",(f.mar??0)/0.8);$("dv-v-mar").innerHTML=n2(f.mar)+"<small>MAR</small>";
+ $("dv-s-mar").textContent=f.mar==null?"--":f.mar<0.1?"closed":f.mar<0.4?"talking range":"wide open (yawn > 0.50)";
+ $("dv-v-yawn").textContent=f.yawns??"--";$("dv-s-yawn").textContent=f.yawning?"YAWNING NOW":"held > 0.50 for 1.5 s = a yawn";
+ // anchor
+ const nn=f.nose_neutral||{};$("dv-s-nose").textContent=f.nose?`Nose tip at (${Math.round(f.nose[0])}, ${Math.round(f.nose[1])}) px · the three head-pose arrows start here · neutral yaw ${sgn(nn.yaw)}° pitch ${sgn(nn.pitch)}° roll ${sgn(nn.roll)}°`:"no face";
+ for(const k of Object.keys(SIGCL))pts("dv-p-"+k,P[k]);
+ // bottom bar: composite
+ $("dv-c-score").textContent=f.drowsiness==null?"--":Math.round(f.drowsiness);
+ $("c-stack").innerHTML=Object.keys(SIGCL).map(k=>{const q=P[k];const w=q&&q.points?q.points:0;
+  return `<span title="${SIGNM[k]} +${w.toFixed(1)}" style="width:${w}%;background:${CL[SIGCL[k]]};opacity:${.55+.45*(q&&q.d||0)}"></span>`}).join("");
+ $("c-wset").textContent=f.glasses?"· glasses weights: eyes 25 %, head 50 %, mouth 25 %":"· eyes 55 %, head 25 %, mouth 20 %";
+ $("g-state").textContent=f.glasses?"ON":"OFF";$("g-state").className="pill2 "+(f.glasses?"off":"mid");
  document.querySelectorAll("#gseg button").forEach(b=>b.classList.toggle("on",b.dataset.m===(f.glasses_mode||"auto")));
- $("g-badge").textContent=f.glasses?"WEARING GLASSES":"NO GLASSES";$("g-badge").className="badge "+(f.glasses?"mid":"ok");
- $("g-note").textContent=f.glasses_mode&&f.glasses_mode!=="auto"?`Set by hand (${f.glasses_mode}) · detector reads ${n2(f.glasses_level)}`:"Auto: bridge edge strength, smoothed over 1.5 s";
- $("g-meter").style.width=Math.min(100,(f.glasses_level||0)/1.0*100)+"%";$("g-level").textContent=n2(f.glasses_level);
- const we=f.w_eye??0.8,wh=f.w_head??0.2;$("w-eye").style.flexGrow=we;$("w-head").style.flexGrow=wh;
- $("w-eye").textContent=we>0?`EYES ${Math.round(we*100)}%`:"";$("w-head").textContent=wh>0?`HEAD ${Math.round(wh*100)}%`:"";
- $("basis").textContent=(f.basis||"--")+(f.glasses?" — lenses make EAR less reliable, so the nose axis counts for more":"");
- $("s-eye").textContent=fx(f.eye_score);$("s-head").textContent=fx(f.head_score);$("s-face").textContent=fx(f.face_score);
- $("nodnote").textContent=`Nods in the last minute: ${f.nods??0} (total ${f.nods_total??0}) · droop ${n2(f.droop_s,1)} s · long eye closures ${f.long_closures??0}`+(f.perclos_warming?" · PERCLOS warming up (10 s)":"");
+ $("c-esp").textContent=`→ ESP32 EYE ${f.face_score==null?"--":Math.round(f.face_score)} (100 − drowsiness)`;
+ // tier state machine + outputs (ESP32, or Tokyo's own outputs)
+ const e=s.esp||{},out=s.outputs;let tier=0;
+ if(out)tier=Math.min(2,out.level||0);else if(e.alert||e.lvl==="LOW")tier=2;else if(e.lvl==="CAUTION")tier=1;
+ ["n0","n1","n2"].forEach((id,i)=>$(id).classList.toggle("on",i===tier));
+ $("tiernote").textContent=`alert score ${fx(e.score)} · ${e.lvl||"--"}${e.alert?" · drowsy alert running":""} · ${out?"Tokyo outputs":"ESP32 "+(e.link||"--")}`;
+ const buzz=out?!!out.buzzer:!!e.alert,motor=out?!!out.motors:!!e.alert;
+ $("o-buzz").className="out"+(buzz?" on":"");$("o-motor").className="out"+(motor?" on":"");
+ const led=tier===2?"#ff5c7a":tier===1?"#ffd27a":"#7ee2a0";$("o-led").className="out on"+(tier===2?" blinkon":"");
+ $("o-ledi").style.background=led;$("o-ledi").style.boxShadow="0 0 10px "+led;
  setTimeout(devTick,250)}
 buildDev();
 try{if(localStorage.getItem("drifts-dev")==="1"||location.hash==="#dev")toggleDev()}catch(e){}

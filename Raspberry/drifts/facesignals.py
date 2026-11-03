@@ -17,15 +17,14 @@ Signals (the dashboard's dev view shows each one):
   8    blinking             closed episodes of 50-500 ms -> rate, duration
   + PERCLOS (P80, 60 s): share of time the eyes are >= 80 % closed
 
+Composite drowsiness (composite()): each of the eight signals becomes a
+drowsiness part d in 0..1, and the composite is their weighted sum, 0-100
+(higher = drowsier). The ESP32 gets 100 - composite as EYE:<n>.
+
 Glasses. EAR depends on six eyelid points; lenses (reflections, frames over
 the lid, refraction) make them less reliable. When glasses are detected (or
-switched on in the dev view), the face score leans on the nose axis instead:
-head nods and head drooping (the head dropping forward when drowsy).
-
-  face score = w_eye x eye score + w_head x head score
-     no glasses: w_eye 0.80, w_head 0.20      glasses: w_eye 0.40, w_head 0.60
-  eye score  = 100 x (1 - PERCLOS)
-  head score = 100 - 20 per nod in the last minute - 20 per second of droop
+switched on in the dev view), the weights move from the eyes to the nose
+axis: head nods, head drooping, head tilt (WEIGHTS vs WEIGHTS_GLASSES).
 """
 
 from __future__ import annotations
@@ -318,3 +317,114 @@ def fuse(eye_score: Optional[float], head_score: Optional[float], glasses: bool)
         return {"score": eye_score, "w_eye": 1.0, "w_head": 0.0, "basis": "eyes only"}
     return {"score": w_eye * eye_score + (1 - w_eye) * head_score, "w_eye": w_eye, "w_head": 1 - w_eye,
             "basis": "glasses: leaning on head pose" if glasses else "eyes + head"}
+
+
+# ---------------------------------------------------------------- composite (the eight signals)
+# Signal keys, grouped by what they measure on the face. The dev view and the
+# overlay colour each cluster the same way.
+CLUSTERS = {
+    "eyes": ("ear", "blink", "gaze"),
+    "head": ("yaw", "pitch", "roll"),
+    "mouth": ("mar", "yawn"),
+}
+SIGNALS = ("ear", "blink", "gaze", "yaw", "pitch", "roll", "mar", "yawn")
+
+# Each set sums to 1.0. With glasses the eyes lose weight to the nose axis.
+WEIGHTS = {"ear": 0.30, "blink": 0.15, "gaze": 0.10, "yaw": 0.05,
+           "pitch": 0.15, "roll": 0.05, "mar": 0.05, "yawn": 0.15}
+WEIGHTS_GLASSES = {"ear": 0.12, "blink": 0.06, "gaze": 0.07, "yaw": 0.08,
+                   "pitch": 0.30, "roll": 0.12, "mar": 0.07, "yawn": 0.18}
+
+
+def _clamp01(v: float) -> float:
+    return max(0.0, min(1.0, v))
+
+
+def drowsy_parts(sig: dict) -> dict:
+    """Each signal's drowsiness part, 0 (fine) .. 1 (as bad as it gets), or
+    None when it has no data yet. `sig` holds the raw readings:
+
+      ear    PERCLOS (P80, 60 s): 30 % closed = 1
+      blink  mean blink duration above 200 ms, or an eye closure now (2 s = 1)
+      gaze   time off road by the irises (3 s = 1)
+      yaw    turn from the driver's own neutral beyond 15 deg (40 deg = 1)
+      pitch  nods in the last minute (3 = 1) + head droop (3 s = 1)
+      roll   tilt from neutral beyond 10 deg (30 deg = 1): the head lolling
+      mar    mouth hanging open: MAR 0.3 .. 0.7
+      yawn   yawns in 10 min (3 = 1); a yawn in progress counts at least 0.6
+    """
+    g = sig.get
+    out = {}
+    out["ear"] = None if g("perclos") is None else _clamp01(g("perclos") / 0.30)
+    if g("found"):
+        mb = g("mean_blink_ms")
+        out["blink"] = max(_clamp01(((mb or 0) - 200.0) / 300.0), _clamp01((g("closed_for") or 0) / 2.0))
+        out["gaze"] = _clamp01((g("gaze_off_s") or 0) / 3.0)
+    else:
+        out["blink"] = out["gaze"] = None
+    dy, dr = g("yaw_rel"), g("roll_rel")
+    out["yaw"] = None if dy is None else _clamp01((abs(dy) - 15.0) / 25.0)
+    out["roll"] = None if dr is None else _clamp01((abs(dr) - 10.0) / 20.0)
+    out["pitch"] = (None if g("nods") is None or g("neutral_ready") is False else
+                    _clamp01((g("nods") or 0) / 3.0 + (g("droop_s") or 0) / 3.0))
+    m = g("mar")
+    out["mar"] = None if m is None else _clamp01((m - 0.3) / 0.4)
+    y = _clamp01((g("yawns") or 0) / 3.0)
+    out["yawn"] = max(y, 0.6) if g("yawning") else (y if g("found") or g("yawns") else None)
+    return out
+
+
+def composite(sig: dict, glasses: bool) -> dict:
+    """Weighted sum of the eight parts, renormalised over the ones with data.
+    Returns {"score": 0-100 drowsiness or None, "parts": {key: {...}}, "weights": ...}."""
+    parts = drowsy_parts(sig)
+    w = WEIGHTS_GLASSES if glasses else WEIGHTS
+    have = {k: v for k, v in parts.items() if v is not None}
+    total_w = sum(w[k] for k in have)
+    score = None if total_w <= 0 else 100.0 * sum(w[k] * have[k] for k in have) / total_w
+    return {
+        "score": score,
+        "parts": {k: {"d": parts[k], "w": w[k],
+                      "points": None if parts[k] is None or total_w <= 0 else 100.0 * w[k] * parts[k] / total_w}
+                  for k in SIGNALS},
+        "glasses": glasses,
+    }
+
+
+class Neutral:
+    """The driver's own neutral for an angle: the median of the last `span_s`
+    seconds, learning only while the reading is near it (so a long turn or
+    droop doesn't become the new normal)."""
+
+    def __init__(self, span_s: float = 30.0, learn_within: float = 15.0, min_samples: int = 10):
+        self.span_s, self.learn_within, self.min_samples = span_s, learn_within, min_samples
+        self._v: deque = deque()
+        self.value: Optional[float] = None
+
+    def update(self, now: float, v: Optional[float]) -> Optional[float]:
+        """Returns v relative to the neutral, or None."""
+        while self._v and now - self._v[0][0] > self.span_s:
+            self._v.popleft()
+        if v is None:
+            return None
+        if self.value is None or abs(v - self.value) <= self.learn_within:
+            self._v.append((now, v))
+        if len(self._v) >= self.min_samples:
+            vals = sorted(x for _, x in self._v)
+            self.value = vals[len(vals) // 2]
+        return None if self.value is None else v - self.value
+
+
+class OffTimer:
+    """How long a condition has held continuously (e.g. irises off road)."""
+
+    def __init__(self):
+        self.since: Optional[float] = None
+
+    def update(self, now: float, on: Optional[bool]) -> float:
+        if not on:
+            self.since = None
+            return 0.0
+        if self.since is None:
+            self.since = now
+        return now - self.since
