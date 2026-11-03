@@ -92,6 +92,26 @@ inline int stripBarLit(float score, int barLen = STRIP_BAR_LEN) {
     return lit;
 }
 
+// RAINBOW command: the whole strip flashes red, orange, yellow, green, blue,
+// indigo, violet, one colour per step (on, then a short off so each is a
+// distinct flash). A wiring and colour-order check: if red shows green, the
+// strip is RGB rather than GRB.
+constexpr Rgb STRIP_RAINBOW[7] = {
+    {255, 0, 0}, {255, 100, 0}, {255, 220, 0}, {0, 255, 0}, {0, 60, 255}, {75, 0, 200}, {170, 0, 255}};
+constexpr uint32_t STRIP_RAINBOW_STEP_MS = 500;
+constexpr uint32_t STRIP_RAINBOW_ON_MS = 380;
+constexpr int STRIP_RAINBOW_CYCLES = 3;
+
+// The frame `elapsedMs` into a rainbow run; returns false once it is over.
+inline bool rainbowFrame(uint32_t elapsedMs, int cycles, Rgb out[STRIP_LEDS]) {
+    const uint32_t step = elapsedMs / STRIP_RAINBOW_STEP_MS;
+    if (step >= (uint32_t)(7 * cycles)) return false;
+    const bool on = (elapsedMs % STRIP_RAINBOW_STEP_MS) < STRIP_RAINBOW_ON_MS;
+    const Rgb c = on ? STRIP_RAINBOW[step % 7] : STRIP_OFF;
+    for (int i = 0; i < STRIP_LEDS; i++) out[i] = c;
+    return true;
+}
+
 inline bool stripSlowBlink(uint32_t nowMs) { return (nowMs % 1000) < 500; }
 inline bool stripFastBlink(uint32_t nowMs) { return (nowMs % 250) < 125; }
 
@@ -134,6 +154,9 @@ public:
     void update(const StripInputs &in, uint32_t nowMs);
     // LEDSTRIP serial command: step through every band and status pattern.
     void startSelfTest(uint32_t nowMs);
+    // RAINBOW command: flash the seven rainbow colours `cycles` times.
+    void startRainbow(uint32_t nowMs, int cycles = STRIP_RAINBOW_CYCLES);
+    void stopTests() { _selfTest = false; _rainbow = false; }
     bool present() const { return _ok; }
     int lit() const { return _lit; }
 
@@ -146,6 +169,9 @@ private:
     uint32_t _lampUntil = 0;
     uint32_t _selfTestStart = 0;
     bool _selfTest = false;
+    bool _rainbow = false;
+    uint32_t _rainbowStart = 0;
+    int _rainbowCycles = STRIP_RAINBOW_CYCLES;
     int _lit = 0;
 };
 

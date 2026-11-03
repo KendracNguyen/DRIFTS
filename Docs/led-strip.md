@@ -73,6 +73,7 @@ See [`Tokyo/Docs/wiring.md`](../Tokyo/Docs/wiring.md#led-strip-gpio-10-ws2812b-1
 ## Testing
 | | |
 | --- | --- |
+| ESP32, colours | `RAINBOW` (or `RAINBOW 5` for 5 rounds) flashes the whole strip red → orange → yellow → green → blue → indigo → violet, 0.5 s each, 3 rounds. Also accepted over BLE. `STOP` ends it. If red shows as green, the strip's colour order isn't GRB |
 | ESP32 | `LEDSTRIP` in the serial monitor steps through 12 patterns, 1.5 s each, printing what each should look like. `STATUS` prints `[STRIP] on \| bar 11/13 LEDs` |
 | Tokyo | `python -m tokyo test strip` (the same 12 steps) |
 | Logic, no hardware | `cd Esp32/test && make`, `cd Tokyo && python -m pytest tests` |

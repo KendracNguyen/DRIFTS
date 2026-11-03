@@ -64,6 +64,19 @@ void LedStrip::startSelfTest(uint32_t nowMs) {
                   (unsigned long)STRIP_SELF_TEST_STEP_MS);
 }
 
+void LedStrip::startRainbow(uint32_t nowMs, int cycles) {
+    if (!_ok) {
+        Serial.println("[STRIP] Not running (disabled or RMT init failed)");
+        return;
+    }
+    _selfTest = false;
+    _rainbow = true;
+    _rainbowStart = nowMs;
+    _rainbowCycles = cycles;
+    Serial.printf("[STRIP] Rainbow: red, orange, yellow, green, blue, indigo, violet x%d (%lu ms each)\n", cycles,
+                  (unsigned long)STRIP_RAINBOW_STEP_MS);
+}
+
 void LedStrip::show(const Rgb *frame, uint32_t nowMs) {
     bool same = _sent;
     for (int i = 0; same && i < STRIP_LEDS; i++) same = frame[i] == _last[i];
@@ -105,6 +118,16 @@ void LedStrip::update(const StripInputs &in, uint32_t nowMs) {
         for (int i = 0; i < STRIP_LEDS; i++) frame[i] = i <= upTo ? STRIP_WHITE : STRIP_OFF;
         show(frame, nowMs);
         return;
+    }
+
+    if (_rainbow) {
+        if (rainbowFrame(nowMs - _rainbowStart, _rainbowCycles, frame)) {
+            _lit = STRIP_BAR_LEN;
+            show(frame, nowMs);
+            return;
+        }
+        _rainbow = false;
+        Serial.println("[STRIP] Rainbow done");
     }
 
     StripInputs use = in;
