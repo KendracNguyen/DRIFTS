@@ -60,6 +60,17 @@ padding:6px 9px;border-radius:6px}
 .tile{background:var(--soft);border-radius:12px;padding:10px}.tile small{font-size:11px;color:var(--muted)}
 .tile b{display:block;font-size:24px;color:var(--maroon);font-variant-numeric:tabular-nums}
 .note{font-size:12px;color:var(--muted);margin-top:8px}
+.att{display:flex;align-items:center;gap:12px}
+.att .big2{font-size:22px;font-weight:700;letter-spacing:.5px}
+.att .on{color:var(--ok)}.att .off{color:var(--bad)}.att .unk{color:var(--muted)}
+.row2{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:7px 0;border-top:1px solid var(--line)}
+.row2:first-of-type{border-top:0}.row2 span{color:var(--muted)}
+.tag3{font-size:10.5px;font-weight:700;letter-spacing:.6px;padding:3px 8px;border-radius:99px;border:1px dashed #cdbfc1;color:var(--muted)}
+.ang{display:grid;grid-template-columns:52px 1fr 52px;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin:7px 0}
+.ang i{position:relative;display:block;height:8px;border-radius:9px;background:var(--track)}
+.ang i:before{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:#cdbfc1}
+.ang i u{position:absolute;top:0;height:100%;background:var(--maroon);border-radius:9px;transition:all .3s}
+.ang em{font-style:normal;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
 .rest{padding:0;overflow:hidden}
 .map{height:96px;background:linear-gradient(90deg,#f1e4e5,#f8eeee 40%,#efe0e2);position:relative}
 .map:before{content:"";position:absolute;left:0;right:0;top:55%;height:2px;background:#d9c3c6}
@@ -85,7 +96,7 @@ nav a.on{color:var(--maroon);font-weight:600}
 <header>
  <div class="hrow">
   <div><h1>DRIFTS</h1><div class="sub"><span class="dot off" id="dot"></span><span id="linktxt">connecting…</span></div></div>
-  <div class="drive">Drive time: <span id="drive">0h 00m</span><div id="fw" style="opacity:.75;margin-top:2px">fw --</div></div>
+  <div class="drive">Drive time: <span id="drive">0h 00m</span><div id="fw" style="opacity:.75;margin-top:2px">fw --</div><div id="rigchip" style="opacity:.9;margin-top:2px"></div></div>
  </div>
 </header>
 
@@ -108,7 +119,7 @@ nav a.on{color:var(--maroon);font-weight:600}
     <div class="bar">PERCLOS<i><u id="b-per"></u></i><em id="v-per">--</em></div>
    </div>
   </div>
-  <div class="lcd" id="lcdrow" style="display:none"><pre id="lcd"></pre><span>LCD on the ESP32</span></div>
+  <div class="lcd" id="lcdrow" style="display:none"><pre id="lcd"></pre><span id="lcdlabel">LCD on the ESP32</span></div>
  </div>
 
  <div class="sec">Driver camera</div>
@@ -124,6 +135,34 @@ nav a.on{color:var(--maroon);font-weight:600}
    <label class="sw"><input type="checkbox" id="send" checked><span></span></label></div>
  </div>
 
+ <div class="sec">Road attention &amp; gaze</div>
+ <div class="card" id="attcard">
+  <div class="att"><div class="big2 unk" id="att">--</div><div class="note" style="margin:0" id="attsub"></div></div>
+  <div style="margin-top:8px">
+   <div class="row2"><span>Off-road glances &gt; 2 s</span><b id="glances">0</b></div>
+   <div class="row2"><span>Gaze target</span><b id="gaze">--</b></div>
+   <div class="row2"><span>Yawn</span><span class="tag3" id="y-yawn">STAGE 3 · PFLD</span></div>
+  </div>
+ </div>
+
+ <div class="sec">Head position</div>
+ <div class="card" id="headcard">
+  <div class="ang">Yaw<i><u id="g-yaw"></u></i><em id="v-yaw">--</em></div>
+  <div class="ang">Pitch<i><u id="g-pitch"></u></i><em id="v-pitch">--</em></div>
+  <div class="ang">Roll<i><u id="g-roll"></u></i><em id="v-roll">--</em></div>
+  <div class="toggle" style="margin-top:6px"><span id="calnote">--</span>
+   <button style="padding:7px 12px" onclick="fetch('/calibrate',{method:'POST'})">Calibrate</button></div>
+ </div>
+
+ <div class="sec">Eye &amp; mouth</div>
+ <div class="card">
+  <div class="row2"><span>Eye openness</span><b id="eo">--</b></div>
+  <div class="row2"><span>EAR (eye aspect ratio)</span><span class="tag3" id="y-ear">STAGE 3 · PFLD</span></div>
+  <div class="row2"><span>Blinking</span><span class="tag3" id="y-blink">STAGE 3 · PFLD</span></div>
+  <div class="row2"><span>PERCLOS (P80, 60 s)</span><span class="tag3" id="y-perclos">STAGE 3 · PFLD</span></div>
+  <div class="row2"><span>Mouth aperture</span><span class="tag3" id="y-mouth">STAGE 3 · PFLD</span></div>
+ </div>
+
  <div class="sec">Active interventions</div>
  <div class="card" id="alarmcard" style="margin-bottom:8px">
   <div class="toggle" style="margin:0"><span><b style="color:var(--ink)">Alarm on this device</b><br>
@@ -133,7 +172,7 @@ nav a.on{color:var(--maroon);font-weight:600}
    <button onclick="testLocal()">Test sound here</button><button onclick="beepEsp()">Beep ESP32 buzzer</button></div>
  </div>
  <div class="card iv" id="iv1"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1v-6h3zM3 19a2 2 0 002 2h1v-6H3z"/></svg></div>
-  <div class="t"><b>Audio alert</b><small>Piezo · 5 kHz · Level 1</small></div><span class="pill grey" id="p1">STANDBY</span></div>
+  <div class="t"><b>Audio alert</b><small id="p1sub">Piezo · 5 kHz · Level 1</small></div><span class="pill grey" id="p1">STANDBY</span></div>
  <div class="card iv" id="iv2"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></div>
   <div class="t"><b>Seat vibration</b><small>4× ERM array · PWM · Level 2</small></div><span class="pill grey" id="p2">STANDBY</span></div>
  <div class="card iv dim"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0014 0M12 17v5"/></svg></div>
@@ -164,12 +203,29 @@ nav a.on{color:var(--maroon);font-weight:600}
   <div class="note">Dashed lines: 70 (Intervention 1 below) and 50 (Intervention 2 below)</div></div>
  <div class="sec">Eye score (camera)</div>
  <div class="card"><svg class="chart" id="ch-eye" viewBox="0 0 400 120" preserveAspectRatio="none"></svg></div>
+ <div class="sec">Head yaw (° · + = driver's right)</div>
+ <div class="card"><svg class="chart" id="ch-yaw" viewBox="0 0 400 120" preserveAspectRatio="none"></svg>
+  <div class="note">Centre line = road pose; dashed = ±30° off-road limit</div></div>
  <div class="sec">RPM</div>
  <div class="card"><svg class="chart" id="ch-rpm" viewBox="0 0 400 120" preserveAspectRatio="none"></svg></div>
 </section>
 
 <!-- ============================== DEVICES ============================== -->
 <section class="tab" id="t-devices">
+ <div class="sec">Performance · this rig</div>
+ <div class="card kv" id="perfcard">
+  <span>Rig</span><b id="r-name">--</b>
+  <span>Face pipeline</span><b id="r-backend">--</b>
+  <span>Frame rate</span><b id="r-fps">--</b>
+  <span>Inference</span><b id="r-inf">--</b>
+  <span>CPU (all cores)</span><b id="r-cpu">--</b>
+  <span>SoC temperature</span><b id="r-temp">--</b>
+  <span>Memory used</span><b id="r-mem">--</b>
+  <span>Light</span><b id="r-night">--</b>
+ </div>
+ <div class="sec">Driver signals · this rig</div>
+ <div class="card" id="sigcard"></div>
+ <div class="note" style="margin:6px 4px">Compare two rigs side by side: <a href="/compare" style="color:var(--maroon)">/compare</a></div>
  <div class="sec">Devices</div>
  <div class="card kv">
   <span>ESP32 link</span><b id="d-link">--</b>
@@ -255,7 +311,8 @@ function chart(id,data,max,bands){const svg=$(id);if(!svg)return;data=(data||[])
      `<polyline points="${pts}" fill="none" stroke="#7d1d2c" stroke-width="2" vector-effect="non-scaling-stroke"/>`}
  else s+=`<text x="200" y="64" text-anchor="middle" fill="#9a8a8d" font-size="13">collecting…</text>`;svg.innerHTML=s}
 function drawCharts(){chart("ch-score",hist.score,100,[70,50]);chart("ch-eye",hist.eye,100,[]);
- chart("ch-rpm",hist.rpm,Math.max(1000,...hist.rpm.map(v=>v||0))*1.1,[])}
+ chart("ch-rpm",hist.rpm,Math.max(1000,...hist.rpm.map(v=>v||0))*1.1,[]);
+ chart("ch-yaw",(hist.yaw||[]).map(v=>v==null?null:v+60),120,[30,60,90])}
 const skipNull=a=>a.filter(v=>v!=null);
 let last=0;
 async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-store"})).json()}
@@ -267,7 +324,9 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  // score card
  const sc=p.score;$("score").textContent=fx(sc);$("ringv").textContent=fx(sc);
  $("arc").style.strokeDashoffset=238.8*(1-(sc==null?0:clamp(sc)/100));
- $("state").textContent=p.lvl?(STATE[p.lvl]||p.lvl)+(p.part?" · driving data only":""):"Waiting for ESP32…";
+ const out=s.outputs;
+ $("state").textContent=p.lvl?(STATE[p.lvl]||p.lvl)+(p.part?" · driving data only":"")+(out&&out.no_driving?" · eye only (no ESP32 data)":""):
+  (out?"Waiting for camera…":"Waiting for ESP32…");
  const espEye=p.eye!=null?p.eye:e.last_sent;bar("eye",espEye);
  bar("drv",sc!=null&&espEye!=null?clamp((sc-0.7*espEye)/0.3):null);
  bar("per",e.perclos==null?null:e.perclos*100);
@@ -280,7 +339,50 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  $("c-sent").textContent=`(${s.eyes_sent} sent)`;$("send").checked=s.eye_sending;
  fatigued=!!live&&(p.lvl==="CAUTION"||p.lvl==="LOW"||!!p.alert);alarmNote();
  // interventions: ACTIVE only while the ESP32 is actually firing the outputs
- const lvl=p.lvl;pill($("p1"),!!p.alert,lvl==="CAUTION"||lvl==="LOW",1);pill($("p2"),!!p.alert,lvl==="LOW",2);
+ const lvl=p.lvl;
+ // Tokyo drives its own outputs: Level 1 = buzzer, Level 2 = buzzer + motors.
+ if(out){pill($("p1"),out.level>=1,false,1);pill($("p2"),out.level>=2,false,2);
+  $("lcdlabel").textContent="LCD on the Pi 5";$("p1sub").textContent="Buzzer · 1 s on / 1 s off · Level 1"}
+ else{pill($("p1"),!!p.alert,lvl==="CAUTION"||lvl==="LOW",1);pill($("p2"),!!p.alert,lvl==="LOW",2)}
+ // driver state: head pose + road attention (stage 2), eye/mouth (stage 3)
+ const ps=s.pose||{};
+ const ATT={on_road:["ON ROAD","on"],off_road:["OFF ROAD","off"],unknown:["NO HEAD POSE","unk"]};
+ if(!ps.enabled){$("att").textContent="Head pose off";$("att").className="big2 unk";
+  $("attsub").textContent="Start with --pose imx500 (AI Camera) or --pose sim";$("gaze").textContent="--"}
+ else{const a=ATT[ps.attention]||ATT.unknown;$("att").textContent=a[0]+(ps.attention==="off_road"?` ${ps.off_for.toFixed(1)}s`:"");
+  $("att").className="big2 "+a[1];
+  $("attsub").textContent=ps.distracted?"Eyes off road over 2 s":ps.attention==="unknown"?"Driver not detected":
+   (s.face?"Iris gaze + head pose":ps.inference_ms!=null?`AI Camera · ${fx(ps.inference_ms,1)} ms inference`:"Head direction");
+  $("gaze").textContent=!ps.found?"--":ps.profile?"Turned away":ps.gaze_off?"Eyes off road (iris)":ps.attention==="on_road"?"Road":
+   Math.abs(ps.yaw)>=Math.abs(ps.pitch)?(ps.yaw>0?"Right of road":"Left of road"):(ps.pitch>0?"Down (lap / console)":"Up")}
+ $("glances").textContent=ps.glances||0;
+ const ang=(k,v)=>{const g=$("g-"+k);if(v==null){g.style.width="0";$("v-"+k).textContent="--";return}
+  const c=Math.max(-45,Math.min(45,v)),w=Math.abs(c)/90*100;g.style.width=w+"%";g.style.left=(c<0?50-w:50)+"%";
+  $("v-"+k).textContent=(v>0?"+":"")+v.toFixed(0)+"°"};
+ ang("yaw",ps.profile?null:ps.yaw);ang("pitch",ps.profile?null:ps.pitch);ang("roll",ps.profile?null:ps.roll);
+ $("calnote").textContent=!ps.enabled?"":ps.calibrated?"Calibrated to road pose":
+  `Calibrating ${Math.round((ps.calib_progress||0)*100)}% · look at the road`;
+ const fc=s.face;
+ const val=(id,txt)=>{const el=$(id);el.textContent=txt;el.className="";el.style.fontWeight="700"};
+ if(fc){
+  $("eo").textContent=!fc.found?"--":fc.openness==null?"--":`${Math.round(Math.max(0,Math.min(1,fc.openness))*100)}% open (${fc.eye_state})`;
+  val("y-ear",fc.ear==null?"--":fc.ear.toFixed(3)+(fc.eye_valid?"":" (head turned)"));
+  val("y-blink",fc.blink_rate==null?"warming up":`${fx(fc.blink_rate)} /min · ${fx(fc.mean_blink_ms)} ms`+(fc.closure_ms>400?` · closed ${fx(fc.closure_ms)} ms`:""));
+  val("y-perclos",fc.perclos==null?(fc.perclos_warming?"warming up (60 s)":"--"):`${fx(fc.perclos*100,1)}%`);
+  val("y-mouth",fc.mar==null?"--":`MAR ${fc.mar.toFixed(2)}`+(fc.yawning?" · YAWNING":""));
+  val("y-yawn",fc.yawning?"YAWNING":`${fc.yawns||0} in 10 min`);
+ } else $("eo").textContent=s.eye_tracker?({open:"Open",closed:"Closed",no_face:"--"}[e.state]+" (camera estimate)"):"Off (--no-eyes)";
+ // rig + performance
+ const rg=s.rig||{},pf=rg.perf||{};
+ const BK={mediapipe:"MediaPipe 478 landmarks (dms-face)",imx500:"AI Camera on-sensor pose (5 face points)",sim:"Simulated head",off:"Haar eye estimate"};
+ $("rigchip").textContent=`${rg.name||""} · ${rg.live||0}/${rg.total||8} signals`;
+ $("r-name").textContent=rg.name||"--";$("r-backend").textContent=BK[rg.backend]||rg.backend||"--";
+ $("r-fps").textContent=fx(rg.fps,1)+" fps";$("r-inf").textContent=rg.inference_ms==null?"--":fx(rg.inference_ms,1)+" ms";
+ $("r-cpu").textContent=pf.cpu==null?"--":fx(pf.cpu)+" %";$("r-temp").textContent=pf.temp_c==null?"--":fx(pf.temp_c,1)+" °C";
+ $("r-mem").textContent=pf.mem_mb==null?"--":fx(pf.mem_mb)+" MB";
+ $("r-night").textContent=fc?(fc.night?"Night (IR)":"Day")+(fc.ir_enhanced?" · IR enhanced":""):"--";
+ const LVL={live:["LIVE","pill on"],proxy:["PROXY","pill"],rough:["ROUGH","pill"],none:["NOT AVAILABLE","pill grey"]};
+ if(rg.signals)$("sigcard").innerHTML=rg.signals.map(x=>`<div class="row2"><span>${x.label}</span><span class="${LVL[x.level][1]}">${LVL[x.level][0]}</span></div>`).join("");
  // vehicle
  $("rpm").textContent=fx(p.rpm);$("spd").textContent=fx(p.spd);$("thr").textContent=fx(p.thr);
  $("obd").textContent=p.obd||"--";$("hz").textContent=fx(p.hz,1);

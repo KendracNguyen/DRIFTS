@@ -7,6 +7,9 @@
     python -m tokyo test all
     python -m tokyo demo             # score 90 -> 60 -> 35 -> 85: all outputs together
     add --sim to run anywhere without hardware (prints what would happen)
+
+    python -m tokyo run [options]    # the full app: camera, face, score, outputs, dashboard
+                                     # (see tokyo/app.py; --help for options)
 """
 
 from __future__ import annotations
@@ -131,6 +134,10 @@ def demo(cfg, sim):
 
 
 def main(argv=None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["run"]:
+        from tokyo.app import run
+        return run(argv[1:])
     ap = argparse.ArgumentParser(prog="python -m tokyo", description="Tokyo (Pi 5) hardware tool")
     ap.add_argument("cmd", choices=["test", "demo"])
     ap.add_argument("what", nargs="?", default="all", choices=["buzzer", "motors", "strip", "lcd", "all"])

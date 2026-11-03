@@ -2,5 +2,6 @@
 # (picamera2, opencv, and numpy come from apt on the Pi, not pip)
 bleak>=0.22
 pyserial>=3.5        # drifts.live / alert_test over USB
+munkres              # AI Camera pose decoding (picamera2 postprocess_highernet)
 ncnn>=1.0.20240410
 pytest>=8.0

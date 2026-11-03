@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DRIFTS Rig Comparison</title>
+<style>
+:root{--maroon:#7d1d2c;--maroon-dk:#5e1420;--bg:#f6eeee;--card:#fff;--ink:#2b1b1e;--muted:#9a8a8d;--line:#eedfe0;
+--soft:#fbf3f3;--ok:#2f8a4a;--bad:#b3192f;--warn:#c9861a}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg)}
+body{font:14.5px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink)}
+header{background:var(--maroon);color:#fff;padding:16px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+header h1{margin:0;font-size:22px;letter-spacing:2px}
+header form{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+header input{font:inherit;padding:7px 10px;border-radius:8px;border:0;min-width:220px}
+header button{font:inherit;font-weight:600;padding:7px 14px;border-radius:8px;border:0;background:#fff;color:var(--maroon);cursor:pointer}
+main{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.title{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.title b{font-size:17px}.title span{color:var(--muted);font-size:12.5px}
+.count{font-size:30px;font-weight:700;color:var(--maroon)}
+.feed{border-radius:10px;overflow:hidden;background:#1a1012;aspect-ratio:4/3}
+.feed img{width:100%;height:100%;object-fit:contain;display:block}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tile{background:var(--soft);border-radius:10px;padding:8px}.tile small{font-size:11px;color:var(--muted)}
+.tile b{display:block;font-size:20px;color:var(--maroon);font-variant-numeric:tabular-nums}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:13.5px}
+.row:first-child{border-top:0}.row span{color:var(--muted)}
+.lv{font-size:10px;font-weight:700;letter-spacing:.7px;padding:3px 8px;border-radius:99px;border:1px solid var(--maroon);color:var(--maroon);margin-left:8px}
+.lv.live{background:var(--maroon);color:#fff}.lv.none{border-color:#cdbfc1;color:var(--muted)}
+.state{font-size:18px;font-weight:700}.on{color:var(--ok)}.off{color:var(--bad)}.unk{color:var(--muted)}
+.err{color:var(--bad);font-weight:600}
+</style></head><body>
+<header><h1>DRIFTS · RIG COMPARISON</h1>
+ <form id="f"><input id="ua" placeholder="Rig A  e.g. http://drifts-zero.local:8080">
+  <input id="ub" placeholder="Rig B  e.g. http://drifts-pi5.local:8080"><button>Show</button></form></header>
+<main><div class="col" id="A"></div><div class="col" id="B"></div></main>
+<script>
+// Both rigs run drifts.live; each serves /status.json and /stream.mjpg with
+// CORS enabled, so this page can show any two of them side by side.
+const q=new URLSearchParams(location.search);
+const urls={A:q.get("a")||location.origin,B:q.get("b")||""};
+const $=id=>document.getElementById(id);
+$("ua").value=urls.A;$("ub").value=urls.B;
+$("f").onsubmit=e=>{e.preventDefault();location.search=`?a=${encodeURIComponent($("ua").value.trim())}&b=${encodeURIComponent($("ub").value.trim())}`};
+const fx=(v,d=0)=>v==null||isNaN(v)?"--":Number(v).toFixed(d);
+const LV={live:"LIVE",proxy:"PROXY",rough:"ROUGH",none:"N/A"};
+const BK={mediapipe:"MediaPipe · 478 landmarks (dms-face)",imx500:"AI Camera · on-sensor pose, 5 face points",sim:"Simulated head",off:"Eye estimate only"};
+function value(key,s){const f=s.face,p=s.pose||{};
+ const deg=v=>v==null?"--":(v>0?"+":"")+v.toFixed(0)+"°";
+ switch(key){
+  case "yaw":return deg(p.yaw);case "pitch":return deg(p.pitch);case "roll":return deg(p.roll);
+  case "off_road_gaze":return !p.enabled?"--":p.attention==="off_road"?`OFF ${fx(p.off_for,1)} s`:p.attention==="on_road"?"on road":"--";
+  case "ear":return f&&f.ear!=null?f.ear.toFixed(3):"--";
+  case "blink":return f&&f.blink_rate!=null?`${fx(f.blink_rate)}/min`:"--";
+  case "mouth":return f&&f.mar!=null?`MAR ${f.mar.toFixed(2)}`:"--";
+  case "yawn":return f?(f.yawning?"YAWNING":`${f.yawns||0} / 10 min`):"--";}
+ return "--"}
+function skeleton(k){$(k).innerHTML=`
+ <div class="card"><div class="title"><b id="${k}n">Rig ${k}</b><span id="${k}u"></span></div>
+  <div class="title" style="margin-top:4px"><span id="${k}bk"></span><span><span class="count" id="${k}c">-</span> / 8 live</span></div></div>
+ <div class="feed"><img id="${k}img" alt="Rig ${k} camera"></div>
+ <div class="card"><div class="tiles">
+  <div class="tile"><small>Frame rate</small><b id="${k}fps">--</b></div>
+  <div class="tile"><small>Inference</small><b id="${k}inf">--</b></div>
+  <div class="tile"><small>CPU</small><b id="${k}cpu">--</b></div>
+  <div class="tile"><small>Temp</small><b id="${k}t">--</b></div></div>
+  <div class="row" style="border:0;margin-top:6px"><span>Road attention</span><b class="state unk" id="${k}att">--</b></div>
+  <div class="row"><span>Light</span><b id="${k}night">--</b></div></div>
+ <div class="card" id="${k}sig"></div>`;
+ if(urls[k])$(k+"img").src=urls[k].replace(/\/$/,"")+"/stream.mjpg";$(k+"u").textContent=urls[k]||"no URL set"}
+["A","B"].forEach(skeleton);
+async function poll(k){if(!urls[k])return;let s;
+ try{s=await (await fetch(urls[k].replace(/\/$/,"")+"/status.json",{cache:"no-store"})).json()}
+ catch(e){$(k+"n").innerHTML=`<span class="err">Rig ${k} unreachable</span>`;return}
+ const r=s.rig||{},pf=r.perf||{},p=s.pose||{};
+ $(k+"n").textContent=r.name||`Rig ${k}`;$(k+"bk").textContent=BK[r.backend]||r.backend||"";$(k+"c").textContent=r.live??"-";
+ $(k+"fps").textContent=fx(r.fps,1);$(k+"inf").textContent=r.inference_ms==null?"--":fx(r.inference_ms,1)+" ms";
+ $(k+"cpu").textContent=pf.cpu==null?"--":fx(pf.cpu)+"%";$(k+"t").textContent=pf.temp_c==null?"--":fx(pf.temp_c)+"°C";
+ const a=p.attention||"unknown";$(k+"att").textContent=!p.enabled?"--":a==="on_road"?"ON ROAD":a==="off_road"?`OFF ROAD ${fx(p.off_for,1)} s`:"NO DRIVER";
+ $(k+"att").className="state "+(a==="on_road"?"on":a==="off_road"?"off":"unk");
+ $(k+"night").textContent=s.face?(s.face.night?"Night (IR)":"Day"):"--";
+ if(r.signals)$(k+"sig").innerHTML=r.signals.map(x=>`<div class="row"><span>${x.label}</span><b>${x.level==="none"?"":value(x.key,s)}<span class="lv ${x.level}">${LV[x.level]}</span></b></div>`).join("")}
+setInterval(()=>{poll("A");poll("B")},1000);poll("A");poll("B");
+</script></body></html>
