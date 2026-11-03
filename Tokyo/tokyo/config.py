@@ -9,11 +9,11 @@ DRIFTS Rev 9 wiring sheet (with the fixes in Docs/wiring.md). Every value can
 be overridden in tokyo.toml (see load_config).
 
     GPIO 13  motors     hardware PWM ch1   -> 100 R -> IN of all 4 motor modules (rev 4 style)
-    GPIO 23  buzzer     on/off             -> Q5 low side, 3 V active buzzer from 3V3
+    GPIO 18  buzzer     on/off             -> Q5 low side, 3 V active buzzer from 3V3
     GPIO 10  LED strip  SPI0 MOSI          -> 74AHCT125 -> 330 R -> WS2812B DIN (14 LEDs)
     GPIO 12  IR LEDs    hardware PWM ch0   -> Q6 low side, 2 x 2 940 nm LEDs
     GPIO 2/3 I2C1       SDA / SCL          -> BSS138 level shifter -> LCD backpack
-    GPIO 18/19/21 voice I2S (BCLK/LRC/DIN) -> MAX98357A amplifier -> 3 W speaker
+    USB      voice      small USB speaker (USB audio, powered by the port)
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ class MotorConfig:
 
 @dataclass
 class BuzzerConfig:
-    pin: int = 23               # moved from Rev 9's GPIO 18: I2S audio needs 18
+    pin: int = 18
     # "active": has its own oscillator (3 V magnetic buzzer): just switch it on and off.
     # "passive": a plain piezo: the Pi plays a tone with hardware PWM.
     kind: str = "active"
@@ -74,7 +74,9 @@ class VoiceConfig:
     # Clips generated from Voice/phrases.json (same ids as the ESP32's DFPlayer).
     clips_dir: str = ""          # default: <repo>/Voice/clips
     player: str = "aplay"        # aplay -q <clip.wav>; set device below if needed
-    device: str = "plughw:CARD=MAX98357A,DEV=0"   # I2S amplifier (dtoverlay=max98357a); "" = system default
+    # "auto": the first USB sound card in `aplay -l` (the USB speaker), else the default.
+    # Or name one, e.g. "plughw:CARD=Device,DEV=0".
+    device: str = "auto"
     repeat_s: float = 60.0       # Level 2 warning repeats this often
     link_lost_s: float = 5.0
 

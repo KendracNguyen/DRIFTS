@@ -3,7 +3,7 @@ first model's ESP32 + DFPlayer (Esp32/drifts_esp32/voice.h).
 
 Clips come from Voice/phrases.json, generated once with Piper by
 Voice/make_clips.py (Voice/clips/NN_NAME.wav), and play through `aplay` on
-a MAX98357A I2S amplifier (GPIO 18/19/21) -> 3 W speaker. Pre-generated clips
+a small USB speaker (device "auto" finds it). Pre-generated clips
 start instantly and cost no CPU while driving.
 
 What is said, and when:
@@ -129,6 +129,25 @@ class VoiceDirector:
         return name
 
 
+def find_usb_card(aplay_l: str) -> Optional[str]:
+    """The first USB sound card in `aplay -l` output, as an ALSA device name."""
+    for line in aplay_l.splitlines():
+        if line.startswith("card ") and "usb" in line.lower():
+            name = line.split(":", 1)[1].split("[", 1)[0].strip()
+            return f"plughw:CARD={name},DEV=0"
+    return None
+
+
+def resolve_device(device: str) -> str:
+    if device != "auto":
+        return device
+    try:
+        out = subprocess.run(["aplay", "-l"], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return find_usb_card(out) or ""
+
+
 def wav_seconds(path: Path) -> float:
     with wave.open(str(path), "rb") as w:
         return w.getnframes() / w.getframerate()
@@ -145,6 +164,7 @@ class Voice:
         self.clips = {n: clips / f"{p['id']:02d}_{n}.wav" for n, p in self.phrases.items()}
         self.lengths = {n: wav_seconds(f) for n, f in self.clips.items() if f.exists()}
         self.player_ok = sim or bool(shutil.which(cfg.player))
+        self.device = "" if sim else resolve_device(cfg.device)
         self.played: list = []           # (time, name)
         self._proc = None
         self._until = 0.0
@@ -177,7 +197,7 @@ class Voice:
         self._until = now + length + 0.25
         if self.sim or not self.cfg.enabled or not self.player_ok or name not in self.lengths:
             return length
-        cmd = [self.cfg.player, "-q"] + (["-D", self.cfg.device] if self.cfg.device else []) + [str(self.clips[name])]
+        cmd = [self.cfg.player, "-q"] + (["-D", self.device] if self.device else []) + [str(self.clips[name])]
         try:
             self._proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except OSError:

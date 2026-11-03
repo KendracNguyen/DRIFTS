@@ -5,8 +5,6 @@ agreed on Nov 3 2026:
 
 | Rev 9 sheet | Built as | Why |
 | --- | --- | --- |
-| BZ1 on GPIO 18 | **Buzzer on GPIO 23 (pin 16)** | GPIO 18 is the I2S clock for the voice amplifier. GPIO 23 is pulled down at boot, so the buzzer stays quiet |
-| — (no audio on the sheet) | **MAX98357A I2S amplifier on GPIO 18 / 19 / 21** | The Pi 5 has no headphone jack; I2S needs no USB adapter and has the amplifier built in |
 | M1-M4 on four pins (GPIO 5, 6, 13, 19), each with its own MOSFET | **4 motor modules, all IN pins on GPIO 13**, the same as the first model's rev 4 schematic | The modules have their own driver. GPIO 5/6 are pulled *up* at boot, so the motors could twitch at power-up |
 | BZ1 passive piezo disc + 1 kΩ bleed | **3 V active magnetic buzzer from 3V3, 1N5819 across it** | That is the part we have. It is a coil: it needs a flyback diode, not a bleed resistor, and 5 V would overdrive it |
 | Strip ≈13 LEDs | **14 LEDs** | 1 status pixel + 13-LED score bar, the same as the ESP32 |
@@ -23,24 +21,21 @@ and give only a few milliamps (up to ~12 mA).
 | Pi 5 pin (physical) | GPIO | Goes to | Through |
 | --- | --- | --- | --- |
 | 33 | **GPIO 13** (PWM ch1) | IN of all 4 vibration motor modules | 100 Ω; 10 kΩ IN-to-GND |
-| 16 | **GPIO 23** | Buzzer (Q5 gate) | 220 Ω gate resistor; 10 kΩ gate-to-GND |
-| 12 | **GPIO 18** (I2S BCLK) | MAX98357A BCLK | direct |
-| 35 | **GPIO 19** (I2S LRCLK) | MAX98357A LRC | direct |
-| 40 | **GPIO 21** (I2S DOUT) | MAX98357A DIN | direct |
+| 12 | **GPIO 18** | Buzzer (Q5 gate) | 220 Ω gate resistor; 10 kΩ gate-to-GND |
 | 19 | **GPIO 10** (SPI0 MOSI) | LED strip DIN | **74AHCT125** + 330 Ω |
 | 32 | **GPIO 12** (PWM ch0) | IR LEDs (Q6 gate) | 220 Ω gate resistor; 10 kΩ gate-to-GND |
 | 3 | **GPIO 2** (SDA) | LCD backpack SDA (and the MPU-6050, LV side) | BSS138 level shifter (A1→B1) |
 | 5 | **GPIO 3** (SCL) | LCD backpack SCL | BSS138 level shifter (A2→B2) |
 | 1 / 17 | 3V3 | shifter LV, buzzer +, MPU-6050 VCC | |
-| 2 / 4 | 5V (from the buck converter) | MAX98357A VIN, motor module VCC, shifter HV, LCD VCC, 74AHCT125 VCC, strip, IR strings | |
+| 2 / 4 | 5V (from the buck converter) | motor module VCC, shifter HV, LCD VCC, 74AHCT125 VCC, strip, IR strings | |
 | 6, 9, 14… | GND | everything, one common ground | |
+| USB | — | Small USB speaker (voice) | |
 | CAM/DISP 0 | — | Camera Module 3 NoIR | 22-pin FPC "Standard–Mini" cable |
 
 `install.sh` adds this to `/boot/firmware/config.txt` (reboot afterwards):
 ```
 dtparam=i2c_arm=on
 dtparam=spi=on
-dtoverlay=max98357a
 dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4
 ```
 Software check: `python -m tokyo test all` (add `--sim` to try it without hardware).
@@ -76,14 +71,14 @@ IN** and its own driver, and all four IN pins share one PWM pin.
 `[motors] duty = 1.0` (full on, 20 kHz), with a pulse pattern of 0.5 s on / 0.3 s off at Level 2.
 GPIO 13 is pulled *down* at boot, so the motors stay off.
 
-## Buzzer (GPIO 23): 3 V active magnetic buzzer
+## Buzzer (GPIO 18): 3 V active magnetic buzzer
 
 ```
  3V3 (pin 1 or 17) ──┬──────────── BZ1 (+)  (longer leg / red wire)
                      │             BZ1 (−) ──┐
           D5 1N5819 (stripe to 3V3)          │ drain
                      └───────────────────────┤
- GPIO 23 ──[220 Ω]── gate   Q5 AO3400 (or IRLZ44N)
+ GPIO 18 ──[220 Ω]── gate   Q5 AO3400 (or IRLZ44N)
                      │                       │ source
                    10 kΩ                    GND
                      │
@@ -128,27 +123,20 @@ switched by Q6. This is unchanged from Rev 9:
 - The NoIR sensor is fairly insensitive at 940 nm. Check the night image;
   850 nm LEDs give a brighter picture but glow faintly red.
 
-## Voice: MAX98357A I2S amplifier + speaker
+## Voice: small USB speaker
 
-The Pi 5 has no headphone jack. The MAX98357A takes digital audio (I2S)
-straight from the header and has a 3 W class-D amplifier built in.
-```
- MAX98357A        Pi 5
- VIN ──────────── 5V          (pin 2 or 4)
- GND ──────────── GND
- BCLK ─────────── GPIO 18     (pin 12)
- LRC ──────────── GPIO 19     (pin 35)
- DIN ──────────── GPIO 21     (pin 40)
- GAIN             leave open = 9 dB; to GND = 12 dB (louder)
- SD               leave open  (on, mono mix of left + right)
- + / − ────────── 3 W 4 Ω speaker   (never connect either wire to GND)
-```
-- `dtoverlay=max98357a` in `/boot/firmware/config.txt` (`install.sh` adds it), then reboot.
-- Check: `aplay -l` lists **card MAX98357A**;
-  `speaker-test -D plughw:CARD=MAX98357A,DEV=0 -c 2 -t sine -l 1` plays a tone.
-- Tokyo plays to that card by default (`[voice] device` in `tokyo.toml`).
-  Test: `python -m tokyo test voice`, or `python -m tokyo say 4`.
-- Short speaker wires; keep them away from the camera ribbon.
+Plug it into any USB port on the Pi 5. No wiring, no GPIO pins.
+
+- **Buy a speaker that plays sound over USB**, sold as "USB computer speaker,
+  plug and play, no driver needed". Some cheap speakers only take *power* from
+  USB and get the sound through a **3.5 mm plug**. Those won't work on their
+  own, because the Pi 5 has no audio jack. Such a speaker needs a USB audio
+  dongle (~$8) for its 3.5 mm plug.
+- Check: `aplay -l` lists it as a USB card. Tokyo finds it automatically
+  (`[voice] device = "auto"`) and otherwise uses the default output.
+- Test: `python -m tokyo test voice`, or `python -m tokyo say 4`.
+- Turn its volume knob up: road noise is ~70 dB. Fix the speaker and cable
+  down so vibration can't pull the plug.
 - Phrases: [`../../Docs/voice.md`](../../Docs/voice.md).
 
 ## LCD (GPIO 2 / 3)
@@ -170,7 +158,7 @@ yet (the driving data comes from the first model's ESP32).
 | 4 motor modules | 0.4-0.6 A |
 | IR LEDs (2 strings × 100 mA) | 0.2 A |
 | LED strip, 14 LEDs at 25 % | < 0.25 A |
-| MAX98357A + speaker (3 W, loud) | up to 0.7 A |
+| USB speaker | up to 0.5 A |
 | Buzzer, LCD, 74AHCT125, shifter | < 0.1 A |
 
 All from the one 5 V buck converter, so it must be rated for **at least 5 A** (6-8 A gives headroom).

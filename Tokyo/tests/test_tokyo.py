@@ -20,8 +20,8 @@ from tokyo.voice import VoiceDirector, VoiceInputs, load_phrases
 # ------------------------------------------------------------------ config
 def test_config_defaults_and_override(tmp_path):
     cfg = Config()
-    # Rev 9 wiring: motors 13, buzzer 23 (I2S audio took 18), strip SPI MOSI 10, IR 12
-    assert (cfg.motors.pin, cfg.buzzer.pin, cfg.strip.pin, cfg.ir.pin) == (13, 23, 10, 12)
+    # Rev 9 wiring: motors 13, buzzer 18, strip SPI MOSI 10, IR 12
+    assert (cfg.motors.pin, cfg.buzzer.pin, cfg.strip.pin, cfg.ir.pin) == (13, 18, 10, 12)
     assert cfg.strip.count == 14 and cfg.strip.backend == "spi" and cfg.buzzer.kind == "active"
     assert cfg.buzzer.on_s == 1.0 and cfg.buzzer.off_s == 1.0 and cfg.motors.duty == 1.0
     f = tmp_path / "tokyo.toml"
@@ -265,3 +265,12 @@ def test_lcd_writes_only_changes():
     assert lcd.show("ALERT     87/100", "   Drive Safe   ") == 20     # non-blank characters
     assert lcd.show("ALERT     86/100", "   Drive Safe   ") == 1
     assert lcd.show("ALERT     86/100", "   Drive Safe   ") == 0
+
+
+def test_voice_finds_the_usb_speaker():
+    from tokyo.voice import find_usb_card
+    out = ("**** List of PLAYBACK Hardware Devices ****\n"
+           "card 0: vc4hdmi0 [vc4-hdmi-0], device 0: MAI PCM i2s-hifi-0 [MAI PCM i2s-hifi-0]\n"
+           "card 2: Device [USB2.0 Device], device 0: USB Audio [USB Audio]\n")
+    assert find_usb_card(out) == "plughw:CARD=Device,DEV=0"
+    assert find_usb_card("card 0: vc4hdmi0 [vc4-hdmi-0], device 0: MAI PCM\n") is None

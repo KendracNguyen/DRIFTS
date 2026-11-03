@@ -11,7 +11,7 @@ stays as it is (`Esp32/`, `Raspberry/`).
 | Face signals | 2-4 of 8 (Zero) | **8 of 8** (MediaPipe, via dms-face) |
 | Alert outputs | ESP32 GPIO | **Pi 5 GPIO**: buzzer, 4 vibration motor modules |
 | Status light | 3 LEDs + 14-LED WS2812B strip (v17) | **14-LED WS2812B strip** above the LCD, same frames |
-| Voice | DFPlayer Mini on the ESP32 (v17) | **MAX98357A I2S amplifier + speaker**, same phrases |
+| Voice | DFPlayer Mini on the ESP32 (v17) | **Small USB speaker**, same phrases |
 | Night | — | **940 nm IR LEDs**, on automatically at night |
 | LCD | ESP32 I2C | **Pi 5 I2C**, same screens |
 | OBD | ESP32 BLE central | **Pi 5 Bluetooth** directly |

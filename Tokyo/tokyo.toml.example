@@ -4,7 +4,7 @@
 duty = 1.0            # 4 motor modules with onboard driver, all IN pins on GPIO 13
 
 [buzzer]
-kind = "active"       # 3 V magnetic active buzzer on GPIO 23 (on/off only)
+kind = "active"       # 3 V magnetic active buzzer on GPIO 18 (on/off only)
 
 [strip]
 backend = "spi"       # pi5neo on GPIO 10; "pio" + pin = N for another GPIO
@@ -17,4 +17,4 @@ duty = 1.0
 
 [voice]
 enabled = true
-device = "plughw:CARD=MAX98357A,DEV=0"   # I2S amplifier; check with aplay -l
+device = "auto"       # the USB speaker (first USB card in aplay -l); or e.g. "plughw:CARD=Device,DEV=0"
