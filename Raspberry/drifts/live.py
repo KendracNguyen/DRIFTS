@@ -42,7 +42,7 @@ from urllib.parse import parse_qs, urlparse
 from drifts.camera import Camera
 from drifts.config import load_config
 from drifts.esp_link import make_link
-from drifts.facemesh import LAYERS as DEV_LAYERS
+from drifts.facemesh import DEFAULT_LAYERS, LAYERS as DEV_LAYERS
 from drifts.eyes import CLOSED, NO_FACE, OPEN, EyeObservation, EyeTracker, PerclosWindow, eye_score
 from drifts.headpose import AttentionTracker, Calibration, HeadPose, estimate
 from drifts.perf import PerfMonitor, capability
@@ -144,9 +144,10 @@ class Pipeline:
         # someone is watching them (they cost CPU on a Pi Zero).
         self.dev_capable = hasattr(camera, "render_dev")
         self.dev_until = 0.0
-        self.dev_layers = set(DEV_LAYERS)
+        self.dev_layers = set(DEFAULT_LAYERS)
         self.dev_jpeg: Optional[bytes] = None
-        self.zoom_jpeg: Optional[bytes] = None
+        self.zoom_jpeg: Optional[bytes] = None        # eyes close-up
+        self.mouth_jpeg: Optional[bytes] = None
         self.dev_id = 0
         self.perf = PerfMonitor()
         # Extension points (Tokyo uses them): per-frame callbacks f(pipe, now),
@@ -176,6 +177,8 @@ class Pipeline:
         self._stop = threading.Event()
         self._burst: list[str] = []
         self.started = time.time()
+        self.error: Optional[str] = None          # why the camera thread stopped, for the page
+        self.camera_note: Optional[str] = None    # e.g. "no webcam found: showing a blank image"
         # 1 Hz session history for the History tab: (t, alert score, eye score, rpm)
         self.history: list[tuple] = []
 
@@ -317,8 +320,18 @@ class Pipeline:
         return img
 
     def _run(self) -> None:
+        try:
+            self._loop()
+        except Exception as exc:
+            # Without this the camera thread dies silently and the page just
+            # shows a black feed at 0 fps. Say why, in the log and on the page.
+            log.exception("Camera pipeline stopped")
+            self.error = f"{type(exc).__name__}: {exc}"
+
+    def _loop(self) -> None:
         import cv2
         self.camera.start()
+        self.camera_note = describe_camera(self.camera)
         last_send = 0.0
         t_fps, n_fps = time.time(), 0
         try:
@@ -376,11 +389,13 @@ class Pipeline:
                     raw = getattr(self.camera, "last_frame", None)
                     if raw is not None:
                         dev = self.camera.render_dev(raw, self.dev_layers, mirror=self.args.mirror)
-                        zoom = self.camera.render_zoom(raw)
-                        dj = cv2.imencode(".jpg", dev, [cv2.IMWRITE_JPEG_QUALITY, 80])[1].tobytes()
-                        zj = cv2.imencode(".jpg", zoom, [cv2.IMWRITE_JPEG_QUALITY, 85])[1].tobytes()
+                        enc = lambda im, q: cv2.imencode(".jpg", im, [cv2.IMWRITE_JPEG_QUALITY, q])[1].tobytes()
+                        dj = enc(dev, 80)
+                        zj = enc(self.camera.render_zoom(raw, "eyes"), 85)
+                        mj = enc(self.camera.render_zoom(raw, "mouth"), 85)
                         with self._lock:
-                            self.dev_jpeg, self.zoom_jpeg, self.dev_id = dj, zj, self.dev_id + 1
+                            self.dev_jpeg, self.zoom_jpeg, self.mouth_jpeg = dj, zj, mj
+                            self.dev_id += 1
                 if not self.history or now - self.history[-1][0] >= 1.0:
                     esp = {**self.link.snapshot(), **self.esp_override}
                     self.history.append((round(now, 1), esp["score"], score, esp["rpm"], self.pose["yaw"]))
@@ -412,7 +427,17 @@ class Pipeline:
             "capture": {"session": self.capture.session, "counts": self.capture.counts,
                         "dir": str(self.capture.root.resolve()), "pending": len(self._burst)},
             "window_s": self.args.window, "time": time.time(), "started": self.started,
+            "error": self.error, "camera_note": self.camera_note,
         }
+
+
+def describe_camera(cam) -> Optional[str]:
+    """A warning for the page when there is no real camera behind the source."""
+    inner = getattr(cam, "camera", cam)
+    if getattr(inner, "_picam2", None) is None and getattr(inner, "_cv_cap", "n/a") is None:
+        return ("No webcam opened, so this is a blank test image. Close other apps using the camera "
+                "(Zoom, Teams, the Windows Camera app, another browser tab), or try --camera 1.")
+    return None
 
 
 def make_handler(pipe: Pipeline):
@@ -445,11 +470,11 @@ def make_handler(pipe: Pipeline):
                 self._send(200, PAGE_FILE.with_name("compare.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/status.json":
                 self._send(200, json.dumps(pipe.status()).encode(), "application/json")
-            elif path in ("/dev.mjpg", "/zoom.mjpg"):
+            elif path in ("/dev.mjpg", "/zoom.mjpg", "/mouth.mjpg"):
                 if not pipe.dev_capable:
                     self._send(404, b"dev view needs --face mesh", "text/plain")
                     return
-                attr = "dev_jpeg" if path == "/dev.mjpg" else "zoom_jpeg"
+                attr = {"/dev.mjpg": "dev_jpeg", "/zoom.mjpg": "zoom_jpeg", "/mouth.mjpg": "mouth_jpeg"}[path]
                 self.send_response(200)
                 self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
                 self.send_header("Cache-Control", "no-store")

@@ -200,3 +200,59 @@ def test_mesh_source_glasses_shift_weight():
     assert src.glasses.mode == "on"
     src.set_glasses_mode("off")
     assert not src.compute(0.1, face_points(), rot_matrix(), edge=0.0)["glasses"]
+
+
+# ---------------------------------------------------------------- composite of the eight
+def calm(**kw):
+    sig = {"found": True, "perclos": 0.0, "mean_blink_ms": 150, "closed_for": 0.0, "gaze_off_s": 0.0,
+           "yaw_rel": 2.0, "roll_rel": 1.0, "nods": 0, "droop_s": 0.0, "neutral_ready": True,
+           "mar": 0.05, "yawns": 0, "yawning": False}
+    sig.update(kw)
+    return sig
+
+
+def test_weights_sum_to_one_and_cover_the_eight():
+    for w in (fs.WEIGHTS, fs.WEIGHTS_GLASSES):
+        assert set(w) == set(fs.SIGNALS) and sum(w.values()) == pytest.approx(1.0)
+    assert sum(len(v) for v in fs.CLUSTERS.values()) == 8
+    eyes = lambda w: sum(w[k] for k in fs.CLUSTERS["eyes"])
+    head = lambda w: sum(w[k] for k in fs.CLUSTERS["head"])
+    assert eyes(fs.WEIGHTS_GLASSES) < eyes(fs.WEIGHTS) and head(fs.WEIGHTS_GLASSES) > head(fs.WEIGHTS)
+
+
+def test_composite_calm_is_zero_and_parts_add_up():
+    c = fs.composite(calm(), glasses=False)
+    assert c["score"] == pytest.approx(0.0)
+    c = fs.composite(calm(perclos=0.15, yawns=3, nods=3), glasses=False)
+    total = sum(p["points"] for p in c["parts"].values())
+    assert c["score"] == pytest.approx(total)
+    assert c["parts"]["ear"]["d"] == pytest.approx(0.5) and c["parts"]["yawn"]["d"] == 1.0
+    assert c["score"] == pytest.approx(100 * (0.30 * 0.5 + 0.15 * 1.0 + 0.15 * 1.0))
+
+
+def test_glasses_shift_the_score_toward_the_head():
+    eyes_bad = calm(perclos=0.3)                       # only the eyes say drowsy
+    head_bad = calm(nods=3)                            # only the head says drowsy
+    assert fs.composite(eyes_bad, True)["score"] < fs.composite(eyes_bad, False)["score"]
+    assert fs.composite(head_bad, True)["score"] > fs.composite(head_bad, False)["score"]
+
+
+def test_composite_renormalises_missing_signals():
+    c = fs.composite(calm(perclos=None, neutral_ready=False, yaw_rel=None, roll_rel=None), glasses=False)
+    assert c["parts"]["ear"]["d"] is None and c["parts"]["pitch"]["d"] is None
+    assert c["score"] == pytest.approx(0.0)
+    c = fs.composite(calm(closed_for=2.0, perclos=None), glasses=False)
+    assert c["score"] > 0                              # an eye closure counts even before PERCLOS is ready
+    assert fs.composite({"found": False}, False)["score"] is None
+
+
+def test_neutral_and_off_timer():
+    n = fs.Neutral(min_samples=3)
+    for t in range(5):
+        n.update(t, 10.0)
+    assert n.value == pytest.approx(10.0) and n.update(5, 40.0) == pytest.approx(30.0)
+    for t in range(6, 20):
+        n.update(t, 40.0)                              # a long turn doesn't become the neutral
+    assert n.value == pytest.approx(10.0)
+    o = fs.OffTimer()
+    assert o.update(0, True) == 0 and o.update(2.5, True) == 2.5 and o.update(3, False) == 0

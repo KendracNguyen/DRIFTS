@@ -54,7 +54,13 @@ class Camera:
         # 2. Try OpenCV VideoCapture fallback (USB camera / dev testing)
         try:
             import cv2
-            cap = cv2.VideoCapture(self.device)
+            import os
+            # Windows: DirectShow opens most webcams faster and more reliably
+            # than the default backend; fall back to the default if it can't.
+            cap = cv2.VideoCapture(self.device, cv2.CAP_DSHOW) if os.name == "nt" else cv2.VideoCapture(self.device)
+            if os.name == "nt" and not cap.isOpened():
+                cap.release()
+                cap = cv2.VideoCapture(self.device)
             if cap.isOpened():
                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.cfg.width)
                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.cfg.height)
@@ -70,7 +76,8 @@ class Camera:
             self._cv_cap = None
 
         # 3. Mock fallback for simulation / test environments
-        log.warning("No physical camera detected. Operating in simulated camera mode.")
+        log.warning("No camera opened (index %s). Showing a blank test image. Is another app using the "
+                    "webcam? Try --camera 1.", self.device)
         self._is_running = True
 
     def grab(self):

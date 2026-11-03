@@ -36,15 +36,21 @@ MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/face_landmarker/fa
              "float16/1/face_landmarker.task")
 DEFAULT_MODEL = Path(__file__).resolve().parents[1] / "models" / "face_landmarker.task"
 
-LAYERS = ("mesh", "ear", "mouth", "axis", "iris", "glasses")
+LAYERS = ("mesh", "eyes", "head", "mouth", "nose", "glasses")
+DEFAULT_LAYERS = ("mesh", "eyes", "head", "mouth", "nose")
 
-# BGR colours, matching the dev view's legend
-C_MESH = (170, 200, 170)
-C_CORNER = (255, 220, 60)      # P1 / P4
-C_LID = (60, 220, 255)         # P2 P3 / P5 P6
-C_MOUTH = (255, 140, 220)
-C_X, C_Y, C_Z = (80, 80, 255), (90, 220, 90), (0, 230, 255)
+# BGR colours, one per face cluster. The dev view uses the same colours
+# (dashboard.html --c-eyes / --c-head / --c-mouth / --c-nose).
+C_EYES = (247, 195, 79)        # #4FC3F7 sky blue
+C_EYES_HI = (255, 236, 190)    # P1 / P4 corners, lighter blue
+C_HEAD = (77, 183, 255)        # #FFB74D amber
+C_MOUTH = (255, 136, 179)      # #B388FF violet
+C_NOSE = (122, 92, 255)        # #FF5C7A rose
+C_WIRE = (92, 72, 78)          # dim wireframe
 C_TEXT = (240, 240, 240)
+C_GLASSES = (0, 200, 255)
+
+NOSE_BRIDGE = (168, 6, 197, 195, 5, 4, 1)
 
 
 def ensure_model(path: Path = DEFAULT_MODEL) -> Path:
@@ -104,6 +110,9 @@ class FaceMeshSource:
         self.nods = fs.NodTracker()
         self.glasses = fs.GlassesDetector(mode=glasses)
         self.yawns = YawnDetector()
+        self.yaw_n, self.roll_n = fs.Neutral(), fs.Neutral()
+        self.gaze_off = fs.OffTimer()
+        self.gaze_limit = 0.16                     # iris offset counted as off road
         self.night = NightDetector()
         self.face: dict = {"found": False}
         self.keypoints = None
@@ -114,6 +123,7 @@ class FaceMeshSource:
         self.profile_loaded = False                # road pose: drifts.live auto-calibrates
         self.last_frame = None
         self._ts_ms = 0
+        self.conn = {"mesh": [], "eyes": [], "lips": [], "oval": []}   # filled from MediaPipe in start()
 
     # ------------------------------------------------------------------ setup
     def start(self) -> None:
@@ -127,6 +137,12 @@ class FaceMeshSource:
                 output_facial_transformation_matrixes=True)
             self._lm = vision.FaceLandmarker.create_from_options(opts)
             self._mp = mp
+            c = vision.FaceLandmarksConnections
+            pairs = lambda conns: [(k.start, k.end) for k in conns]
+            self.conn = {"mesh": pairs(c.FACE_LANDMARKS_TESSELATION),
+                         "eyes": pairs(c.FACE_LANDMARKS_LEFT_EYE) + pairs(c.FACE_LANDMARKS_RIGHT_EYE),
+                         "lips": pairs(c.FACE_LANDMARKS_LIPS),
+                         "oval": pairs(c.FACE_LANDMARKS_FACE_OVAL)}
         if self.camera is not None:
             self.camera.start()
 
@@ -189,12 +205,21 @@ class FaceMeshSource:
         perclos = self.eyes.perclos(now)
         eye_score = None if perclos is None else 100.0 * (1.0 - perclos)
         head_score = self.nods.score(now)
-        fused = fs.fuse(eye_score, head_score, glasses)
         gaze = fs.iris_offset(px) if found else None
+        gaze_off_s = self.gaze_off.update(now, None if gaze is None else abs(gaze) > self.gaze_limit)
+        yaw_rel, roll_rel = self.yaw_n.update(now, yaw), self.roll_n.update(now, roll)
         closed_for = self.eyes.closed_for(now)
+        raw = {"found": found, "perclos": perclos, "mean_blink_ms": self.eyes.mean_blink_ms(),
+               "closed_for": closed_for, "gaze_off_s": gaze_off_s, "yaw_rel": yaw_rel, "roll_rel": roll_rel,
+               "nods": len(self.nods.nods), "droop_s": self.nods.droop_s(now),
+               "neutral_ready": self.nods.neutral is not None, "mar": mr,
+               "yawns": self.yawns.recent(now), "yawning": self.yawns.yawning()}
+        comp = fs.composite(raw, glasses)
+        drowsy = comp["score"]
+        face_score = None if drowsy is None else 100.0 - drowsy
         state = "no_face" if not found else (
-            "drowsy" if closed_for >= 1.0 or (fused["score"] is not None and fused["score"] < 50) else
-            "alert")
+            "drowsy" if closed_for >= 1.0 or (drowsy is not None and drowsy > 50) else "alert")
+        nose = (px[fs.NOSE_TIP][0], px[fs.NOSE_TIP][1]) if found else None
         self.face = {
             "found": found, "yaw": yaw, "pitch": pitch, "roll": roll,
             "ear": ear, "ear_l": el.ear if el else None, "ear_r": er.ear if er else None,
@@ -211,8 +236,13 @@ class FaceMeshSource:
             "pitch_drop": self.nods.drop, "droop_s": self.nods.droop_s(now),
             "glasses": glasses, "glasses_mode": self.glasses.mode, "glasses_level": self.glasses.level,
             "glasses_edge": edge,
-            "eye_score": eye_score, "head_score": head_score, "face_score": fused["score"],
-            "w_eye": fused["w_eye"], "w_head": fused["w_head"], "basis": fused["basis"],
+            "gaze_off_s": gaze_off_s, "gaze_off": gaze_off_s > 0, "gaze_limit": self.gaze_limit,
+            "yaw_rel": yaw_rel, "roll_rel": roll_rel,
+            "nose": nose, "nose_neutral": {"yaw": self.yaw_n.value, "pitch": self.nods.neutral,
+                                           "roll": self.roll_n.value},
+            "eye_score": eye_score, "head_score": head_score,
+            "drowsiness": drowsy, "parts": comp["parts"], "face_score": face_score,
+            "basis": "glasses: weight moved from the eyes to the nose axis" if glasses else "normal weights",
             "state": state, "night": night, "ir_enhanced": ir_enhanced,
             "saturation": self.night.saturation, "inference_ms": self.inference_ms,
             "profile": "auto", "profile_loaded": True,
@@ -227,7 +257,7 @@ class FaceMeshSource:
         return [(float(x), float(y), 1.0) for x, y in pts] + [(0.0, 0.0, 0.0)] * 12
 
     def eye_score(self) -> Optional[int]:
-        """Score sent to the ESP32 as EYE:<n>: the fused face score."""
+        """Score sent to the ESP32 as EYE:<n>: 100 - the composite drowsiness."""
         s = self.face.get("face_score")
         return None if s is None else max(0, min(100, round(s)))
 
@@ -238,74 +268,89 @@ class FaceMeshSource:
             self._lm.close()
 
     # ------------------------------------------------------------------ dev view drawing
-    def render_dev(self, frame, layers=LAYERS, mirror: bool = False):
-        """Full-analysis overlay: mesh, EAR points P1-P6, mouth, nose axis, irises."""
+    def render_dev(self, frame, layers=DEFAULT_LAYERS, mirror: bool = False):
+        """Analysis overlay: dim face-mesh wireframe, then each cluster's
+        landmarks in its own colour (eyes, head pose, mouth, nose anchor)."""
         import cv2
+        import numpy as np
         img = cv2.flip(frame, 1) if mirror else frame.copy()
         px, m = self.landmarks, self.matrix
         if not px:
-            cv2.putText(img, "no face", (12, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (80, 80, 255), 2, cv2.LINE_AA)
+            cv2.putText(img, "no face", (14, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.9, C_NOSE, 2, cv2.LINE_AA)
             return img
         w = img.shape[1]
-        P = (lambda i: (int(w - px[i][0]), int(px[i][1]))) if mirror else (lambda i: (int(px[i][0]), int(px[i][1])))
+        def P(i):
+            x, y = px[i]
+            return (int(w - x), int(y)) if mirror else (int(x), int(y))
         iod = math.hypot(px[133][0] - px[362][0], px[133][1] - px[362][1])
-        r = max(1, int(iod / 60))
+        r = max(1, int(iod / 70))
+        def lines(pairs, col, th=1):
+            for a, b in pairs:
+                cv2.line(img, P(a), P(b), col, th, cv2.LINE_AA)
         if "mesh" in layers:
-            for i in range(min(468, len(px))):
-                cv2.circle(img, P(i), r, C_MESH, -1, cv2.LINE_AA)
-        if "ear" in layers:
+            if self.conn["mesh"]:
+                overlay = img.copy()
+                for a, b in self.conn["mesh"]:
+                    cv2.line(overlay, P(a), P(b), C_WIRE, 1, cv2.LINE_AA)
+                cv2.addWeighted(overlay, 0.55, img, 0.45, 0, img)
+            else:
+                for i in range(min(468, len(px))):
+                    cv2.circle(img, P(i), r, C_WIRE, -1, cv2.LINE_AA)
+        if "head" in layers:
+            lines(self.conn["oval"], C_HEAD, 1)
+            if not self.conn["oval"]:
+                for i in (10, 152, 234, 454):
+                    cv2.circle(img, P(i), r + 1, C_HEAD, -1, cv2.LINE_AA)
+            if m is not None:
+                ends = fs.nose_axes(m, px[fs.NOSE_TIP], 0.9 * iod)
+                o = P(fs.NOSE_TIP)
+                for name, th in (("x", 1), ("y", 1), ("z", 3)):
+                    ex, ey = ends[name]
+                    e = (int(w - ex), int(ey)) if mirror else (int(ex), int(ey))
+                    cv2.arrowedLine(img, o, e, C_HEAD, th, cv2.LINE_AA, tipLength=0.12)
+        if "mouth" in layers:
+            lines(self.conn["lips"], C_MOUTH, 1)
+            for a, b in ((82, 87), (13, 14), (312, 317), (78, 308)):
+                cv2.line(img, P(a), P(b), C_MOUTH, 1, cv2.LINE_AA)
+            for i in fs.MOUTH_POINTS:
+                cv2.circle(img, P(i), r + 1, C_MOUTH, -1, cv2.LINE_AA)
+        if "eyes" in layers:
+            lines(self.conn["eyes"], C_EYES, 1)
             for idx in (fs.EAR_RIGHT, fs.EAR_LEFT):
                 p = [P(i) for i in idx]
-                cv2.line(img, p[0], p[3], C_CORNER, 1, cv2.LINE_AA)
-                cv2.line(img, p[1], p[5], C_LID, 1, cv2.LINE_AA)
-                cv2.line(img, p[2], p[4], C_LID, 1, cv2.LINE_AA)
+                cv2.line(img, p[1], p[5], C_EYES, 1, cv2.LINE_AA)
+                cv2.line(img, p[2], p[4], C_EYES, 1, cv2.LINE_AA)
                 for k, q in enumerate(p):
-                    cv2.circle(img, q, r + 2, C_CORNER if k in (0, 3) else C_LID, -1, cv2.LINE_AA)
-        if "mouth" in layers:
-            p = [P(i) for i in fs.MOUTH_POINTS]
-            cv2.polylines(img, [__import__("numpy").array(p, "int32")], True, C_MOUTH, 1, cv2.LINE_AA)
-            for a, b in ((82, 87), (13, 14), (312, 317)):
-                cv2.line(img, P(a), P(b), C_MOUTH, 1, cv2.LINE_AA)
-            cv2.line(img, P(78), P(308), C_MOUTH, 1, cv2.LINE_AA)
-        if "iris" in layers and len(px) > fs.IRIS_LEFT:
-            for c in (fs.IRIS_RIGHT, fs.IRIS_LEFT):
-                rad = max(2, int(math.hypot(px[c][0] - px[c + 1][0], px[c][1] - px[c + 1][1])))
-                cv2.circle(img, P(c), rad, (255, 255, 255), 1, cv2.LINE_AA)
-                cv2.circle(img, P(c), r + 1, (255, 255, 255), -1, cv2.LINE_AA)
+                    cv2.circle(img, q, r + 2, C_EYES_HI if k in (0, 3) else C_EYES, -1, cv2.LINE_AA)
+            if len(px) > fs.IRIS_LEFT:
+                for c in (fs.IRIS_RIGHT, fs.IRIS_LEFT):
+                    rad = max(2, int(math.hypot(px[c][0] - px[c + 1][0], px[c][1] - px[c + 1][1])))
+                    cv2.circle(img, P(c), rad, C_EYES, 1, cv2.LINE_AA)
+        if "nose" in layers:
+            pts = np.array([P(i) for i in NOSE_BRIDGE], np.int32)
+            cv2.polylines(img, [pts], False, C_NOSE, 1, cv2.LINE_AA)
+            o = P(fs.NOSE_TIP)
+            cv2.circle(img, o, r + 5, C_NOSE, 2, cv2.LINE_AA)
+            cv2.circle(img, o, r + 2, C_NOSE, -1, cv2.LINE_AA)
         if "glasses" in layers:
             bx, by = P(fs.BRIDGE)
-            col = (0, 200, 255) if self.face.get("glasses") else (120, 120, 120)
+            col = C_GLASSES if self.face.get("glasses") else (120, 120, 120)
             cv2.rectangle(img, (int(bx - 0.18 * iod), int(by - 0.1 * iod)),
                           (int(bx + 0.18 * iod), int(by + 0.34 * iod)), col, 1, cv2.LINE_AA)
-        if "axis" in layers and m is not None:
-            nose = (px[fs.NOSE_TIP][0], px[fs.NOSE_TIP][1])
-            ends = fs.nose_axes(m, nose, 0.9 * iod)
-            o = P(fs.NOSE_TIP)
-            for name, col in (("x", C_X), ("y", C_Y), ("z", C_Z)):
-                ex, ey = ends[name]
-                e = (int(w - ex), int(ey)) if mirror else (int(ex), int(ey))
-                cv2.arrowedLine(img, o, e, col, 2, cv2.LINE_AA, tipLength=0.12)
-        f = self.face
-        def fmt(v, d=0):
-            return "--" if v is None else f"{v:.{d}f}"
-        hud = (f"yaw {fmt(f.get('yaw'))}  pitch {fmt(f.get('pitch'))}  roll {fmt(f.get('roll'))}   "
-               f"EAR {fmt(f.get('ear'), 2)}  MAR {fmt(f.get('mar'), 2)}"
-               + ("   GLASSES" if f.get("glasses") else ""))
-        cv2.rectangle(img, (0, img.shape[0] - 26), (img.shape[1], img.shape[0]), (0, 0, 0), -1)
-        cv2.putText(img, hud, (8, img.shape[0] - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, C_TEXT, 1, cv2.LINE_AA)
         return img
 
-    def render_zoom(self, frame, cell=(320, 180)):
-        """Close-ups: driver's right eye, left eye, mouth, with P1-P6 labels."""
+    def render_zoom(self, frame, part: str = "eyes", cell=(320, 180)):
+        """Close-ups with P1-P6 labelled: part "eyes" (right + left eye) or "mouth"."""
         import cv2
         import numpy as np
         cw, ch = cell
-        out = np.zeros((ch, cw * 3 + 8, 3), np.uint8)
+        groups = (((fs.EAR_RIGHT, "RIGHT EYE"), (fs.EAR_LEFT, "LEFT EYE")) if part == "eyes"
+                  else ((fs.MOUTH_POINTS, "MOUTH"),))
+        out = np.full((ch, cw * len(groups) + 4 * (len(groups) - 1), 3), 20, np.uint8)
         px = self.landmarks
         if not px:
             return out
         h, w = frame.shape[:2]
-        groups = ((fs.EAR_RIGHT, "RIGHT EYE"), (fs.EAR_LEFT, "LEFT EYE"), (fs.MOUTH_POINTS, "MOUTH"))
         for k, (idx, title) in enumerate(groups):
             xs = [px[i][0] for i in idx]
             ys = [px[i][1] for i in idx]
@@ -319,25 +364,26 @@ class FaceMeshSource:
             crop = cv2.resize(frame[y0:y1, x0:x1], (cw, ch), interpolation=cv2.INTER_CUBIC)
             sx, sy = cw / (x1 - x0), ch / (y1 - y0)
             q = [(int((px[i][0] - x0) * sx), int((px[i][1] - y0) * sy)) for i in idx]
-            if idx is fs.MOUTH_POINTS:
+            if part == "mouth":
                 cv2.polylines(crop, [np.array(q, "int32")], True, C_MOUTH, 1, cv2.LINE_AA)
                 for a, b in ((1, 7), (2, 6), (3, 5)):
-                    cv2.line(crop, q[a], q[b], C_MOUTH, 1, cv2.LINE_AA)
+                    cv2.line(crop, q[a], q[b], C_MOUTH, 2, cv2.LINE_AA)
                 cv2.line(crop, q[0], q[4], C_MOUTH, 1, cv2.LINE_AA)
+                for pt in q:
+                    cv2.circle(crop, pt, 4, C_MOUTH, -1, cv2.LINE_AA)
             else:
-                cv2.line(crop, q[0], q[3], C_CORNER, 1, cv2.LINE_AA)
-                cv2.line(crop, q[1], q[5], C_LID, 2, cv2.LINE_AA)
-                cv2.line(crop, q[2], q[4], C_LID, 2, cv2.LINE_AA)
+                cv2.line(crop, q[0], q[3], C_EYES_HI, 1, cv2.LINE_AA)
+                cv2.line(crop, q[1], q[5], C_EYES, 2, cv2.LINE_AA)
+                cv2.line(crop, q[2], q[4], C_EYES, 2, cv2.LINE_AA)
                 for j, pt in enumerate(q):
-                    col = C_CORNER if j in (0, 3) else C_LID
+                    col = C_EYES_HI if j in (0, 3) else C_EYES
                     cv2.circle(crop, pt, 5, col, -1, cv2.LINE_AA)
                     lbl = f"P{j + 1}"
                     off = (-30, -8) if j in (1, 2) else (-30, 24) if j in (4, 5) else ((-32, 6) if j == 0 else (9, 6))
-                    cv2.putText(crop, lbl, (pt[0] + off[0], pt[1] + off[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.55,
-                                (0, 0, 0), 4, cv2.LINE_AA)
-                    cv2.putText(crop, lbl, (pt[0] + off[0], pt[1] + off[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.55,
-                                col, 1, cv2.LINE_AA)
-            cv2.putText(crop, title, (8, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 4, cv2.LINE_AA)
-            cv2.putText(crop, title, (8, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.6, C_TEXT, 1, cv2.LINE_AA)
+                    org = (pt[0] + off[0], pt[1] + off[1])
+                    cv2.putText(crop, lbl, org, cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 4, cv2.LINE_AA)
+                    cv2.putText(crop, lbl, org, cv2.FONT_HERSHEY_SIMPLEX, 0.55, col, 1, cv2.LINE_AA)
+            cv2.putText(crop, title, (8, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 4, cv2.LINE_AA)
+            cv2.putText(crop, title, (8, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.55, C_TEXT, 1, cv2.LINE_AA)
             out[:, k * (cw + 4):k * (cw + 4) + cw] = crop
         return out
