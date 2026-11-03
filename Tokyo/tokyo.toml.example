@@ -1,0 +1,10 @@
+# Copy to tokyo.toml and change what you need. Defaults are in tokyo/config.py.
+[motors]
+duty = 0.6            # 3 V motors on 5 V; driver modules: usually 1.0
+
+[buzzer]
+kind = "active"       # TMB12A03; "passive" for a plain piezo
+
+[strip]
+brightness = 0.25
+max_current_a = 1.5
