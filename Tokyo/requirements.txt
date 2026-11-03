@@ -1,8 +1,9 @@
 # Raspberry Pi 5 (gpiozero, lgpio, smbus2, picamera2, opencv come from apt; see install.sh)
 # MediaPipe + dms-face are installed by install.sh (lean, pinned).
-adafruit-blinka                          # board pins for the LED strip
-adafruit-circuitpython-neopixel          # WS2812B
-Adafruit-Blinka-Raspberry-Pi5-Neopixel   # Pi 5 RP1 PIO driver (rpi_ws281x does not support the Pi 5)
+pi5neo>=1.1                              # WS2812B strip over SPI0 MOSI = GPIO 10 (Rev 9; MIT)
+adafruit-blinka                          # optional PIO backend for the strip (any GPIO)
+adafruit-circuitpython-neopixel
+Adafruit-Blinka-Raspberry-Pi5-Neopixel   # rpi_ws281x does not support the Pi 5
 bleak>=0.22                              # ESP32 telemetry over BLE (listen only)
 pyserial>=3.5                            # or over USB
 pytest

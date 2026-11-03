@@ -70,8 +70,8 @@ nothing, because the host cannot exceed the controller.
 ### Before you power anything
 
 ```bash
-python3 Hardware/check_pins.py        # must print: OK: 5 pins agree
-cd Esp32/test && make                 # 28 assertions, runs on the laptop
+python3 Hardware/check_pins.py        # must print: OK: 11 pins agree
+cd Esp32/test && make                 # every host test (alert score, LEDs, strip, voice, LCD...), on the laptop
 cd Tools && python -m pytest obd_sim/tests obd_link/tests -q
 ```
 

@@ -1,25 +1,31 @@
-"""WS2812B LED strip (160 LEDs) above the LCD: status + alert-score bar.
+"""WS2812B LED strip (14 LEDs) above the LCD: status pixel + alert-score bar.
 
-Layout, left to right:
-  [ status x8 ][ gap ][ alert-score bar ................................ ]
+Identical to the first model's ESP32 strip (Esp32/drifts_esp32/led_strip.h):
+both are tested against the same table, so a score lights the same LEDs on
+both systems.
 
-  status  green solid = camera + OBD linked   green slow blink = a link missing
-          amber slow blink = system issue (no driver profile, camera fault)
-  bar     length = alert score 0-100; colour = level
-          green >= 70 (OK) | amber 50-69 (Intervention 1) | red < 50 (Intervention 2)
-  alarm   the whole bar flashes red with the buzzer: 1 s on, 1 s off
+  pixel 0      status   green solid  = camera + ESP32 driving data linked
+                        red slow     = connection failure
+                        yellow slow  = system issue (no driver profile, camera fault)
+  pixels 1-13  bar      length and colour follow the alert score:
+                          70-100  green   75 % -> 100 % of the bar
+                          40-69   yellow  50 % ->  74 %
+                          10-39   red     25 % ->  49 %
+                           0-9    red     whole bar, fast blink (4 Hz)
+               alarm    whole bar red, 1 s on / 1 s off, in step with the buzzer
+               partial  (one input missing) half brightness
 
-Power: one WS2812B pixel draws up to ~60 mA at full white, so 160 pixels
-could pull ~9.6 A. Every frame is scaled by `brightness`, then dimmed further
-if its estimated current would exceed `max_current_a` (see Docs/wiring.md).
+The colour bands are the strip's own; the buzzer, motors and LCD still use
+the alert levels (70 / 50). YELLOW_MIN = 50 makes the strip match them.
 
-Backends: PiStrip (Raspberry Pi 5, RP1 PIO driver via Adafruit's
-Adafruit-Blinka-Raspberry-Pi5-Neopixel) and SimStrip (records frames).
+Backends: SpiStrip (pi5neo on SPI0 MOSI = GPIO 10, as wired in Rev 9),
+PioStrip (Adafruit's RP1 PIO driver, any GPIO) and SimStrip (records frames).
 `render` is pure and unit-tested.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Optional
 
@@ -27,53 +33,84 @@ from tokyo.config import StripConfig
 
 Color = tuple  # (r, g, b) 0-255
 
-GREEN, AMBER, RED, OFF = (0, 255, 40), (255, 120, 0), (255, 0, 0), (0, 0, 0)
+OFF = (0, 0, 0)
+GREEN = (0, 255, 40)
+YELLOW = (255, 150, 0)
+RED = (255, 0, 0)
+WHITE = (255, 255, 255)
+AMBER = YELLOW                 # older name
 MA_PER_CHANNEL = 20.0          # one colour channel at 255 ~ 20 mA
+
+STATUS_LED = 0
+BAR_START = 1
+GREEN_MIN, YELLOW_MIN, RED_MIN = 70.0, 40.0, 10.0
 
 
 @dataclass
 class StripState:
-    score: Optional[float] = None    # alert score 0-100 (100 = fully alert)
-    level: int = 0                   # 0 OK, 1 = Intervention 1, 2 = Intervention 2
+    score: Optional[float] = None    # alert score 0-100 (100 = fully alert); None = no data yet
+    level: int = 0                   # 0 OK, 1 = Intervention 1, 2 = Intervention 2 (for the record)
     alarm: bool = False              # alarm pattern running
     alarm_since: float = 0.0         # phase reference, shared with the buzzer
-    links_ok: bool = True            # camera and OBD dongle both working
+    links_ok: bool = True            # camera and ESP32 driving data both working
     system_issue: bool = False
+    partial: bool = False            # one input missing: drawn at half brightness
 
 
-def _blink(now: float, period: float = 1.0) -> bool:
+def band_color(score: float) -> Color:
+    return GREEN if score >= GREEN_MIN else YELLOW if score >= YELLOW_MIN else RED
+
+
+def bar_fraction(score: float) -> float:
+    s = max(0.0, min(100.0, score))
+    if s >= GREEN_MIN:
+        return 0.75 + 0.25 * (s - GREEN_MIN) / (100.0 - GREEN_MIN)
+    if s >= YELLOW_MIN:
+        return 0.50 + 0.25 * (s - YELLOW_MIN) / (GREEN_MIN - YELLOW_MIN)
+    if s >= RED_MIN:
+        return 0.25 + 0.25 * (s - RED_MIN) / (YELLOW_MIN - RED_MIN)
+    return 1.0
+
+
+def bar_lit(score: float, bar_len: int) -> int:
+    return max(1, min(bar_len, math.floor(bar_fraction(score) * bar_len + 0.5)))
+
+
+def _blink(now: float, period: float) -> bool:
     return (now % period) < period / 2
 
 
 def render(state: StripState, cfg: StripConfig, now: float) -> list:
     n = cfg.count
     frame = [OFF] * n
-    st = min(cfg.status_leds, n)
-    # Status segment
-    if state.system_issue:
-        col = AMBER if _blink(now) else OFF
-    elif state.links_ok:
-        col = GREEN
+    if n == 0:
+        return frame
+    if not state.links_ok:
+        frame[STATUS_LED] = RED if _blink(now, 1.0) else OFF
+    elif state.system_issue:
+        frame[STATUS_LED] = YELLOW if _blink(now, 1.0) else OFF
     else:
-        col = GREEN if _blink(now) else OFF
-    for i in range(st):
-        frame[i] = col
-    # Alert-score bar (one LED gap after the status segment)
-    start = min(n, st + 1)
-    bar = n - start
+        frame[STATUS_LED] = GREEN
+    bar = n - BAR_START
     if bar <= 0:
         return frame
     if state.alarm:
         on = ((now - state.alarm_since) % 2.0) < 1.0          # same 1 s / 1 s as the buzzer
-        for i in range(start, n):
+        for i in range(BAR_START, n):
             frame[i] = RED if on else OFF
         return frame
     if state.score is None:
         return frame
-    colour = {0: GREEN, 1: AMBER}.get(state.level, RED)
-    lit = round(bar * max(0.0, min(100.0, state.score)) / 100.0)
-    for i in range(start, start + lit):
-        frame[i] = colour
+    if state.score < RED_MIN:
+        on = _blink(now, 0.25)
+        for i in range(BAR_START, n):
+            frame[i] = RED if on else OFF
+        return frame
+    c = band_color(state.score)
+    if state.partial:
+        c = tuple(v // 2 for v in c)
+    for i in range(BAR_START, BAR_START + bar_lit(state.score, bar)):
+        frame[i] = c
     return frame
 
 
@@ -103,12 +140,33 @@ class SimStrip:
         self.show([OFF] * self.cfg.count)
 
 
-class PiStrip:
-    """Raspberry Pi 5: adafruit_neopixel on top of the RP1 PIO driver.
+class SpiStrip:
+    """Raspberry Pi 5, Rev 9 wiring: pi5neo on SPI0 (MOSI = GPIO 10).
+
+    Install: pip install pi5neo; enable SPI with dtparam=spi=on in
+    /boot/firmware/config.txt (see Docs/wiring.md).
+    """
+
+    def __init__(self, cfg: StripConfig):
+        from pi5neo import Pi5Neo
+        self.cfg = cfg
+        self.neo = Pi5Neo(cfg.spi_device, num_leds=cfg.count, spi_speed_khz=800, quiet_mode=True)
+
+    def show(self, frame: list) -> None:
+        for i, (r, g, b) in enumerate(frame):
+            self.neo.set_led_color(i, r, g, b)
+        self.neo.update_strip(sleep_duration=None)
+
+    def off(self) -> None:
+        self.show([OFF] * self.cfg.count)
+
+
+class PioStrip:
+    """Raspberry Pi 5: adafruit_neopixel on top of the RP1 PIO driver (any GPIO).
 
     Install: pip install adafruit-blinka adafruit-circuitpython-neopixel \\
                          Adafruit-Blinka-Raspberry-Pi5-Neopixel
-    Needs /dev/pio0 (current Pi 5 firmware); see Docs/wiring.md.
+    Needs /dev/pio0 (current Pi 5 firmware).
     """
 
     def __init__(self, cfg: StripConfig):
@@ -130,12 +188,22 @@ class PiStrip:
         self.px.show()
 
 
+PiStrip = PioStrip      # older name
+
+
 class LedStrip:
     """render -> limits -> backend, at most ~30 updates per second."""
 
     def __init__(self, cfg: StripConfig, sim: bool = False):
         self.cfg = cfg
-        self.dev = SimStrip(cfg) if sim else PiStrip(cfg)
+        if sim:
+            self.dev = SimStrip(cfg)
+        elif cfg.backend == "spi":
+            self.dev = SpiStrip(cfg)
+        elif cfg.backend == "pio":
+            self.dev = PioStrip(cfg)
+        else:
+            raise ValueError("strip backend must be 'spi' or 'pio'")
         self.amps = 0.0
         self._last_t = 0.0
 

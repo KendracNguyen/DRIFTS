@@ -4,13 +4,16 @@ Tokyo is the single-board DRIFTS: a Raspberry Pi 5 does the camera, the
 alert outputs, the LED strip, the LCD and the OBD dongle itself (the first
 model splits this between an ESP32-C6 and a Pi Zero 2 W).
 
-Pins are BCM GPIO numbers on the Pi 5's 40-pin header. Every value can be
-overridden in tokyo.toml (see load_config).
+Pins are BCM GPIO numbers on the Pi 5's 40-pin header, as wired in the
+DRIFTS Rev 9 wiring sheet (with the fixes in Docs/wiring.md). Every value can
+be overridden in tokyo.toml (see load_config).
 
-    GPIO 12  motors     hardware PWM0 ch0  -> MOSFET gate (or module IN)
-    GPIO 13  buzzer     hardware PWM0 ch1  -> NPN/MOSFET (active buzzer: on/off)
-    GPIO 18  LED strip  RP1 PIO            -> 74AHCT125 -> WS2812B DIN
-    GPIO 2/3 I2C1       SDA / SCL          -> level shifter -> LCD backpack
+    GPIO 13  motors     hardware PWM ch1   -> 100 R -> IN of all 4 motor modules (rev 4 style)
+    GPIO 18  buzzer     on/off             -> Q5 low side, 3 V active buzzer from 3V3
+    GPIO 10  LED strip  SPI0 MOSI          -> 74AHCT125 -> 330 R -> WS2812B DIN (14 LEDs)
+    GPIO 12  IR LEDs    hardware PWM ch0   -> Q6 low side, 2 x 2 940 nm LEDs
+    GPIO 2/3 I2C1       SDA / SCL          -> BSS138 level shifter -> LCD backpack
+    USB      voice      USB audio adapter  -> PAM8403 amplifier -> 3 W speaker
 """
 
 from __future__ import annotations
@@ -21,10 +24,11 @@ from pathlib import Path
 
 @dataclass
 class MotorConfig:
-    pin: int = 12
-    # 1.0 = full 5 V. The coin motors are 3 V parts: 0.6 of 5 V is ~3 V average.
-    # Modules with their own driver: set to what the module expects (often 1.0).
-    duty: float = 0.6
+    pin: int = 13
+    # Four vibration motor modules (GND, VCC, IN; onboard driver), all IN pins
+    # on this one pin through 100 R, 10 k to GND: the same as the first
+    # model's rev 4 schematic. 1.0 = full on, as the ESP32 drives them.
+    duty: float = 1.0
     pwm_hz: int = 20000          # above hearing, so the motors do not whine
     on_s: float = 0.5            # pulse pattern while Level 2 is active
     off_s: float = 0.3
@@ -32,8 +36,8 @@ class MotorConfig:
 
 @dataclass
 class BuzzerConfig:
-    pin: int = 13
-    # "active": has its own oscillator (TMB12A03): just switch it on and off.
+    pin: int = 18
+    # "active": has its own oscillator (3 V magnetic buzzer): just switch it on and off.
     # "passive": a plain piezo: the Pi plays a tone with hardware PWM.
     kind: str = "active"
     tone_hz: int = 2700          # passive only
@@ -43,13 +47,36 @@ class BuzzerConfig:
 
 @dataclass
 class StripConfig:
-    pin: int = 18
-    count: int = 160             # 3.2 ft, 160 LEDs (2.7 mm ultra narrow WS2812B)
+    # "spi": pi5neo on /dev/spidev0.0 (MOSI = GPIO 10), as in Rev 9.
+    # "pio": Adafruit's RP1 PIO driver, any GPIO (set pin).
+    backend: str = "spi"
+    pin: int = 10
+    spi_device: str = "/dev/spidev0.0"
+    count: int = 14              # cut from the 160-LED 2.7 mm WS2812B strip, fits above the LCD
     order: str = "GRB"
-    # Full white on all 160 LEDs would draw ~9.6 A. Two limits keep it sane:
-    brightness: float = 0.25     # global scale 0-1
+    brightness: float = 0.25     # global scale 0-1 (the ESP32 uses 64/255)
     max_current_a: float = 1.5   # frames are dimmed further to stay under this
-    status_leds: int = 8         # left end: system status; the rest: alert-score bar
+
+
+@dataclass
+class IrConfig:
+    pin: int = 12
+    # "auto": on when the camera sees night (face pipeline), "on", or "off".
+    mode: str = "auto"
+    # 1.0 = steady on. Dimming uses 25 kHz PWM: slower PWM bands the rolling-shutter image.
+    duty: float = 1.0
+    pwm_hz: int = 25000
+
+
+@dataclass
+class VoiceConfig:
+    enabled: bool = True
+    # Clips generated from Voice/phrases.json (same ids as the ESP32's DFPlayer).
+    clips_dir: str = ""          # default: <repo>/Voice/clips
+    player: str = "aplay"        # aplay -q <clip.wav>; set device below if needed
+    device: str = ""             # e.g. "plughw:CARD=Device" for a USB audio adapter
+    repeat_s: float = 60.0       # Level 2 warning repeats this often
+    link_lost_s: float = 5.0
 
 
 @dataclass
@@ -75,6 +102,8 @@ class Config:
     buzzer: BuzzerConfig = field(default_factory=BuzzerConfig)
     strip: StripConfig = field(default_factory=StripConfig)
     lcd: LcdConfig = field(default_factory=LcdConfig)
+    ir: IrConfig = field(default_factory=IrConfig)
+    voice: VoiceConfig = field(default_factory=VoiceConfig)
     interventions: InterventionConfig = field(default_factory=InterventionConfig)
 
 

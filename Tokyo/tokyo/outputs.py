@@ -1,12 +1,13 @@
 """Buzzer and vibration motors on Raspberry Pi 5 GPIO.
 
-The Pi's pins give 3.3 V and only a few milliamps, so neither load connects
+The Pi's pins give 3.3 V and only a few milliamps, so no load connects
 straight to a pin (see Docs/wiring.md):
-  motors -> logic-level MOSFET + flyback diode (or driver modules: pin -> IN)
-  buzzer -> NPN transistor or MOSFET + diode (the TMB12A03 is a magnetic coil)
+  motors -> IN of the four vibration motor modules (onboard driver), 100 R in series
+  buzzer -> low-side MOSFET + 1N5819 (3 V magnetic active buzzer: a coil)
+  IR LEDs -> low-side MOSFET
 
-Motors use the Pi 5's hardware PWM through the kernel's sysfs interface
-(enable with `dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4` in
+Motors and IR LEDs use the Pi 5's hardware PWM through the kernel's sysfs
+interface (enable with `dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4` in
 /boot/firmware/config.txt). If it is not available, they fall back to
 gpiozero software PWM. RPi.GPIO does not work on the Pi 5 and is not used.
 
@@ -155,3 +156,29 @@ class Buzzer:
         else:
             self.dev.on() if on else self.dev.off()
         self.on = on
+
+
+class IrLight:
+    """940 nm IR illuminator (Rev 9: Q6 low side, two strings of two LEDs).
+
+    Hardware PWM, so it can be dimmed at 25 kHz: a slower PWM would show as
+    dark bands in the camera's rolling-shutter image. duty 1.0 = steady on.
+    """
+
+    def __init__(self, cfg, sim: bool = False):
+        self.cfg = cfg
+        self.pwm = make_pwm(cfg.pin, cfg.pwm_hz, sim)
+        self.on = False
+
+    def set(self, on: bool) -> None:
+        if on == self.on:
+            return
+        if on:
+            self.pwm.set(self.cfg.pwm_hz, self.cfg.duty)
+        else:
+            self.pwm.off()
+        self.on = on
+
+    def want(self, night: bool) -> bool:
+        m = self.cfg.mode
+        return m == "on" or (m == "auto" and night)

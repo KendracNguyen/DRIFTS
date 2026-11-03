@@ -5,6 +5,13 @@
 static Pulse vibPulse;
 static Pulse buzzPulse;
 static bool alertRunning = false;
+static uint32_t alertStartedMs = 0;
+
+// Voice clips hold the alarm buzzer off while they play (voice.h). The pulse
+// keeps its rhythm underneath; only the output is held at 0.
+static bool buzzMuted = false;
+static uint32_t buzzMuteUntil = 0;
+static int buzzWanted = 0;
 
 // Pin test state. Kept apart from the alert pulses: a test holds an output
 // steady, it does not pulse.
@@ -30,6 +37,23 @@ void setBuzzer(int hz) {
     } else {
         piezoOff();
     }
+}
+
+// The alert pulse writes through here so a voice clip can hold it off.
+static void alertBuzzOut(int hz) {
+    buzzWanted = hz;
+    if (!buzzMuted) setBuzzer(hz);
+}
+
+void muteBuzzerFor(uint32_t ms) {
+    if (!alertRunning) return;
+    buzzMuted = true;
+    buzzMuteUntil = millis() + ms;
+    setBuzzer(0);
+}
+
+uint32_t alertStartMs() {
+    return alertStartedMs;
 }
 
 void initActuators() {
@@ -126,8 +150,12 @@ void updateActuators() {
     // Signed difference, so the comparison survives millis() wrapping.
     if (testMotorOn && (int32_t)(now - testMotorEnd) >= 0) endTestMotor();
     if (testBuzzOn && (int32_t)(now - testBuzzEnd) >= 0) endTestBuzzer();
+    if (buzzMuted && (int32_t)(now - buzzMuteUntil) >= 0) {
+        buzzMuted = false;
+        if (alertRunning) setBuzzer(buzzWanted);   // rejoin the pattern where it is
+    }
     updatePulse(vibPulse, setMotor);
-    updatePulse(buzzPulse, setBuzzer);
+    updatePulse(buzzPulse, alertBuzzOut);
     piezoUpdate();
 }
 
@@ -136,16 +164,19 @@ void startAlert() {
     endTestBuzzer();
     piezoOff();   // cancels a BEEP or SWEEP so its timer cannot cut the alert tone
     alertRunning = true;
+    alertStartedMs = millis();
+    buzzMuted = false;
     startPulse(vibPulse, DROWSY_VIB_DUTY, DROWSY_VIB_ON_MS, DROWSY_VIB_OFF_MS, setMotor);
-    startPulse(buzzPulse, DROWSY_BUZZ_HZ, DROWSY_BUZZ_ON_MS, DROWSY_BUZZ_OFF_MS, setBuzzer);
+    startPulse(buzzPulse, DROWSY_BUZZ_HZ, DROWSY_BUZZ_ON_MS, DROWSY_BUZZ_OFF_MS, alertBuzzOut);
 }
 
 void stopAll() {
     endTestMotor();
     endTestBuzzer();
     alertRunning = false;
+    buzzMuted = false;
     startPulse(vibPulse, 0, 0, 0, setMotor);
-    startPulse(buzzPulse, 0, 0, 0, setBuzzer);
+    startPulse(buzzPulse, 0, 0, 0, alertBuzzOut);
 }
 
 bool isAlertActive() {

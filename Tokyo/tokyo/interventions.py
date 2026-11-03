@@ -3,7 +3,8 @@
   Level 0  OK                     nothing
   Level 1  score < 70 (fatigue)   buzzer: 1 s beep, 1 s pause, repeating
   Level 2  score < 50 (worsening) buzzer pattern + seat vibration (0.5 s on / 0.3 s off)
-  Levels 3-4 (voice, rest stop) are planned: Docs/intervention-levels.md
+  Voice: each level change is also spoken (tokyo/voice.py); the buzzer holds
+  off while a clip plays. Levels 3-4 (check-in, rest stop) are planned.
 
 Interventions stack: each level keeps everything below it running.
 A confirmed drowsy alarm (e.g. the face pipeline's DROWSY state) forces Level 2.
@@ -56,11 +57,19 @@ class Interventions:
     def __init__(self, buzzer, motors, bcfg: BuzzerConfig, mcfg: MotorConfig, icfg: InterventionConfig):
         self.buzzer, self.motors, self.bcfg, self.mcfg = buzzer, motors, bcfg, mcfg
         self.levels = LevelTracker(icfg)
+        self.mute_until = 0.0
+
+    def mute_buzzer(self, until: float) -> None:
+        """Hold the buzzer off until `until` (a voice clip is playing). Motors continue."""
+        self.mute_until = max(self.mute_until, until)
+        if self.buzzer.on:
+            self.buzzer.set(False)        # now, not on the next tick
 
     def tick(self, now: float, score: Optional[float], alarm: bool = False) -> int:
         lvl = self.levels.update(now, score, alarm)
         since = self.levels.since
-        want_buzz = lvl >= 1 and pattern_on(now, since, self.bcfg.on_s, self.bcfg.off_s)
+        want_buzz = (lvl >= 1 and pattern_on(now, since, self.bcfg.on_s, self.bcfg.off_s)
+                     and now >= self.mute_until)
         want_motor = lvl >= 2 and pattern_on(now, since, self.mcfg.on_s, self.mcfg.off_s)
         if want_buzz != self.buzzer.on:
             self.buzzer.set(want_buzz)

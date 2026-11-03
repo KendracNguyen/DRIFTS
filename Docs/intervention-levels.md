@@ -41,8 +41,11 @@ an alert runs. Details: [`lcd-display.md`](lcd-display.md).
 - Score bands or triggers for Levels 3 and 4, e.g. a lower score, time spent at
   Level 2, or repeated alerts in a window.
 - How a level ends: score recovers, driver acknowledges, or a timeout.
-- Level 3: which TTS engine runs offline on the Pi Zero 2 W, which speaker, and
-  the spoken phrases.
+- Level 3: **voice decided (Nov 2026)**: Piper clips played by a DFPlayer
+  Mini on the ESP32 (first model) and USB audio on Tokyo
+  ([voice.md](voice.md)). Levels 1 and 2 are already spoken. Still open: the
+  check-in itself (clip 9, "Are you okay? Press the button to confirm"), the
+  button, and what happens when there's no answer.
 - Level 4: where location comes from (the Pi has no GPS; the phone does) and how
   the alert is shown.
 - Confirm the proposed LCD text for Levels 3 and 4.
