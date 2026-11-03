@@ -14,6 +14,13 @@ sudo apt-get update -qq
 # (python3-opencv alone does not ship them).
 sudo apt-get install -y -qq python3-venv python3-picamera2 python3-opencv opencv-data python3-numpy bluez
 
+# Raspberry Pi AI Camera (Sony IMX500): firmware, model zoo and tools.
+# Opt in with:  AI_CAMERA=1 bash deploy/install.sh   (takes 10-15 min on a Zero 2 W)
+if [ "${AI_CAMERA:-0}" = "1" ]; then
+  echo "==> AI Camera packages (imx500-all)"
+  sudo apt-get install -y -qq imx500-all
+fi
+
 echo "==> Enable Bluetooth and add user permissions"
 sudo systemctl enable --now bluetooth
 sudo rfkill unblock bluetooth || true
