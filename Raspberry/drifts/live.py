@@ -332,14 +332,22 @@ class Pipeline:
         import cv2
         self.camera.start()
         self.camera_note = describe_camera(self.camera)
+        self._last_frame_t = time.time()
         last_send = 0.0
         t_fps, n_fps = time.time(), 0
         try:
             while not self._stop.is_set():
                 frame = self.camera.grab()
                 if frame is None:
+                    if time.time() - self._last_frame_t > 5.0:
+                        self.camera_note = ("The camera sends no frames. Another program probably has it: close other "
+                                            "DRIFTS windows (check Task Manager for python), Zoom, Teams or the Camera "
+                                            "app, then restart. Or try --camera 1.")
                     time.sleep(0.05)
                     continue
+                self._last_frame_t = time.time()
+                if self.camera_note and self.camera_note.startswith("The camera sends no frames"):
+                    self.camera_note = None
                 if self.args.mirror:
                     frame = cv2.flip(frame, 1)
                 now = time.time()

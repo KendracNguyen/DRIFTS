@@ -55,13 +55,27 @@ class Camera:
         try:
             import cv2
             import os
-            # Windows: DirectShow opens most webcams faster and more reliably
-            # than the default backend; fall back to the default if it can't.
-            cap = cv2.VideoCapture(self.device, cv2.CAP_DSHOW) if os.name == "nt" else cv2.VideoCapture(self.device)
-            if os.name == "nt" and not cap.isOpened():
-                cap.release()
-                cap = cv2.VideoCapture(self.device)
-            if cap.isOpened():
+            # Windows: try DirectShow, then Media Foundation, then the default,
+            # and keep the first that actually delivers frames.
+            def delivers(c) -> bool:
+                # Opening can succeed while no frames ever arrive (camera held
+                # by another app, or a backend that doesn't suit this webcam).
+                for _ in range(10):
+                    ok, _f = c.read()
+                    if ok:
+                        return True
+                    time.sleep(0.1)
+                return False
+
+            cap = None
+            backends = [cv2.CAP_DSHOW, cv2.CAP_MSMF, None] if os.name == "nt" else [None]
+            for be in backends:
+                c = cv2.VideoCapture(self.device) if be is None else cv2.VideoCapture(self.device, be)
+                if c.isOpened() and delivers(c):
+                    cap = c
+                    break
+                c.release()
+            if cap is not None and cap.isOpened():
                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.cfg.width)
                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.cfg.height)
                 cap.set(cv2.CAP_PROP_FPS, self.cfg.fps)
@@ -69,8 +83,6 @@ class Camera:
                 self._is_running = True
                 log.info("OpenCV VideoCapture(%d) started successfully.", self.device)
                 return
-            else:
-                cap.release()
         except Exception as exc:
             log.debug("OpenCV fallback failed: %s", exc)
             self._cv_cap = None
