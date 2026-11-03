@@ -10,9 +10,10 @@ sudo apt-get update -qq
 sudo apt-get install -y -qq python3-venv python3-lgpio python3-gpiozero python3-smbus2 i2c-tools \
   python3-picamera2 python3-opencv opencv-data python3-numpy python3-spidev alsa-utils bluez git
 
-echo "==> I2C (LCD), SPI (LED strip on GPIO 10), hardware PWM (GPIO 12 IR LEDs, GPIO 13 motors)"
+echo "==> I2C (LCD), SPI (LED strip on GPIO 10), I2S audio (MAX98357A), hardware PWM (GPIO 12 IR LEDs, GPIO 13 motors)"
 grep -q '^dtparam=i2c_arm=on' "$CFG" || echo 'dtparam=i2c_arm=on' | sudo tee -a "$CFG" >/dev/null
 grep -q '^dtparam=spi=on' "$CFG" || echo 'dtparam=spi=on' | sudo tee -a "$CFG" >/dev/null
+grep -q '^dtoverlay=max98357a' "$CFG" || echo 'dtoverlay=max98357a' | sudo tee -a "$CFG" >/dev/null   # voice: I2S amp on GPIO 18/19/21
 grep -q '^dtoverlay=pwm-2chan' "$CFG" || \
   echo 'dtoverlay=pwm-2chan,pin=12,func=4,pin2=13,func2=4' | sudo tee -a "$CFG" >/dev/null
 sudo usermod -aG gpio,i2c,spi,audio "$(whoami)"
@@ -43,7 +44,8 @@ git -C "$DMS_DIR" fetch -q origin && git -C "$DMS_DIR" checkout -q "$DMS_COMMIT"
 echo
 echo "Done. Reboot once (sudo reboot), then:"
 echo "  .venv/bin/python -m tokyo test all                 # outputs: buzzer, motors, strip, LCD, IR, voice"
-echo "  aplay -l                                           # find the USB audio adapter (voice.device in tokyo.toml)"
+echo "  aplay -l                                           # should list card MAX98357A"
+echo "  speaker-test -D plughw:CARD=MAX98357A,DEV=0 -c 2 -t sine -l 1   # tone through the speaker"
 echo "  .venv/bin/python $DMS_DIR/tests/test_core.py       # face pipeline self-test"
 echo "  cd $DMS_DIR && ~/drifts/Tokyo/.venv/bin/python run.py --calibrate --profile <name> --no-display"
 echo "  .venv/bin/python -m tokyo run --profile <name>    # the full app"

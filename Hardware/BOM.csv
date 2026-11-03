@@ -30,6 +30,6 @@ U9,74AHCT125 quad buffer,2,3.3 V to 5 V for WS2812B data; DIP-14,TI SN74AHCT125N
 C5,Electrolytic capacitor,2,1000 uF 10 V,,1,needed,Across strip 5 V/GND at the strip
 R10,Resistor,3,330 ohm 1/4 W (strip data) + 1 k (DFPlayer RX),,0,needed,
 U10,DFPlayer Mini MP3 module,1,UART 9600; 3 W amp; microSD,DFRobot DFR0299 or clone,3,needed,Spoken alerts on the first model - Docs/voice.md
-SPK1,Speaker,2,3 W 4-8 ohm 40 mm,,3,needed,One on the DFPlayer; one on Tokyo's PAM8403
+SPK1,Speaker,2,3 W 4-8 ohm 40 mm,,3,needed,One on the DFPlayer; one on Tokyo's MAX98357A
 SD1,microSD card,1,<= 32 GB FAT32,,5,needed,Holds /mp3/0001.mp3... from Voice/sd_card
-U11,USB audio adapter + PAM8403 amplifier (Tokyo),1,USB sound card + 2x3 W class D amp 5 V,,10,needed,Tokyo voice - no GPIO used
+U11,MAX98357A I2S amplifier (Tokyo),1,I2S DAC + 3 W class D mono amp 5 V,Adafruit 3006 or clone,6,needed,Tokyo voice on GPIO 18/19/21; buzzer moved to GPIO 23

@@ -3,7 +3,7 @@ first model's ESP32 + DFPlayer (Esp32/drifts_esp32/voice.h).
 
 Clips come from Voice/phrases.json, generated once with Piper by
 Voice/make_clips.py (Voice/clips/NN_NAME.wav), and play through `aplay` on
-a USB audio adapter -> PAM8403 amplifier -> 3 W speaker. Pre-generated clips
+a MAX98357A I2S amplifier (GPIO 18/19/21) -> 3 W speaker. Pre-generated clips
 start instantly and cost no CPU while driving.
 
 What is said, and when:

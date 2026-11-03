@@ -20,8 +20,8 @@ from tokyo.voice import VoiceDirector, VoiceInputs, load_phrases
 # ------------------------------------------------------------------ config
 def test_config_defaults_and_override(tmp_path):
     cfg = Config()
-    # Rev 9 wiring: motors 13, buzzer 18, strip SPI MOSI 10, IR 12
-    assert (cfg.motors.pin, cfg.buzzer.pin, cfg.strip.pin, cfg.ir.pin) == (13, 18, 10, 12)
+    # Rev 9 wiring: motors 13, buzzer 23 (I2S audio took 18), strip SPI MOSI 10, IR 12
+    assert (cfg.motors.pin, cfg.buzzer.pin, cfg.strip.pin, cfg.ir.pin) == (13, 23, 10, 12)
     assert cfg.strip.count == 14 and cfg.strip.backend == "spi" and cfg.buzzer.kind == "active"
     assert cfg.buzzer.on_s == 1.0 and cfg.buzzer.off_s == 1.0 and cfg.motors.duty == 1.0
     f = tmp_path / "tokyo.toml"

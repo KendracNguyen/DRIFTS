@@ -5,7 +5,7 @@ Both systems speak the same phrases, under the same clip numbers:
 | System | Voice from | Plays through |
 | --- | --- | --- |
 | First model | **ESP32-C6** + DFPlayer Mini (MP3 module with a 3 W amplifier) | 3 W 4-8 Ω speaker on the DFPlayer |
-| Tokyo (Pi 5) | `tokyo/voice.py`, `aplay` | USB audio adapter → PAM8403 → 3 W speaker |
+| Tokyo (Pi 5) | `tokyo/voice.py`, `aplay` | MAX98357A I2S amplifier (GPIO 18/19/21) → 3 W speaker |
 | Simulation (laptop / phone) | The dashboard, using the browser's built-in speech | The device's speaker |
 
 On the first model the ESP32 speaks, not the Pi Zero. The ESP32 already
@@ -97,7 +97,7 @@ If `VOICE` says *no reply*, check:
 
 ## Tokyo
 `python -m tokyo test voice` plays every phrase. `python -m tokyo say 4` plays
-one phrase. Wiring is in [`Tokyo/Docs/wiring.md`](../Tokyo/Docs/wiring.md#voice-usb-audio-adapter--pam8403--speaker).
+one phrase. Wiring is in [`Tokyo/Docs/wiring.md`](../Tokyo/Docs/wiring.md#voice-max98357a-i2s-amplifier--speaker).
 
 ## Simulation
 The dashboard's **Alarm on this device** card has a **Speak alerts** switch.
