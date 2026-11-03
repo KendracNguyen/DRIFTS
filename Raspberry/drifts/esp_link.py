@@ -38,13 +38,15 @@ EMPTY = {
     "obd": None, "hz": None, "rpm": None, "spd": None, "thr": None,
     "score": None, "lvl": None, "part": None, "eye": None,
     "alert": None, "lcd1": None, "lcd2": None, "updated": None,
+    "drv_score": None,   # ESP32 driving score 0-100 (steering, brakes, OBD variation)
 }
 
 _STATUS_RE = re.compile(
     r"\[STATUS\] obd=(?P<obd>\S+) layout=\S+ (?P<hz>[\d.]+) Hz \| rpm (?P<rpm>[\d.]+) .*?"
     r"spd (?P<spd>[\d.]+) .*?thr (?P<thr>[\d.]+)")
 _SCORE_RE = re.compile(
-    r"\[SCORE\] alert (?P<score>[\d.]+) \((?P<lvl>\w+)\) = eye (?P<eye>[\d.]+)")
+    r"\[SCORE\] alert (?P<score>[\d.]+) \((?P<lvl>\w+)\) = eye (?P<eye>[\d.]+)"
+    r"(?:.*?driving (?P<drv>[\d.]+))?")
 _LCD_RE = re.compile(r"\[LCD\] \|(?P<l1>.{0,16})\| \|(?P<l2>.{0,16})\|")
 _FW_RE = re.compile(r"\[STATUS\] firmware (?P<fw>\S+)")
 
@@ -60,6 +62,8 @@ def parse_serial_line(line: str) -> dict:
     if m := _SCORE_RE.search(line):
         out = {"score": float(m["score"]), "lvl": m["lvl"], "eye": float(m["eye"]),
                "part": "PARTIAL" in line}
+        if m["drv"] is not None:
+            out["drv_score"] = float(m["drv"])
         if " LCD absent" in line:
             out.update(lcd1=None, lcd2=None)
         return out
@@ -82,6 +86,8 @@ def parse_phone_json(text: str) -> dict:
     for k in ("rpm", "spd", "thr", "hz", "score"):
         if isinstance(d.get(k), (int, float)):
             out[k] = float(d[k])
+    if isinstance(d.get("dscore"), (int, float)):       # firmware v16+
+        out["drv_score"] = float(d["dscore"])
     for k in ("obd", "lvl"):
         if isinstance(d.get(k), str):
             out[k] = d[k]
@@ -199,11 +205,17 @@ class SerialLink(_Base):
 
 
 class BleLink(_Base):
-    """BLE to DRIFTS-ESP32: phone telemetry notifications + EYE / PING writes."""
+    """BLE to DRIFTS-ESP32: phone telemetry notifications + EYE / PING writes.
 
-    def __init__(self, device_name: str = "DRIFTS-ESP32", address: str = "", heartbeat_s: float = 1.0):
+    listen_only: subscribe to telemetry and never write. Tokyo uses this, so
+    the first model's own Pi (the Zero) stays the only one steering the ESP32.
+    """
+
+    def __init__(self, device_name: str = "DRIFTS-ESP32", address: str = "", heartbeat_s: float = 1.0,
+                 listen_only: bool = False):
         super().__init__()
         self.device_name, self.address, self.heartbeat_s = device_name, address, heartbeat_s
+        self.listen_only = listen_only
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._pending: collections.deque[str] = collections.deque(maxlen=8)
 
@@ -211,11 +223,14 @@ class BleLink(_Base):
         threading.Thread(target=lambda: asyncio.run(self._main()), name="esp-ble", daemon=True).start()
 
     def send_eye(self, score: int) -> None:
+        if self.listen_only:
+            return
         self._pending.append(f"EYE:{int(score)}")
         self.eyes_sent += 1
 
     def send_command(self, text: str) -> None:
-        self._pending.append(text)
+        if not self.listen_only:
+            self._pending.append(text)
 
     def _on_notify(self, _sender, data: bytearray) -> None:
         text = data.decode("utf-8", "replace")
@@ -249,7 +264,7 @@ class BleLink(_Base):
                                                          response=False)
                         # The ESP32 treats this writer as the Pi: its alert
                         # fail-safe needs a PING at least every 3 s.
-                        if time.time() - last_ping >= self.heartbeat_s:
+                        if not self.listen_only and time.time() - last_ping >= self.heartbeat_s:
                             last_ping = time.time()
                             await client.write_gatt_char(PI_RESULT_CHAR, b"PING", response=False)
                         await asyncio.sleep(0.1)
@@ -286,14 +301,16 @@ class SimLink(_Base):
             self._merge({"fw": "sim", "obd": "polling", "hz": 4.6,
                          "rpm": 780 + 40 * math.sin(t / 3), "spd": 0.0, "thr": 14.9,
                          "score": score, "lvl": lvl, "eye": self._eye, "part": False,
+                         "drv_score": 92 + 6 * math.sin(t / 11),        # calm driving, small drift
                          "alert": lvl == "LOW", "lcd1": lcd1[:16], "lcd2": f"  Score {score:.0f}/100"[:16]})
 
 
-def make_link(kind: str, port: str = "", ble_name: str = "DRIFTS-ESP32", ble_address: str = ""):
+def make_link(kind: str, port: str = "", ble_name: str = "DRIFTS-ESP32", ble_address: str = "",
+              listen_only: bool = False):
     if kind == "serial":
         return SerialLink(port)
     if kind == "ble":
-        return BleLink(ble_name, ble_address)
+        return BleLink(ble_name, ble_address, listen_only=listen_only)
     if kind == "sim":
         return SimLink()
     raise ValueError(f"unknown ESP32 link '{kind}' (serial, ble, sim)")

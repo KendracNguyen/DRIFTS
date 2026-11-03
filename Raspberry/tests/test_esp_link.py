@@ -113,3 +113,23 @@ def test_serial_link_writes_commands():
     link.send_eye(42)
     assert link._ser.out == b"BEEP\nEYE:42\n"
     assert link.eyes_sent == 1
+
+
+def test_driving_score_from_serial_and_json():
+    d = parse_serial_line(SCORE)                       # "... + driving 100 x0.3 ..."
+    assert d["drv_score"] == 100.0
+    line = "[SCORE] alert 58 (CAUTION) = eye 40 x0.7 + driving 100 x0.3 | LEDs G=on"
+    assert parse_serial_line(line)["drv_score"] == 100.0
+    assert parse_phone_json('{"score":63,"dscore":71}')["drv_score"] == 71.0
+    assert "drv_score" not in parse_phone_json('{"score":63}')      # firmware before v16
+
+
+def test_ble_listen_only_never_writes():
+    from drifts.esp_link import BleLink
+    link = BleLink(listen_only=True)
+    link.send_eye(40)
+    link.send_command("BEEP")
+    assert len(link._pending) == 0 and link.eyes_sent == 0
+    normal = BleLink()
+    normal.send_eye(40)
+    assert list(normal._pending) == ["EYE:40"]
