@@ -105,6 +105,22 @@ int main() {
         CHECK(f[0] == STRIP_GREEN, "all linked: status pixel solid green");
     }
 
+    // ---------------- rainbow ----------------
+    {
+        CHECK(rainbowFrame(0, 1, f) && f[0] == STRIP_RAINBOW[0] && f[STRIP_LEDS - 1] == STRIP_RAINBOW[0],
+              "rainbow starts red on the whole strip");
+        rainbowFrame(STRIP_RAINBOW_ON_MS + 10, 1, f);
+        CHECK(f[0] == STRIP_OFF, "short off between colours: each one is a distinct flash");
+        bool order = true;
+        for (int i = 0; i < 7; i++) {
+            rainbowFrame(i * STRIP_RAINBOW_STEP_MS + 10, 1, f);
+            order = order && f[3] == STRIP_RAINBOW[i];
+        }
+        CHECK(order, "red, orange, yellow, green, blue, indigo, violet in order");
+        CHECK(rainbowFrame(7 * STRIP_RAINBOW_STEP_MS + 10, 2, f) && f[0] == STRIP_RAINBOW[0], "second cycle starts red again");
+        CHECK(!rainbowFrame(14 * STRIP_RAINBOW_STEP_MS, 2, f), "ends after the requested cycles");
+    }
+
     // ---------------- DFPlayer frames ----------------
     {
         uint8_t b[10];

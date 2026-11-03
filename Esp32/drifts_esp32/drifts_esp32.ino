@@ -26,6 +26,7 @@
     STATUS        print the current state
     LEDS          cycle every LED pattern (wiring check)
     LEDSTRIP      step the WS2812B strip through every band and status pattern
+    RAINBOW [n]   flash the strip red-orange-yellow-green-blue-indigo-violet, n times (default 3; also over BLE)
     SAY:<n>       speak voice clip n (Voice/phrases.json; also accepted over BLE)
     VOICE         DFPlayer status
     SCORE <n>     force the alert score to n (0-100) for 30 s; SCORE OFF ends it
@@ -130,7 +131,7 @@ void setup() {
                       MIN_SPEED_KPH, GATE_COVERAGE * 100.0f);
     }
 
-    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / LEDS / LEDSTRIP / SCORE n / LCD / I2C SCAN / SWEEP / BEEP / SAY:n / VOICE");
+    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / LEDS / LEDSTRIP / RAINBOW / SCORE n / LCD / I2C SCAN / SWEEP / BEEP / SAY:n / VOICE");
 #if PIEZO_SWEEP_TEST
     piezoSweepStart();
 #endif
@@ -219,6 +220,19 @@ static bool tryBeep(const String &cmd, const char *source) {
     return true;
 }
 
+// RAINBOW or RAINBOW <n> (1-20 cycles): colour flash on the LED strip.
+static bool tryRainbow(const String &cmd, const char *source) {
+    if (!(cmd.equalsIgnoreCase("RAINBOW") || cmd.startsWith("RAINBOW ") || cmd.startsWith("rainbow "))) return false;
+    int n = STRIP_RAINBOW_CYCLES;
+    if (cmd.length() > 8) {
+        const int v = cmd.substring(8).toInt();
+        if (v >= 1 && v <= 20) n = v;
+    }
+    Serial.printf("[CMD] RAINBOW from %s\n", source);
+    Strip.startRainbow(millis(), n);
+    return true;
+}
+
 // Runs a TEST:<motor_ms>:<buzzer_ms>[:DC] command from either input.
 // Returns false if `cmd` is not a pin-test command.
 static bool tryPinTest(const String &cmd, const char *source) {
@@ -263,6 +277,8 @@ static void handleSerial() {
         Leds.startSelfTest(millis());
     } else if (cmd.equalsIgnoreCase("LEDSTRIP")) {
         Strip.startSelfTest(millis());
+    } else if (tryRainbow(cmd, "serial")) {
+        // handled
     } else if (Voice.trySayCommand(cmd.c_str(), "serial")) {
         // handled
     } else if (cmd.equalsIgnoreCase("VOICE")) {
@@ -286,6 +302,7 @@ static void handleSerial() {
     } else if (tryScoreMessage(cmd, "serial")) {
         // handled
     } else if (cmd.equalsIgnoreCase("STOP")) {
+        Strip.stopTests();
         enterIdle("manual STOP");
     } else if (cmd.equalsIgnoreCase("BRAKE")) {
         drivingTrigger.pushBrakeEvent(millis());
@@ -374,6 +391,8 @@ void loop() {
             enterIdle("Pi reported NOT_DROWSY");
         } else if (Voice.trySayCommand(result.c_str(), "BLE")) {
             // handled: the Pi says CALIBRATED / CAMERA_LOST this way
+        } else if (tryRainbow(result, "BLE")) {
+            // handled
         } else if (tryBeep(result, "BLE")) {
             // handled
         } else if (tryPinTest(result, "Pi")) {
