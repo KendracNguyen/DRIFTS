@@ -297,7 +297,9 @@ class AttentionTracker:
         return (abs(pose.yaw) > self.yaw_limit - margin or pose.pitch > self.pitch_down - margin
                 or pose.pitch < -(self.pitch_up - margin))
 
-    def update(self, now: float, pose: HeadPose) -> str:
+    def update(self, now: float, pose: HeadPose, gaze_off: bool = False) -> str:
+        """`gaze_off`: the eyes (iris) point away even if the head does not
+        (Pi 5 rig only; the AI Camera has no iris points)."""
         if not pose.found or pose.yaw is None:
             self.state = "unknown"
             return self.state
@@ -306,6 +308,7 @@ class AttentionTracker:
             off = self._outside(pose, self.hyst)
         else:
             off = self._outside(pose, 0.0)
+        off = off or gaze_off
         if off:
             if self.state != "off_road":
                 self.off_since, self._counted = now, False
