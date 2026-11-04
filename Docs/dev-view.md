@@ -157,6 +157,12 @@ switch to fix the setting. The raw reading is in `/status.json` as
 `glasses_level`. If the threshold doesn't separate your faces, adjust
 `GlassesDetector(on_above=0.22, off_below=0.15)` in `drifts/facesignals.py`.
 
+## Symposium: visitors on their phones (planned)
+
+Visitors scan two printed QR codes (join our hotspot, open DRIFTS) and get a
+view-only dashboard with the live camera. This gets built after the UI is
+refined. The plan is in [symposium-viewers.md](symposium-viewers.md).
+
 ## Files
 | | |
 | --- | --- |
