@@ -454,6 +454,12 @@ def make_handler(pipe: Pipeline):
             pass
 
         def _send(self, code: int, body: bytes, ctype: str) -> None:
+            try:
+                self._send_now(code, body, ctype)
+            except ConnectionError:      # the browser closed or refreshed the page mid-reply: harmless
+                pass
+
+        def _send_now(self, code: int, body: bytes, ctype: str) -> None:
             self.send_response(code)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
@@ -498,7 +504,7 @@ def make_handler(pipe: Pipeline):
                             self.wfile.write(b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
                                              + str(len(jpeg)).encode() + b"\r\n\r\n" + jpeg + b"\r\n")
                         time.sleep(0.03)
-                except (BrokenPipeError, ConnectionResetError):
+                except ConnectionError:      # viewer left (broken pipe / reset / aborted on Windows)
                     pass
             elif path == "/stream.mjpg":
                 self.send_response(200)
@@ -516,7 +522,7 @@ def make_handler(pipe: Pipeline):
                             self.wfile.write(b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
                                              + str(len(jpeg)).encode() + b"\r\n\r\n" + jpeg + b"\r\n")
                         time.sleep(0.03)
-                except (BrokenPipeError, ConnectionResetError):
+                except ConnectionError:      # viewer left (broken pipe / reset / aborted on Windows)
                     pass
             else:
                 self._send(404, b"not found", "text/plain")
