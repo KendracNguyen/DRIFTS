@@ -113,6 +113,13 @@ class FaceMeshSource:
         self.yaw_n, self.roll_n = fs.Neutral(), fs.Neutral()
         self.gaze_off = fs.OffTimer()
         self.gaze_limit = 0.16                     # iris offset counted as off road
+        # Iris "looking at the road" position. The camera is usually off to one
+        # side, so straight-ahead eyes don't read 0: calibrate it like the head
+        # pose (auto at start, or the Calibrate button), from open-eye frames only.
+        self.gaze0 = 0.0
+        self._gaze_samples: list = []
+        self.gaze_calibrated = False
+        self.calib_frames = 30
         self.night = NightDetector()
         self.face: dict = {"found": False}
         self.keypoints = None
@@ -145,6 +152,12 @@ class FaceMeshSource:
                          "oval": pairs(c.FACE_LANDMARKS_FACE_OVAL)}
         if self.camera is not None:
             self.camera.start()
+
+    def calibrate(self, frames: int = 30) -> None:
+        """Restart the iris calibration: the next `frames` open-eye frames
+        become the 'looking at the road' iris position."""
+        self.calib_frames = frames
+        self._gaze_samples, self.gaze_calibrated, self.gaze0 = [], False, 0.0
 
     def set_glasses_mode(self, mode: str) -> None:
         if mode in ("auto", "on", "off"):
@@ -205,8 +218,19 @@ class FaceMeshSource:
         perclos = self.eyes.perclos(now)
         eye_score = None if perclos is None else 100.0 * (1.0 - perclos)
         head_score = self.nods.score(now)
-        gaze = fs.iris_offset(px) if found else None
-        gaze_off_s = self.gaze_off.update(now, None if gaze is None else abs(gaze) > self.gaze_limit)
+        gaze_raw = fs.iris_offset(px) if found else None
+        eyes_open = found and self.eyes.state() == "open"
+        if not self.gaze_calibrated and eyes_open and gaze_raw is not None:
+            self._gaze_samples.append(gaze_raw)
+            if len(self._gaze_samples) >= self.calib_frames:
+                vals = sorted(self._gaze_samples)
+                self.gaze0, self.gaze_calibrated = vals[len(vals) // 2], True
+        gaze = None if gaze_raw is None else gaze_raw - self.gaze0
+        eyes_closed = found and self.eyes.state() == "closed"
+        # Eyes closed = not watching the road, whatever the head does.
+        gaze_off_now = None if not found else (eyes_closed or (gaze is not None and abs(gaze) > self.gaze_limit))
+        gaze_off_s = self.gaze_off.update(now, gaze_off_now)
+        gaze_reason = (None if not gaze_off_now else "eyes closed" if eyes_closed else "eyes looking away")
         yaw_rel, roll_rel = self.yaw_n.update(now, yaw), self.roll_n.update(now, roll)
         closed_for = self.eyes.closed_for(now)
         raw = {"found": found, "perclos": perclos, "mean_blink_ms": self.eyes.mean_blink_ms(),
@@ -230,13 +254,15 @@ class FaceMeshSource:
             "last_blink_ms": self.eyes.last_blink_ms, "blinks": len(self.eyes.blinks),
             "long_closures": self.eyes.long_closures,
             "perclos": perclos, "perclos_warming": perclos is None and found,
-            "gaze_dev": abs(gaze) if gaze is not None else None, "gaze_x": gaze,
+            "gaze_dev": abs(gaze) if gaze is not None else None, "gaze_x": gaze, "gaze_raw": gaze_raw,
+            "gaze_calibrated": self.gaze_calibrated, "gaze_reason": gaze_reason, "eyes_closed": eyes_closed,
+            "gaze_calib_progress": 1.0 if self.gaze_calibrated else len(self._gaze_samples) / self.calib_frames,
             "mar": mr, "yawning": self.yawns.yawning(), "yawns": self.yawns.recent(now),
             "nods": len(self.nods.nods), "nods_total": self.nods.total_nods,
             "pitch_drop": self.nods.drop, "droop_s": self.nods.droop_s(now),
             "glasses": glasses, "glasses_mode": self.glasses.mode, "glasses_level": self.glasses.level,
             "glasses_edge": edge,
-            "gaze_off_s": gaze_off_s, "gaze_off": gaze_off_s > 0, "gaze_limit": self.gaze_limit,
+            "gaze_off_s": gaze_off_s, "gaze_off": bool(gaze_off_now), "gaze_limit": self.gaze_limit,
             "yaw_rel": yaw_rel, "roll_rel": roll_rel,
             "nose": nose, "nose_neutral": {"yaw": self.yaw_n.value, "pitch": self.nods.neutral,
                                            "roll": self.roll_n.value},
