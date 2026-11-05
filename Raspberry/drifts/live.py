@@ -638,7 +638,8 @@ def start_whisplay(pipe: Pipeline, args):
     try:
         from drifts.ui_model import state_from_live
         from drifts.whisplay_ui import WhisplayUI
-        ui = WhisplayUI(load_config().whisplay, sim=args.whisplay_sim)
+        ui = WhisplayUI(load_config().whisplay, sim=args.whisplay_sim,
+                        hooks={"calibrate": pipe.recalibrate})  # double press: re-take the road pose
     except Exception as exc:              # no HAT or driver: the dashboard still runs
         log.warning("Whisplay HAT not available (%s): running without the screen", exc)
         return None

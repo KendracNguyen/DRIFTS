@@ -154,6 +154,8 @@ class Application:
     def stop(self) -> None:
         """Gracefully shut down all components."""
         self._running = False
+        if self.ui is not None:
+            self.ui.close()                   # screen and LED off
         self.ble.wake_event.set()
         self.ble.stop()
         self.camera.stop()

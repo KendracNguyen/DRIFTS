@@ -190,7 +190,7 @@ Serial: `SCORE <n>`, `SCORE OFF`, `STATUS`.
 ### Driver screen and voice
 
 The driver screen, RGB LED, voice and button are on the Pi Zero's **Whisplay
-HAT**, not on the ESP32. Install and test: [`../Hardware/whisplay-hat.md`](../Hardware/whisplay-hat.md).
+HAT**, not on the ESP32. Install and test: [`whisplay-bringup.md`](whisplay-bringup.md) (datasheet: [`../Hardware/whisplay-hat.md`](../Hardware/whisplay-hat.md)).
 The ESP32 sends its score to the Pi over Bluetooth once a second (firmware v20+).
 
 ### Buzzer alerts and Bluetooth ping
