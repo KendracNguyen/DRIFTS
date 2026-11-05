@@ -303,7 +303,7 @@ notes = [
         "9. Wireless (dashed purple): Pi↔C6 and OBD dongle↔C6 over BLE. U3",
         "   must be BLE, not Classic. Camera U5 connects to the Pi only.",
         "10. Do not use: 4, 5, 8, 9, 15 (strapping); 6, 7 (JTAG); 12, 13 (USB);",
-        "   16, 17 (UART0 to CH343); 14, 24–30 (flash); 4 (strapping).",
+        "   16, 17 (UART0 to CH343); 14, 24–30 (flash).",
         "11. Same-named flags (+5V, +3V3, GND) are one net, as in KiCad.",
         "12. Firmware v20: no display or LEDs on the C6; its 1 Hz status JSON goes to",
         "   every BLE subscriber (phone and U2). See Hardware/pinout.md.",
