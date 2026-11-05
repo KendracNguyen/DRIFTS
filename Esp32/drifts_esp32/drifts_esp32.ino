@@ -4,7 +4,7 @@
   Data path:
     BLE ELM327 dongle  --(BLE central)-->  ESP32
     ESP32  --(BLE peripheral)-->  Raspberry Pi Zero 2 W  (WAKE / result)
-    ESP32  --(BLE peripheral)-->  phone app              (telemetry)
+    ESP32  --(BLE peripheral)-->  phone app + Pi screen  (telemetry)
 
   The ESP32 holds three BLE connections at once. That requires NimBLE
   with MYNEWT_VAL_BLE_MAX_CONNECTIONS >= 4 and the "Huge APP" partition
@@ -25,15 +25,15 @@
     BRAKE         inject one harsh-brake event
     STATUS        print the current state
     LEDS          cycle every LED pattern (wiring check)
-    LEDSTRIP      step the WS2812B strip through every band and status pattern
-    RAINBOW [n]   flash the strip red-orange-yellow-green-blue-indigo-violet, n times (default 3; also over BLE)
-    SAY:<n>       speak voice clip n (Voice/phrases.json; also accepted over BLE)
-    VOICE         DFPlayer status
     SCORE <n>     force the alert score to n (0-100) for 30 s; SCORE OFF ends it
     EYE:<n>       eye score 0-100, as the Pi will send it (also accepted over BLE)
     DRV:s:t:b     simulator driving sample (reserved for the Logitech G29; stored only)
-    LCD           re-initialise the 16x2 display and redraw it
-    I2C SCAN      list every device on the I2C bus (LCD 0x27/0x3F, MPU-6050 0x68)
+    I2C SCAN      list every device on the I2C bus (MPU-6050 at 0x68)
+
+  The driver's screen, RGB LED, voice and button are on the Pi Zero's
+  Whisplay HAT (Hardware/whisplay-hat.md), fed by this board's 1 Hz BLE
+  status. This board keeps the buzzer, motors and 3 LEDs, so the alert
+  still works if the Pi is down.
 */
 
 #include "config.h"
@@ -41,9 +41,6 @@
 #include "piezo.h"
 #include "alertness.h"
 #include "status_leds.h"
-#include "led_strip.h"
-#include "voice.h"
-#include "lcd_i2c.h"
 #include "ble_hub.h"
 #include "obd_ble.h"
 #include "trigger.h"
@@ -97,9 +94,6 @@ void setup() {
     Serial.println("==================================");
 
     Leds.begin();   // lamp test: all three LEDs on for LED_LAMP_TEST_MS
-    Lcd.begin();    // "Welcome to DRIFTS", then "Drive Safe", then the live score
-    Strip.begin();  // white sweep, then status pixel + score bar
-    Voice.begin();  // DFPlayer: "DRIFTS ready" a few seconds after boot
 
     initActuators();
     Serial.println("[MAIN] Actuators ready");
@@ -131,7 +125,7 @@ void setup() {
                       MIN_SPEED_KPH, GATE_COVERAGE * 100.0f);
     }
 
-    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / LEDS / LEDSTRIP / RAINBOW / SCORE n / LCD / I2C SCAN / SWEEP / BEEP / SAY:n / VOICE");
+    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / LEDS / SCORE n / I2C SCAN / SWEEP / BEEP");
 #if PIEZO_SWEEP_TEST
     piezoSweepStart();
 #endif
@@ -157,18 +151,14 @@ static void printStatus() {
                   (unsigned long)Obd.rxOverflows());
     const LedState &l = Leds.state();
     Serial.printf("[SCORE] alert %.0f (%s) = eye %.0f%s x0.7 + driving %.0f x0.3%s%s | "
-                  "LEDs G=%s Y=%s R=%s | system issue: %s | LCD %s\n",
+                  "LEDs G=%s Y=%s R=%s | system issue: %s\n",
                   alertScore.score(), alertLevelName(alertScore.level()),
                   alertScore.eye(), alertScore.eyeEstimated() ? " (est.)" : "",
                   alertScore.driving(),
                   alertScore.partial() ? " | PARTIAL: no eye data, driving only" : "",
                   alertScore.forced() ? " | FORCED by SCORE command" : "",
                   ledPatternName(l.green), ledPatternName(l.yellow), ledPatternName(l.red),
-                  GATE_BENCH_MODE ? "bench mode" : (!imuPresent ? "IMU missing" : "none"),
-                  Lcd.present() ? "on" : "absent");
-    if (Lcd.present()) Serial.printf("[LCD] |%s| |%s|\n", Lcd.line1(), Lcd.line2());
-    Serial.printf("[STRIP] %s | bar %d/%d LEDs\n", Strip.present() ? "on" : "off", Strip.lit(), STRIP_BAR_LEN);
-    Voice.printStatus();
+                  GATE_BENCH_MODE ? "bench mode" : (!imuPresent ? "IMU missing" : "none"));
 }
 
 // EYE:<n> and DRV:s:t:b, from the Pi over BLE or typed on the console.
@@ -220,19 +210,6 @@ static bool tryBeep(const String &cmd, const char *source) {
     return true;
 }
 
-// RAINBOW or RAINBOW <n> (1-20 cycles): colour flash on the LED strip.
-static bool tryRainbow(const String &cmd, const char *source) {
-    if (!(cmd.equalsIgnoreCase("RAINBOW") || cmd.startsWith("RAINBOW ") || cmd.startsWith("rainbow "))) return false;
-    int n = STRIP_RAINBOW_CYCLES;
-    if (cmd.length() > 8) {
-        const int v = cmd.substring(8).toInt();
-        if (v >= 1 && v <= 20) n = v;
-    }
-    Serial.printf("[CMD] RAINBOW from %s\n", source);
-    Strip.startRainbow(millis(), n);
-    return true;
-}
-
 // Runs a TEST:<motor_ms>:<buzzer_ms>[:DC] command from either input.
 // Returns false if `cmd` is not a pin-test command.
 static bool tryPinTest(const String &cmd, const char *source) {
@@ -263,8 +240,6 @@ static void handleSerial() {
         alertScore.onPiResult(false, millis());
         piStatus = "not_drowsy";
         enterIdle("simulated NOT_DROWSY");
-    } else if (cmd.equalsIgnoreCase("LCD")) {
-        Lcd.reinit();
     } else if (tryBeep(cmd, "serial")) {
         // handled
     } else if (cmd.equalsIgnoreCase("SWEEP")) {
@@ -272,17 +247,10 @@ static void handleSerial() {
         stopAll();
         piezoSweepStart();
     } else if (cmd.equalsIgnoreCase("I2C SCAN")) {
-        i2cScan();
+        Motion.i2cScan();
     } else if (cmd.equalsIgnoreCase("LEDS")) {
         Leds.startSelfTest(millis());
-    } else if (cmd.equalsIgnoreCase("LEDSTRIP")) {
-        Strip.startSelfTest(millis());
-    } else if (tryRainbow(cmd, "serial")) {
-        // handled
-    } else if (Voice.trySayCommand(cmd.c_str(), "serial")) {
-        // handled
-    } else if (cmd.equalsIgnoreCase("VOICE")) {
-        Voice.printStatus();
+
     } else if (cmd.equalsIgnoreCase("SCORE OFF")) {
         alertScore.clearForce();
         Serial.println("[SCORE] Override off");
@@ -302,7 +270,6 @@ static void handleSerial() {
     } else if (tryScoreMessage(cmd, "serial")) {
         // handled
     } else if (cmd.equalsIgnoreCase("STOP")) {
-        Strip.stopTests();
         enterIdle("manual STOP");
     } else if (cmd.equalsIgnoreCase("BRAKE")) {
         drivingTrigger.pushBrakeEvent(millis());
@@ -389,10 +356,6 @@ void loop() {
             piStatus = "not_drowsy";
             Hub.setPiIdle();
             enterIdle("Pi reported NOT_DROWSY");
-        } else if (Voice.trySayCommand(result.c_str(), "BLE")) {
-            // handled: the Pi says CALIBRATED / CAMERA_LOST this way
-        } else if (tryRainbow(result, "BLE")) {
-            // handled
         } else if (tryBeep(result, "BLE")) {
             // handled
         } else if (tryPinTest(result, "Pi")) {
@@ -463,30 +426,8 @@ void loop() {
     ledIn.level = alertScore.level();
     Leds.update(ledIn, now);
 
-    StripInputs stripIn;
-    stripIn.score = alertScore.score();
-    stripIn.partial = alertScore.partial();
-    stripIn.alarm = isAlertActive();
-    stripIn.alarmStartMs = alertStartMs();
-    stripIn.linksOk = ledIn.dongleOk && ledIn.piOk;
-    stripIn.systemIssue = ledIn.systemIssue;
-    Strip.update(stripIn, now);
 
-    VoiceInputs voiceIn;
-    voiceIn.level = alertScore.level();
-    voiceIn.alertActive = isAlertActive();
-    voiceIn.dongleOk = ledIn.dongleOk;
-    voiceIn.piOk = ledIn.piOk;
-    Voice.service(voiceIn, now);
-
-    ScreenView screen;
-    screen.score = alertScore.score();
-    screen.level = alertScore.level();
-    screen.partial = alertScore.partial();
-    screen.alertActive = isAlertActive();
-    Lcd.service(screen, now);
-
-    // 7. Telemetry to the phone.
+    // 7. Telemetry: the phone and the Pi (Whisplay screen) both read it.
     if (now - lastPhoneMs >= PHONE_UPDATE_MS) {
         lastPhoneMs = now;
         char json[256];

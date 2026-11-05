@@ -20,6 +20,9 @@ class BleClient:
         self.connected = False
         self._client = None
         self._stop = False
+        # Latest ESP32 status (esp_link.parse_phone_json fields) and when it came.
+        self.status: dict = {}
+        self.status_t: float = 0.0
 
     async def run(self) -> None:
         """Main connection and reconnection supervision loop."""
@@ -53,6 +56,12 @@ class BleClient:
                     # Subscribe to WAKE characteristic notifications
                     await client.start_notify(self.cfg.wake_char_uuid, self._on_wake_notify)
                     log.info("Subscribed to WAKE characteristic (%s)", self.cfg.wake_char_uuid)
+                    # The 1 Hz status for the Whisplay screen (firmware v19 sends it
+                    # to every subscriber). Optional: older firmware still works.
+                    try:
+                        await client.start_notify(self.cfg.status_char_uuid, self._on_status_notify)
+                    except Exception as exc:
+                        log.info("ESP32 status not available (%s): screen shows links only", exc)
 
                     # Keep alive while connected
                     while client.is_connected and not self._stop:
@@ -76,6 +85,14 @@ class BleClient:
         log.info("[BLE] Received notification on WAKE char: '%s'", msg)
         if msg.upper() == "WAKE":
             self.wake_event.set()
+
+    def _on_status_notify(self, sender, data: bytearray) -> None:
+        import time
+        from drifts.esp_link import parse_phone_json
+        fields = parse_phone_json(data.decode("utf-8", errors="replace"))
+        if fields:
+            self.status.update(fields)
+            self.status_t = time.monotonic()
 
     async def send_result(self, result: str) -> bool:
         """Write DROWSY or NOT_DROWSY to RESULT_CHAR on the ESP32."""

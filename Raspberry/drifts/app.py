@@ -33,6 +33,13 @@ class Application:
         self.camera = Camera(self.cfg.camera)
         self.detector = DrowsinessDetector(self.cfg.detector)
         self._running = True
+        self.ui = None
+        if self.cfg.whisplay.enabled:
+            try:
+                from drifts.whisplay_ui import WhisplayUI
+                self.ui = WhisplayUI(self.cfg.whisplay, sim=sim)
+            except Exception as exc:          # no HAT or driver: run without the screen
+                log.warning("Whisplay HAT not available (%s): running without the screen", exc)
 
     async def run(self) -> None:
         """Start background tasks and run the main supervision loop."""
@@ -45,6 +52,9 @@ class Application:
 
         if self.sim:
             tasks.append(asyncio.create_task(self._sim_wake_loop()))
+
+        if self.ui is not None:
+            tasks.append(asyncio.create_task(self.ui.run(self._ui_state)))
 
         log.info("DRIFTS v2 Pi application started. System is IDLE.")
 
@@ -124,6 +134,13 @@ class Application:
             for t in tasks:
                 t.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+
+    def _ui_state(self):
+        """What the Whisplay screen shows: the ESP32's latest status."""
+        import time
+        from drifts.whisplay_ui import state_from_status
+        fresh = time.monotonic() - self.ble.status_t <= self.cfg.whisplay.stale_s
+        return state_from_status(self.ble.status, linked=self.ble.connected, fresh=fresh)
 
     async def _sim_wake_loop(self) -> None:
         """Periodically emit simulated WAKE events for testing without ESP32."""

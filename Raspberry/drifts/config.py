@@ -17,6 +17,8 @@ class BleConfig:
     service_uuid: str = "DF710001-B5A3-F393-E0A9-E50E24DCCA9E"
     wake_char_uuid: str = "DF710002-B5A3-F393-E0A9-E50E24DCCA9E"
     result_char_uuid: str = "DF710003-B5A3-F393-E0A9-E50E24DCCA9E"
+    # ESP32 status JSON (1 Hz): score, level, OBD state. The Whisplay screen shows it.
+    status_char_uuid: str = "DF720002-B5A3-F393-E0A9-E50E24DCCA9E"
     # The ESP32 kills its actuators if the Pi goes quiet for longer than
     # its FAILSAFE_MS (3 s). This must stay comfortably below that.
     heartbeat_s: float = 1.0
@@ -47,11 +49,24 @@ class PowerConfig:
 
 
 @dataclass
+class WhisplayConfig:
+    """PiSugar Whisplay HAT: screen, RGB LED, speaker, button (drifts/whisplay_ui.py)."""
+    enabled: bool = False
+    driver_dir: str = "~/Whisplay/runtime"     # PiSugar's driver (install_driver.sh)
+    audio_device: str = "plughw:CARD=whisplaysound"
+    brightness: int = 70                       # 0-100
+    voice: bool = True
+    repeat_s: float = 60.0                     # Level 2 warning repeats this often
+    stale_s: float = 5.0                       # ESP32 status older than this = link lost
+
+
+@dataclass
 class Config:
     ble: BleConfig = field(default_factory=BleConfig)
     camera: CameraConfig = field(default_factory=CameraConfig)
     detector: DetectorConfig = field(default_factory=DetectorConfig)
     power: PowerConfig = field(default_factory=PowerConfig)
+    whisplay: WhisplayConfig = field(default_factory=WhisplayConfig)
 
 
 def _fill(cls, data: dict):

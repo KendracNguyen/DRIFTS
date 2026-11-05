@@ -8,7 +8,7 @@ BleHub Hub;
 static NimBLEServer *g_server = nullptr;
 static NimBLECharacteristic *g_wakeChar = nullptr;    // notify -> Pi
 static NimBLECharacteristic *g_resultChar = nullptr;  // write  <- Pi
-static NimBLECharacteristic *g_statusChar = nullptr;  // notify -> phone
+static NimBLECharacteristic *g_statusChar = nullptr;  // notify -> phone and the Pi (Whisplay screen)
 
 // Connection handles of the subscribed peers, or BLE_HS_CONN_HANDLE_NONE.
 static volatile uint16_t g_piHandle = BLE_HS_CONN_HANDLE_NONE;
@@ -178,5 +178,7 @@ uint32_t BleHub::piSilentForMs(uint32_t now_ms) const {
 void BleHub::pushPhoneStatus(const char *json) {
     if (g_statusChar == nullptr || json == nullptr) return;
     g_statusChar->setValue((uint8_t *)json, strlen(json));
-    if (g_phoneHandle != BLE_HS_CONN_HANDLE_NONE) g_statusChar->notify();
+    // Every subscriber gets it: a phone, and the Pi, whose Whisplay screen
+    // shows the score. NimBLE only sends to peers that subscribed.
+    g_statusChar->notify();
 }

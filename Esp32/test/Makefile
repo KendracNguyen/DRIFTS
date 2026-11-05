@@ -13,14 +13,12 @@ CXXFLAGS := -std=c++17 -Wall -Wextra -Wno-unused-parameter -I.
 SRC      := ../drifts_esp32
 
 .PHONY: all clean
-all: test_trigger test_stream test_pin_test test_weave test_alertness test_lcd test_strip_voice
+all: test_trigger test_stream test_pin_test test_weave test_alertness
 	./test_trigger
 	./test_stream
 	./test_pin_test
 	./test_weave
 	./test_alertness
-	./test_lcd
-	./test_strip_voice
 
 test_trigger: test_trigger.cpp $(SRC)/trigger.cpp $(SRC)/trigger.h $(SRC)/config.h
 	$(CXX) $(CXXFLAGS) -o $@ test_trigger.cpp $(SRC)/trigger.cpp
@@ -37,11 +35,5 @@ test_weave: test_weave.cpp $(SRC)/weave.h
 test_alertness: test_alertness.cpp $(SRC)/alertness.h $(SRC)/status_leds.h
 	$(CXX) $(CXXFLAGS) -o $@ test_alertness.cpp
 
-test_lcd: test_lcd.cpp $(SRC)/lcd_screen.h $(SRC)/alertness.h
-	$(CXX) $(CXXFLAGS) -o $@ test_lcd.cpp
-
-test_strip_voice: test_strip_voice.cpp $(SRC)/led_strip.h $(SRC)/voice.h $(SRC)/voice_clips.h $(SRC)/alertness.h
-	$(CXX) $(CXXFLAGS) -o $@ test_strip_voice.cpp
-
 clean:
-	rm -f test_trigger test_stream test_pin_test test_weave test_alertness test_lcd test_strip_voice
+	rm -f test_trigger test_stream test_pin_test test_weave test_alertness

@@ -30,3 +30,14 @@ max_frames_per_cycle = 30            # at ~3-5 FPS ≈ 6-10 seconds of analysis
 [power]
 idle_camera_off = true               # turn off camera when not analyzing
 cooldown_s = 10                      # wait before accepting another WAKE
+
+[whisplay]
+# PiSugar Whisplay HAT: driver screen, RGB LED, speaker, button.
+# Install PiSugar's driver first (Hardware/whisplay-hat.md), then set true.
+enabled = false
+driver_dir = "~/Whisplay/runtime"
+audio_device = "plughw:CARD=whisplaysound"
+brightness = 70        # 0-100
+voice = true
+repeat_s = 60.0        # Level 2 warning repeats this often
+stale_s = 5.0          # ESP32 status older than this = connection lost

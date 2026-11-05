@@ -28,7 +28,7 @@ static void writeReg(uint8_t reg, uint8_t value) {
 
 bool Imu::begin() {
     Wire.begin(IMU_SDA_PIN, IMU_SCL_PIN);
-    Wire.setClock(I2C_CLOCK_HZ);   // shared with the LCD backpack; see config.h
+    Wire.setClock(I2C_CLOCK_HZ);   // see config.h
 
     Wire.beginTransmission(IMU_I2C_ADDR);
     Wire.write(REG_WHO_AM_I);
@@ -162,4 +162,18 @@ bool Imu::service(uint32_t now_ms) {
     }
 
     return event;
+}
+
+// I2C SCAN serial command: list every device that answers on the bus.
+void Imu::i2cScan() {
+    Serial.println("[I2C] Scanning 0x08-0x77 ...");
+    int found = 0;
+    for (uint8_t a = 0x08; a <= 0x77; a++) {
+        Wire.beginTransmission(a);
+        if (Wire.endTransmission() == 0) {
+            Serial.printf("[I2C]   0x%02X  %s\n", a, a == IMU_I2C_ADDR ? "MPU-6050" : "unknown");
+            found++;
+        }
+    }
+    Serial.printf("[I2C] %d device(s)\n", found);
 }

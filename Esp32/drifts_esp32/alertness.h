@@ -170,7 +170,7 @@ private:
 // --- Reserved for the Logitech G29 simulator source (not used yet) --------
 // DRV:<steer_deg>:<throttle_pct>:<brake_pct>, e.g. DRV:-12.5:30:0
 // Parsed and stored so the message format is fixed now; turning a stream of
-// these into DrivingRatios is the G29 milestone, after the LEDs and the LCD.
+// these into DrivingRatios is the G29 milestone.
 struct DrvSample {
     float steerDeg = 0.0f;
     float throttlePct = 0.0f;
