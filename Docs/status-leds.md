@@ -67,8 +67,8 @@ is the normal state between Pi results.
 > driving data and the Pi's yes/no answer — not a measured fatigue level.
 > Quote it that way in reports.
 
-The 16x2 LCD shows the same bands as **Intervention 1 / Intervention 2**; see
-[`lcd-display.md`](lcd-display.md).
+The Whisplay HAT's screen on the Pi shows the same bands as **Intervention 1 /
+Intervention 2**; see [`../Hardware/whisplay-hat.md`](../Hardware/whisplay-hat.md).
 
 All weights and bands are in `Esp32/drifts_esp32/alertness.h` (`AlertConfig`).
 
@@ -145,7 +145,7 @@ G29 ──USB──► laptop or Pi ──(USB serial or BLE)──► ESP32 ─
 - **Message, reserved now:** `DRV:<steer_deg>:<throttle_pct>:<brake_pct>`,
   e.g. `DRV:-12.5:30:0`. The ESP32 already parses and stores it
   (`parseDrv` in `alertness.h`; host tests cover the EYE and DRV parsers).
-- **Still to build, after the LCD:** a reader on the laptop / Pi (Python can
+- **Still to build:** a reader on the laptop / Pi (Python can
   read the G29 with `pygame`) streaming `DRV:` at ~20 Hz, and turning that
   stream into the same `DrivingRatios` the car sensors produce (steering
   reversals from wheel angle, brake and throttle behaviour from the pedals).

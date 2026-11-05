@@ -17,9 +17,9 @@ What it does, once per camera frame:
   1. eyes.EyeTracker finds the face and eyes -> open / closed / no face
   2. PerclosWindow -> PERCLOS over the last N seconds -> eye score 0-100
   3. every --eye-every seconds the eye score is sent to the ESP32 as EYE:<n>,
-     so the ESP32's alert score, LEDs and LCD react to the camera live
+     so the ESP32's alert score, LEDs and alert outputs react to the camera live
 The ESP32 link supplies OBD (rpm / speed / throttle), the alert score and
-level, and on USB the LCD text, all shown next to the video.
+level, all shown next to the video.
 
 Capture buttons save the raw frame plus a label in the Simuletic layout
 (images/ + labels/<session>.json), so `training/train.py --data-dir captures`

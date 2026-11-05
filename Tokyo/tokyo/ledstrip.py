@@ -1,8 +1,7 @@
 """WS2812B LED strip (14 LEDs) above the LCD: status pixel + alert-score bar.
 
-Identical to the first model's ESP32 strip (Esp32/drifts_esp32/led_strip.h):
-both are tested against the same table, so a score lights the same LEDs on
-both systems.
+The score bar uses the same colour bands as the first model's Whisplay
+screen (Raspberry/drifts/whisplay_ui.py).
 
   pixel 0      status   green solid  = camera + ESP32 driving data linked
                         red slow     = connection failure

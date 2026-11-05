@@ -111,7 +111,7 @@ EAR P1–P6 use MediaPipe landmarks:
 Each of the 8 signals becomes a drowsiness part *d* from 0 (fine) to 1 (as
 bad as it gets). The composite is their weighted sum, 0–100, where higher
 means drowsier. The ESP32 receives **100 − composite** as `EYE:<n>`, so its
-alert score, LEDs and LCD follow it.
+alert score, LEDs and outputs follow it, and so does the Whisplay screen.
 
 | Signal | d = 1 when | Weight | With glasses |
 | --- | --- | --- | --- |

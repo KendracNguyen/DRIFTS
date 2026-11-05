@@ -12,7 +12,7 @@ STATUS = ("[STATUS] obd=scanning layout=none 0.0 Hz | rpm 0 (sd 0, n 0) spd 0 (s
           "thr 0 (sd 0.0, n 0) | brakes 0 accel=0 steer 0 yaw +0.0 | gate=BENCH | pi=0 phone=0 | "
           "nodata 0 err 0 ovf 0")
 SCORE = ("[SCORE] alert 100 (OK) = eye 90 (est.) x0.7 + driving 100 x0.3 | PARTIAL: no eye data, "
-         "driving only | LEDs G=slow Y=slow R=off | system issue: bench mode | LCD absent")
+         "driving only | LEDs G=slow Y=slow R=off | system issue: bench mode")
 
 
 def test_firmware_version():
@@ -36,12 +36,6 @@ def test_score_line():
     d = parse_serial_line(SCORE)
     assert d["score"] == 100 and d["lvl"] == "OK" and d["eye"] == 90
     assert d["part"] is True
-    assert d["lcd1"] is None
-
-
-def test_lcd_line():
-    d = parse_serial_line("[LCD] | INTERVENTION 1 | |Signs of Fatigue|")
-    assert d == {"lcd1": " INTERVENTION 1 ", "lcd2": "Signs of Fatigue"}
 
 
 def test_alert_transitions():
@@ -78,7 +72,6 @@ def test_sim_link_follows_eye_score():
     link.stop()
     assert snap["link"] == "simulated"
     assert snap["lvl"] == "LOW"           # 0.7*20 + 30 = 44
-    assert snap["lcd1"] == " INTERVENTION 2 "
 
 
 def test_sim_link_command_and_alarm():

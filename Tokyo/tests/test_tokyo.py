@@ -88,7 +88,7 @@ def test_motors_and_buzzer_sim():
 
 
 # ------------------------------------------------------------------ LED strip
-# Same table as Esp32/test/test_strip_voice.cpp: both systems light the same LEDs.
+# Score -> LEDs lit and colour, for the 13-LED bar.
 STRIP_TABLE = [(100, 13, GREEN), (85, 11, GREEN), (70, 10, GREEN),
                (69, 10, YELLOW), (55, 8, YELLOW), (40, 7, YELLOW),
                (39, 6, RED), (25, 5, RED), (10, 3, RED)]
@@ -237,12 +237,12 @@ def test_interventions_stack():
 
 
 # ------------------------------------------------------------------ LCD
-def test_lcd_screens_match_first_model():
+def test_lcd_screens():
     assert compose(0, 90, 0) == ("   Welcome to   ", "     DRIFTS     ")
     assert compose(3, 90, 0) == ("   Drive Safe   ", " " * 16)
     assert compose(10, 87, 0) == ("ALERT     87/100", "   Drive Safe   ")
     assert compose(10, 42, 0, partial=True)[0] == "ALERT    42/100*"
-    # Line 2 rotates every 2 s: frame = int(t / 2) % frames (as in lcd_screen.h)
+    # Line 2 rotates every 2 s: frame = int(t / 2) % frames
     assert compose(12, 62, 1) == (" INTERVENTION 1 ", "Signs of Fatigue")      # frame 0
     assert compose(10, 62, 1)[1] == "  Score 62/100  "                          # frame 1
     assert compose(12, 38, 2, alarm=True)[1] == "Worsening Signs "              # 6 % 3 = 0

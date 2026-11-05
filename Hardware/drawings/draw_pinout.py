@@ -1,4 +1,4 @@
-"""Draw Hardware/pinout.svg: every wire to the ESP32-C6 (firmware v18).
+"""Draw Hardware/pinout.svg: every wire to the ESP32-C6 (firmware v19).
 
     python Hardware/drawings/draw_pinout.py
 
@@ -9,12 +9,12 @@ re-run; check that config.h agrees with `python3 Hardware/check_pins.py`.
 from pathlib import Path
 from xml.sax.saxutils import escape
 
-FW = "v18"
+FW = "v19"
 
 # (board label, wire colour, goes to, through, group)
 PINS = [
-    ("5V", "#d32f2f", "LCD · shifter HV · 74AHCT125 · LED strip · DFPlayer", "5 V rail", "power"),
-    ("3V3", "#f57c00", "MPU-6050 VCC · shifter LV · motor module VCC", "3.3 V rail", "power"),
+    ("5V", "#d32f2f", "motor module VCC (5 V modules)", "5 V rail", "power"),
+    ("3V3", "#f57c00", "MPU-6050 VCC · motor module VCC (3.3 V modules)", "3.3 V rail", "power"),
     ("GND", "#212121", "every part: one common ground", "", "power"),
     ("GPIO 2", "#2e7d32", "Green status LED (connections)", "100 Ω → LED → GND", "led"),
     ("GPIO 3", "#f9a825", "Yellow status LED (caution / system)", "330 Ω → LED → GND", "led"),
@@ -22,11 +22,8 @@ PINS = [
     ("GPIO 10", "#6a1b9a", "IN of the 4 vibration motor modules", "R1 100 Ω · R2 10 kΩ to GND", "out"),
     ("GPIO 11", "#00838f", "Piezo LS1 leg 1 (5 kHz)", "R6 100 Ω", "out"),
     ("GPIO 18", "#00838f", "Piezo LS1 leg 2 (same tone, inverted)", "R7 100 Ω", "out"),
-    ("GPIO 19", "#5d4037", "DFPlayer Mini RX (pin 2) · UART1 TX", "R11 1 kΩ", "voice"),
-    ("GPIO 20", "#5d4037", "DFPlayer Mini TX (pin 3) · UART1 RX", "direct", "voice"),
-    ("GPIO 21", "#1565c0", "I2C SDA: MPU-6050 SDA + shifter LV1 → LCD SDA", "BSS138 shifter for the LCD", "i2c"),
-    ("GPIO 22", "#1565c0", "I2C SCL: MPU-6050 SCL + shifter LV2 → LCD SCL", "BSS138 shifter for the LCD", "i2c"),
-    ("GPIO 23", "#ad1457", "WS2812B LED strip DIN (14 LEDs)", "74AHCT125 1A→1Y · R10 330 Ω", "strip"),
+    ("GPIO 21", "#1565c0", "MPU-6050 SDA (I2C)", "direct (3.3 V part)", "i2c"),
+    ("GPIO 22", "#1565c0", "MPU-6050 SCL (I2C)", "direct (3.3 V part)", "i2c"),
 ]
 
 ROW = 46
@@ -44,7 +41,7 @@ def main() -> None:
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
            'font-family="Helvetica, Arial, sans-serif">',
            f'<rect width="{W}" height="{H}" fill="#ffffff"/>',
-           t(W / 2, 36, f"DRIFTS — ESP32-C6 pinout (firmware {FW}, schematic rev 5)", 22, anchor="middle", weight="bold"),
+           t(W / 2, 36, f"DRIFTS — ESP32-C6 pinout (firmware {FW}, schematic rev 6)", 22, anchor="middle", weight="bold"),
            t(W / 2, 60, "Find pins by the label printed on the board, not by position. "
                         "Same-named power tags are the same wire.", 13, "#555", anchor="middle")]
     bx, bw = 40, 190
@@ -68,13 +65,11 @@ def main() -> None:
         "Do not use: 5, 8, 9, 15 (strapping) · 6, 7 (JTAG) · 12, 13 (USB) · 16, 17 (UART0 serial monitor) · "
         "14, 24–30 (flash: corrupts it silently).",
         "GPIO 4 is a strapping pin: the red LED + resistor to GND and nothing else.",
-        "LCD backpack is a 5 V part: its SDA/SCL go through the BSS138 shifter (HV side), never straight to GPIO 21/22.",
-        "LED strip data needs ≥ 3.5 V: GPIO 23 → 74AHCT125 (VCC 5 V) → 330 Ω → DIN. 1000 µF across the strip's 5V/GND.",
-        "DFPlayer: GPIO 19 → 1 kΩ → RX, TX → GPIO 20 (crossed). Speaker on SPK_1/SPK_2 (4–8 Ω, ≤ 3 W), neither to GND.",
-        "Full wiring: Hardware/pinout.md · drawing: Hardware/drawings/DRIFTS_Schematic_rev5.pdf",
+        "Free: GPIO 19, 20, 23. The driver screen, RGB LED, voice and button are on the Pi Zero's Whisplay HAT.",
+        "Full wiring: Hardware/pinout.md · drawing: Hardware/drawings/DRIFTS_Schematic_rev6.pdf",
     ]
     for k, n in enumerate(notes):
-        out.append(t(40, y + 22 * k, ("⚠ " if k < 5 else "") + n, 13, "#7a1010" if k < 5 else "#444"))
+        out.append(t(40, y + 22 * k, ("⚠ " if k < 2 else "") + n, 13, "#7a1010" if k < 2 else "#444"))
     out.append("</svg>")
     path = Path(__file__).resolve().parents[1] / "pinout.svg"
     path.write_text("\n".join(out), encoding="utf-8")

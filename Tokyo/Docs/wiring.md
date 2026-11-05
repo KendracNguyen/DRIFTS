@@ -5,7 +5,7 @@ agreed on Nov 3 2026:
 
 | Rev 9 sheet | Built as | Why |
 | --- | --- | --- |
-| M1-M4 on four pins (GPIO 5, 6, 13, 19), each with its own MOSFET | **4 motor modules, all IN pins on GPIO 13**, the same as the first model's rev 4 schematic | The modules have their own driver. GPIO 5/6 are pulled *up* at boot, so the motors could twitch at power-up |
+| M1-M4 on four pins (GPIO 5, 6, 13, 19), each with its own MOSFET | **4 motor modules, all IN pins on GPIO 13**, the same as the first model's schematic | The modules have their own driver. GPIO 5/6 are pulled *up* at boot, so the motors could twitch at power-up |
 | BZ1 passive piezo disc + 1 kΩ bleed | **3 V active magnetic buzzer from 3V3, 1N5819 across it** | That is the part we have. It is a coil: it needs a flyback diode, not a bleed resistor, and 5 V would overdrive it |
 | Strip ≈13 LEDs | **14 LEDs** | 1 status pixel + 13-LED score bar, the same as the ESP32 |
 | 12 V input: fuse only | **TVS diode (SMBJ24A or SMBJ26A) after F1; 5 A fuse; buck ≥ 5 A** | Car 12 V spikes to ~40 V at load dump. The Pi 5 alone can draw ~5 A |
@@ -58,7 +58,7 @@ Software check: `python -m tokyo test all` (add `--sim` to try it without hardwa
 
 ## Vibration motors (GPIO 13): 4 modules, one pin
 
-The same as the first model (rev 4 schematic): each module has **GND, VCC,
+The same as the first model's schematic: each module has **GND, VCC,
 IN** and its own driver, and all four IN pins share one PWM pin.
 ```
  GPIO 13 ──[100 Ω]──┬── IN (M1) ── IN (M2) ── IN (M3) ── IN (M4)
@@ -106,7 +106,7 @@ GPIO 13 is pulled *down* at boot, so the motors stay off.
 - The software drives it over **SPI** (pi5neo, `/dev/spidev0.0`). Enabling SPI
   also claims GPIO 7, 8, 9 and 11; nothing else uses them.
 - 14 LEDs at 25 % brightness draw under 0.25 A; the software caps the strip at 1.5 A anyway.
-- What it shows: [`../../Docs/led-strip.md`](../../Docs/led-strip.md). It is the same as the first model's ESP32 strip.
+- What it shows: a status pixel + a 13-LED score bar (green 70-100, yellow 40-69, red 10-39, whole bar flashing below 10 or during the alarm). Details in `tokyo/ledstrip.py`.
 
 ## IR illuminator (GPIO 12)
 
@@ -140,8 +140,7 @@ Plug it into any USB port on the Pi 5. No wiring, no GPIO pins.
 - Phrases: [`../../Docs/voice.md`](../../Docs/voice.md).
 
 ## LCD (GPIO 2 / 3)
-The same as the first model ([`../../Hardware/pinout.md`](../../Hardware/pinout.md)):
-through the BSS138 level shifter. **Never connect a 5 V-powered backpack's
+Through a BSS138 level shifter (the backpack is a 5 V part). **Never connect a 5 V-powered backpack's
 SDA/SCL directly to the Pi.** The Pi 5 already has 1.8 kΩ pull-ups to 3.3 V on
 GPIO 2/3. The MPU-6050 (GY-521) shares the 3.3 V side; Tokyo doesn't read it
 yet (the driving data comes from the first model's ESP32).

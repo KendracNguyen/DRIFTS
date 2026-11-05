@@ -38,16 +38,13 @@ SN65HVD230 transceiver, the J1962 pigtail and all bus-tapping risk.
 | **10** | Out (LEDC PWM) | Vibration motor modules ×4 | IN via R1 100 Ω, R2 10 kΩ to GND | 20 kHz, 8-bit duty |
 | **11** | Out (LEDC) | Piezo LS1 leg A | via R6 100 Ω | 5 kHz, 50 %; differential with GPIO 18 |
 | **18** | Out (LEDC, inverted) | Piezo LS1 leg B | via R7 100 Ω | Same channel as 11, inverted: 6.6 Vpp across LS1 |
-| **19** | Out (UART1 TX) | DFPlayer Mini RX | via R11 1 kΩ | 9600 baud (rev 5) |
-| **20** | In (UART1 RX) | DFPlayer Mini TX | direct | (rev 5) |
-| **21** | Bidir (I2C) | MPU-6050 + LCD (via BSS138) | SDA | `Wire.begin(21, 22)`, must be explicit |
-| **22** | Out (I2C) | MPU-6050 + LCD (via BSS138) | SCL | 100 kHz (PCF8574 limit) |
-| **23** | Out (RMT) | WS2812B strip ×14 | 74AHCT125 → R10 330 Ω → DIN | 800 kHz; needs the 3.3 → 5 V buffer (rev 5) |
-| 5V | Power | LCD, shifter HV, 74AHCT125, strip, DFPlayer | | ~1.7 A peak: buck converter in the car |
+| **21** | Bidir (I2C) | MPU-6050 | SDA | `Wire.begin(21, 22)`, must be explicit |
+| **22** | Out (I2C) | MPU-6050 | SCL | 100 kHz |
+| 5V | Power | Motor modules (if 5 V parts) | | |
 | 3V3 | Power | MPU-6050, shifter LV, motor modules | VCC | 3.3 V only |
 | GND | Power | All | Common | See grounding, §5.4 |
 
-Full pin-by-pin wiring (BSS138, 74AHCT125, DFPlayer): [`pinout.md`](pinout.md).
+Full pin-by-pin wiring, and the Pi Zero's Whisplay HAT (driver screen, RGB LED, voice, button): [`pinout.md`](pinout.md).
 
 ### Reserved — do not assign
 
@@ -101,11 +98,9 @@ any firmware.
 | ESP32-C6 (3 BLE links) | 80 mA | 300 mA |
 | ERM motors, 4× | 0 mA (idle) | 400 mA |
 | Piezo buzzer | 0 mA | 30 mA |
-| LCD + backlight | 25 mA | 30 mA |
-| LED strip, 14 × WS2812B at 25 % | 40 mA | 250 mA |
-| DFPlayer + 3 W speaker | 20 mA | 700 mA |
+| Whisplay HAT (screen + speaker, on the Pi) | 100 mA | 500 mA |
 | MPU-6050 | 4 mA | 4 mA |
-| **Total @ 5 V** | **~0.3 A** | **~3.1 A** |
+| **Total @ 5 V** | **~0.3 A** | **~2.6 A** |
 
 Specify the 5 V rail at **3 A minimum** (the LM2596's limit; the peak is only reached with the voice loud during an alert and Pi inference at once). Undersizing it is the leading cause of SD-card
 corruption and random reboots in Pi-in-car builds, and the failure looks like a
@@ -254,10 +249,9 @@ pedals and airbag deployment paths.
 | `README.md` | This document |
 | `schematic.md` | Driver circuits, power tree, connector detail |
 | `BOM.csv` | Bill of materials |
-| `drawings/DRIFTS_Schematic_rev5.pdf` | **Full system schematic, rev 5** (adds the LED strip and DFPlayer). Regenerate with `python Hardware/drawings/draw_schematic.py`. Rev 4 is kept alongside |
-| `whisplay-hat.md` | **PiSugar Whisplay HAT** (Pi Zero): datasheet, pinout, LCD screens, RGB LED, button actions. Replaces the 16×2 LCD, level shifters, LED strip and DFPlayer |
-| `pinout.svg` | ESP32-C6 pinout diagram, firmware v18. Regenerate with `python Hardware/drawings/draw_pinout.py` |
-| `pinout.md` / `pinout.svg` | **Wiring diagram** and pin-by-pin table, LEDs + LCD |
+| `drawings/DRIFTS_Schematic_rev6.pdf` | **Full system schematic, rev 6** (Whisplay HAT on the Pi Zero). Regenerate with `python Hardware/drawings/draw_schematic.py` |
+| `whisplay-hat.md` | **PiSugar Whisplay HAT** (Pi Zero): the driver screen, RGB LED, voice and button. Datasheet, pinout, screens, button actions |
+| `pinout.md` / `pinout.svg` | **Wiring diagram** and pin-by-pin table (ESP32 + Pi Zero HAT). Regenerate the SVG with `python Hardware/drawings/draw_pinout.py` |
 | `pinout.csv` | Pin map as data, for diffing against `config.h` |
 | `reserved_pins.csv` | Pins that must not be assigned, as data |
 | `check_pins.py` | Fails if the pin docs and `config.h` disagree |

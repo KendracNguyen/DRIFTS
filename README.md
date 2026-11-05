@@ -4,8 +4,8 @@ DRIFTS v2 couples vehicle CAN bus telemetry with edge machine learning (MobileNe
 
 > **Two projects in this repository.** The first model (below): ESP32-C6 +
 > Raspberry Pi Zero 2 W (`Esp32/`, `Raspberry/`). **Tokyo** (`Tokyo/`): the
-> same system on a single Raspberry Pi 5, with a Camera Module 3 NoIR, a
-> WS2812B LED strip and all eight face signals. See [`Tokyo/README.md`](Tokyo/README.md).
+> same system on a single Raspberry Pi 5, with a Camera Module 3 NoIR and all
+> eight face signals. See [`Tokyo/README.md`](Tokyo/README.md).
 
 ```mermaid
 graph LR
@@ -27,6 +27,7 @@ graph LR
         CAM["Camera\n(picamera2)"]
         ML["MobileNetV2\n(NCNN / ONNX)"]
         RESULT["DROWSY / NOT_DROWSY"]
+        HAT["Whisplay HAT\n(screen, RGB LED,\nspeaker, button)"]
     end
 
     subgraph "Phone"
@@ -45,6 +46,7 @@ graph LR
     BLE_HUB -->|"DROWSY"| MOTOR
     BLE_HUB -->|"DROWSY"| BUZZER
     BLE_HUB -->|"BLE: Status JSON"| APP
+    BLE_HUB -->|"BLE: Status JSON"| HAT
 ```
 
 ---
@@ -55,7 +57,7 @@ graph LR
 2. **Anomaly Triggering:** Rolling statistical windows detect erratic driving (hard braking, RPM fluctuation, speed drifting, throttle jitter).
 3. **On-Demand Pi Wake:** When an anomaly is detected, the ESP32 notifies the Raspberry Pi Zero 2 W with a `WAKE` command over BLE.
 4. **MobileNetV2 Edge Inference:** The Pi powers on the camera (`picamera2`), captures frames, and runs a MobileNetV2 classifier trained on the `Simuletic_DMS_Dataset` (`Open`, `Closed`, `Drowsy/Microsleep`).
-5. **Intervention & Telemetry:** If drowsiness is detected, the Pi reports `DROWSY` to the ESP32, which triggers haptic vibration and audio alerts. Telemetry is streamed to the mobile companion app via a separate BLE service.
+5. **Intervention & Telemetry:** If drowsiness is detected, the Pi reports `DROWSY` to the ESP32, which triggers haptic vibration and the buzzer. The ESP32's status is streamed over BLE to the mobile companion app and to the Pi, whose **Whisplay HAT** shows the score on a colour screen, lights an RGB LED, speaks the alerts and takes a button press (`Hardware/whisplay-hat.md`).
 6. **Power Conservation:** The Pi camera and ML inference remain off during normal driving, conserving CPU and power.
 
 ---
@@ -151,7 +153,7 @@ python -m pytest
    - `MOTOR_PIN = 10`
    - `PIEZO_A_PIN = 11`, `PIEZO_B_PIN = 18` (piezo driven differentially)
    - `LED_GREEN_PIN = 2`, `LED_YELLOW_PIN = 3`, `LED_RED_PIN = 4`
-   - `IMU_SDA_PIN = 21`, `IMU_SCL_PIN = 22` (MPU-6050 + LCD)
+   - `IMU_SDA_PIN = 21`, `IMU_SCL_PIN = 22` (MPU-6050)
 5. Upload the sketch and monitor Serial at `115200` baud.
 6. Serial test commands:
    - `WAKE`: Manually trigger Pi analysis

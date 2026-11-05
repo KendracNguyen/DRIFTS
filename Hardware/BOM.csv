@@ -5,6 +5,7 @@ U3,BLE OBD-II dongle,1,Bluetooth Low Energy NOT Classic,Veepeak OBDCheck BLE+,30
 U3b,BLE OBD-II dongle spare,1,Bluetooth Low Energy NOT Classic,Vgate iCar Pro BLE 4.0,25,recommended,Different GATT layout 18F0/2AF0/2AF1 on purpose
 U4,MPU-6050 breakout,1,6-axis I2C 0x68 3.3V,GY-521,5,have,Check onboard 4.7k pullups
 U5,Camera module,1,640x480 CSI,OV5647,18,have,Connects to Pi not ESP32; fallback camera (NoIR + IR LEDs preferred for night)
+U12,PiSugar Whisplay HAT,1,1.69in 240x280 LCD (ST7789P3 SPI) + WM8960 codec + speaker + 2 mics + RGB LED + button,PiSugar Whisplay HAT,,have,Driver screen voice LED and button on the Pi Zero - Hardware/whisplay-hat.md
 U5b,Raspberry Pi AI Camera,1,Sony IMX500 on-sensor AI; IR-cut filter (no IR),Raspberry Pi AI Camera,70,planned,Stage 2/3 driver camera - Docs/ai-camera-stage2.md; needs Zero 22-pin cable
 Q1,Logic-level N-MOSFET,1,Vgs-th under 2V Id over 1A,AO3400A or IRLZ44N,1,needed,Motor driver
 D1,Flyback diode,1,Fast switching,1N4148 or 1N4001,1,needed,MANDATORY across motor
@@ -19,17 +20,7 @@ C1,Bulk capacitor,1,100-470uF 16V,,1,needed,At motor supply
 PS1,Buck converter,1,12V to 5V 3A,Pololu D24V22F5,19,conditional,Vehicle power only - use power bank for bench
 F1,Inline fuse,1,2A automotive,,3,conditional,Vehicle power only
 TVS1,TVS diode,1,SMBJ26A 600W,,1,conditional,Vehicle power only - load dump protection
-LCD1,16x2 character LCD,1,HD44780 5V blue backlight,HiLetgo 1602 LCD,6,have,Mount for passenger/tester view - see Docs/lcd-display.md
-LCD2,I2C LCD backpack,1,PCF8574 or PCF8574A 5V; addr 0x27 or 0x3F,HiLetgo 2004/1602 IIC adapter,3,have,Contrast pot on board; firmware auto-detects address
-LS1,I2C level shifter,1,Bidirectional BSS138 2-channel 3.3V-5V,Adafruit 757 or SparkFun BOB-12009,3,needed,Between C6 GPIO21/22 and the 5V backpack; never pull C6 pins to 5V
 U2b,Raspberry Pi 5 (demo rig B),1,4-8 GB; 64-bit OS; Active Cooler,Raspberry Pi 5,0,have,Two-rig demo - Docs/two-rig-demo.md
 U5c,Day/night camera (demo rig B),1,OV5647 auto IR-cut + IR LEDs; M12 lens,Arducam OV5647 Day-Night Vision,25,have,Needs Pi 5 camera cable 22-pin to 15-pin
 W1,Pi 5 camera cable,1,22-pin to 15-pin Standard-Mini,Raspberry Pi Camera Cable Standard-Mini,3,needed,For the Arducam on the Pi 5
-STRIP1,WS2812B LED strip (14 LEDs cut),1,2.7 mm ultra-narrow 160 LED/m 5 V,3.2FT WS2812B 160 LED ultra narrow,12,have,Above the LCD - Docs/led-strip.md; one strip makes pieces for both systems
-U9,74AHCT125 quad buffer,2,3.3 V to 5 V for WS2812B data; DIP-14,TI SN74AHCT125N,1,needed,One for the ESP32 strip one for Tokyo; tie unused inputs to GND
-C5,Electrolytic capacitor,2,1000 uF 10 V,,1,needed,Across strip 5 V/GND at the strip
-R10,Resistor,3,330 ohm 1/4 W (strip data) + 1 k (DFPlayer RX),,0,needed,
-U10,DFPlayer Mini MP3 module,1,UART 9600; 3 W amp; microSD,DFRobot DFR0299 or clone,3,needed,Spoken alerts on the first model - Docs/voice.md
-SPK1,Speaker,1,3 W 4-8 ohm 40 mm,,3,needed,For the DFPlayer (first model)
-SD1,microSD card,1,<= 32 GB FAT32,,5,needed,Holds /mp3/0001.mp3... from Voice/sd_card
 U11,Small USB speaker (Tokyo),1,USB audio class (plays over USB not just powered by it),HONKYOB USB Mini Speaker (Amazon B075M7FHM1),12,ordered,Tokyo voice - no GPIO used; a speaker with only a 3.5 mm plug will NOT work (the Pi 5 has no jack)
