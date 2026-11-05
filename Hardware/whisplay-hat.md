@@ -75,26 +75,51 @@ Tokyo would need pin changes first.
 
 ## Screen (240 × 280, portrait)
 
-![Whisplay screens: OK, Intervention 1, Intervention 2, recovered](drawings/whisplay_screens.png)
+![Every Whisplay screen](drawings/whisplay_screens.png)
 
-*Rendered by `python -m drifts.whisplay_ui --demo --sim`. The Level 2 bar is
-caught mid-flash.*
+*Rendered by `python -m drifts.whisplay_ui --gallery` with example data
+(the DEMO tag in the header). Inter font (`fonts-inter`), dark background,
+burgundy header.*
 
-- **Boot:** "Welcome to DRIFTS", then "Drive safe".
-- **Score page** (default):
-  - The header shows the level: DRIFTS / INTERVENTION 1 / INTERVENTION 2.
-  - The alert score is in big digits, with a short message.
-  - The coloured **score bar**: each band owns a quarter of the bar (green
-    from 70, yellow 40–69, red 10–39). Below 10, or during the drowsy alert,
-    the bar flashes. Half brightness means a partial score (no eye data).
-  - The driving score, and the OBD and ESP32 links. A lost link turns red and
-    shows "connection lost".
-- **Details page:** alert score, driving score, RPM, speed, eye data.
-- **Links page:** ESP32 and OBD state, firmware version, button help.
-- **During an alert,** the screen always returns to the score page.
-- **The data** comes from the ESP32's 1 Hz BLE status (firmware v20 sends it
-  to every subscriber): score, level, alert, partial flag, driving score, OBD
-  state.
+**Colours follow the ESP32's level,** so the screen always agrees with the
+buzzer and motors (rules in `Raspberry/drifts/ui_model.py`):
+
+| Score | Ring and label |
+| --- | --- |
+| 70–100 | green, `ALERTNESS NORMAL` |
+| 50–69 (Intervention 1) | yellow, `CAUTION` |
+| below 50 (Intervention 2) or the drowsy alert | red, `HIGH FATIGUE`, "Intervention active" |
+| no score, or the ESP32 status is older than 5 s | grey ring, `NO SCORE` (never green) |
+
+The ESP32 has 5 points of hysteresis, so a score of 72 can still be yellow
+while it recovers. A partial score (no eye data) draws the ring dimmer.
+
+**Screens.** The button cycles through the first six. An alert always
+returns to the score.
+
+| Screen | Shows | Data |
+| --- | --- | --- |
+| **Welcome** | DRIFTS, "Starting..." | first 4 s |
+| **Calibration** | head guide, "Look forward and keep a neutral posture", progress | camera pipeline, until the road pose is set |
+| **Score** | ring gauge, label, two readings: eyes and pose (OK), blinks and yaw (caution), intervention (high). Without the camera: driving score, speed, OBD | ESP32 + camera |
+| **Driving Status** | speed, RPM, throttle, driving score | ESP32 (OBD) |
+| **Detection Metrics** | PERCLOS, blink rate, head yaw, head pitch | camera pipeline; `--` without it |
+| **Device Status** | Raspberry Pi, ESP32, OBD dongle, camera, audio: Online / Offline / Unknown | live link state |
+| **System Setup** | profile, Wi-Fi network, calibration, brightness. Changes will come from the phone app | config + `iwgetid` |
+| **Driver AI** | "Assistant offline" until a voice assistant exists. Listening, thinking and response screens are ready for it | — |
+| **Rest stop** | "Location unavailable": there is no GPS yet | — |
+| **Emergency** | "No trusted contact set": contacts will come from the phone app | — |
+
+No screen shows a made-up reading. Missing values are `--`; demo data
+always carries the DEMO tag.
+
+**Where the data comes from:**
+- **In the car program** (`python -m drifts`): the ESP32's 1 Hz BLE status
+  (firmware v20 sends it to every subscriber): score, level, alert, partial
+  flag, driving score, RPM, speed, throttle, OBD state.
+- **With the camera pipeline:** `python -m drifts.live --face mesh --esp ble --whisplay`
+  adds eyes, PERCLOS, blink rate, head pose and calibration.
+  `--whisplay-sim` runs it without the HAT.
 
 ## RGB LED
 
@@ -161,6 +186,7 @@ the button to confirm") will use the same press.
 4. **DRIFTS demo, no ESP32 needed:**
    `cd ~/drifts/Raspberry && .venv/bin/python -m drifts.whisplay_ui --demo`.
    It runs OK → Level 1 → Level 2 → OK in 36 s: screens, LED colours and voice.
+   `--gallery` writes every screen as a PNG instead.
 5. **In the car program:** set `enabled = true` under `[whisplay]` in
    `Raspberry/config.toml`, then `sudo systemctl restart drifts`. With
    firmware v20 on the ESP32, the score appears within a few seconds of the

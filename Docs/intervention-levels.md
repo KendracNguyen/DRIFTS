@@ -17,15 +17,17 @@ its own.
 
 ## Driver screen
 
-The Whisplay HAT's colour screen shows the level as its header, the alert
-score and a coloured score bar ([`../Hardware/whisplay-hat.md`](../Hardware/whisplay-hat.md)).
+The Whisplay HAT's colour screen shows the alert score in a ring gauge,
+coloured by the level, with a status label under it
+([`../Hardware/whisplay-hat.md`](../Hardware/whisplay-hat.md)):
 
-| Level | Header | Text | Status |
+| Level | Ring and label | Text under it | Status |
 | --- | --- | --- | --- |
-| 1 | `INTERVENTION 1` | Signs of fatigue | Done |
-| 2 | `INTERVENTION 2` | PULL OVER SAFELY | Done |
-| 3 | `INTERVENTION 3` | proposed "Are you okay? Press the button" | Planned |
-| 4 | `INTERVENTION 4` | proposed "Find a rest stop" | Planned |
+| OK | green, `ALERTNESS NORMAL` | eyes and pose (or driving score) | Done |
+| 1 | yellow, `CAUTION` | blink rate and yaw (or driving score and speed) | Done |
+| 2 | red, `HIGH FATIGUE` | "Intervention active · Audio + vibration" | Done |
+| 3 | proposed: the emergency screen, "Are you okay? Press the button" | | Planned |
+| 4 | proposed: the rest-stop screen | | Planned |
 
 ## Why these two bands
 
@@ -50,7 +52,7 @@ So:
 
 | Level | Text | Alert score | Comparable to | Output |
 | --- | --- | --- | --- | --- |
-| — | Drive safe | 70–100 | KSS ≤ 6 | — |
+| — | Alertness normal | 70–100 | KSS ≤ 6 | — |
 | **Intervention 1** | **Signs of Fatigue** | 50–69 | KSS 7 — "may warn" | Screen and RGB LED yellow. Planned: buzzer |
 | **Intervention 2** | **Worsening Signs** | 0–49 | KSS 8+ — "must warn" | Screen and RGB LED red; buzzer + motor when the Pi confirms DROWSY |
 
