@@ -58,7 +58,7 @@ Open http://localhost:8080/dev in Chrome or Edge, full screen (F11), then:
 | Calibration | the nine pose cards, the live EAR / MAR / yaw / pitch / roll, the current prompt |
 | Eyes | EAR formula worked through live, blink rate, PERCLOS, mean blink, long closures; **close-ups of both eyes with P1–P6 labelled** (P1 / P4 corners white, P2–P3 / P5–P6 blue) |
 | Gaze target | where the driver is looking, against the dashed ROAD box; ON ROAD / OFF ROAD / EYES CLOSED |
-| Head pose | yaw / pitch box and bars relative to the road pose, nods, droop |
+| Head pose | yaw / pitch box; yaw, pitch and roll bars that grow from the centre (negative left, positive right), relative to the road pose; nods, droop. On the camera, a red arrow from the nose tip points where the face is pointing (a ring when facing the camera) |
 | Mouth | MAR and the yawn count; **close-up with P1–P8 labelled** (P1 / P5 corners, P2–P8, P3–P7, P4–P6 openings), magenta |
 | Face landmarker | the four strongest of the 52 blendshapes |
 | Bottom bar | the **alert score** from the ESP32 (0.7 × eye + 0.3 × driving), coloured by level, with its eye / driving split and the drowsiness behind the eye part; the alert score over the session (bars green ≥ 70, yellow 50–69, red < 50, dashed lines at 70 and 50); NONE → WARNING → INTERVENTION; motors, buzzer, LED |
@@ -79,8 +79,8 @@ The Pi does **not** draw the mesh. For every processed frame it sends:
 
 | Stream | What | Size |
 | --- | --- | --- |
-| `/cam.mjpg` | the plain camera frame, JPEG quality 75 | ~25–40 KB a frame at 640 × 480 |
-| `/face.sse` | 478 landmark x / y (0.1 px), inference ms, delegate, top blendshapes (Server-Sent Events) | ~5 KB a frame |
+| `/face.sse` | per frame: the camera JPEG (quality 75, base64) **with** its 478 landmark x / y, inference ms, delegate and top blendshapes (Server-Sent Events). One connection per viewer, and the mesh always matches its picture | ~35–55 KB a frame at 640 × 480 |
+| `/cam.mjpg` | the plain frames as MJPEG (kept for other tools; the dev view no longer uses it) | ~25–40 KB a frame |
 | `/status.json` | all signals, 4 times a second | ~6 KB |
 | `/mesh.json` | the connection lists (tesselation, eyes, brows, irises, lips, face oval), once | 26 KB |
 

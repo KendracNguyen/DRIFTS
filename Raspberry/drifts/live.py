@@ -459,6 +459,11 @@ class Pipeline:
                     if now < self.xl_until and getattr(self.camera, "last_frame", None) is not None:
                         cj = cv2.imencode(".jpg", self.camera.last_frame, [cv2.IMWRITE_JPEG_QUALITY, 75])[1].tobytes()
                         pkt = self.camera.packet(mirror=self.args.mirror)
+                        # The frame rides in the same event as its landmarks: one connection
+                        # per viewer (browsers allow ~6 per site) and the mesh always matches
+                        # the picture under it.
+                        import base64
+                        pkt["jpg"] = base64.b64encode(cj).decode("ascii")
                         with self._lock:
                             self.cam_jpeg, self.face_pkt, self.xl_id = cj, pkt, self.xl_id + 1
                 if self.dev_capable and now < self.dev_until:
