@@ -517,6 +517,11 @@ class Pipeline:
         st["whisplay"] = self.whisplay
         st["guided"] = self.guided.snapshot(time.time())
         st["profile"] = (self.profile or {}).get("name")
+        pr = self.profile or {}
+        st["profile_info"] = ({k: pr.get(k) for k in ("name", "created", "ear_open", "ear_closed", "mar_closed",
+                                                     "mar_open", "yawn_mar", "yaw_limit", "pitch_limit")}
+                              if pr else None)
+        st["guided_capable"] = bool(self.face_on and hasattr(self.camera, "packet"))
         st["mirror"] = bool(self.args.mirror)
         return st
 

@@ -117,9 +117,67 @@ button.b.fill{background:var(--button);border-color:var(--button);color:#fff}
 .bar2 u{display:block;height:100%;width:0;background:var(--maroon-2);border-radius:99px;transition:width .4s}
 .ntile{background:var(--blush);border-radius:12px;padding:10px;text-align:center}.ntile small{font-size:12px;color:var(--muted)}
 .ntile b{display:block;font-size:22px;color:var(--maroon)}
+/* welcome, interventions, rest stop */
+.welcome{font-size:20px;font-weight:700;margin:0 2px 12px}.welcome span{color:var(--maroon)}
+.welcome small{display:block;font-size:12.5px;font-weight:500;color:var(--muted);margin-top:2px}
+.iv{display:flex;align-items:center;gap:14px;padding:12px 14px;margin-bottom:10px}
+.iv .ib{width:42px;height:42px;border-radius:12px;background:var(--blush);color:var(--maroon);display:flex;align-items:center;justify-content:center;flex:none}
+.iv .t{flex:1;min-width:0}.iv .t b{display:block;font-size:16px}.iv .t small{font-size:12.5px;color:var(--muted)}
+.rest{overflow:hidden}.rest .map{position:relative;height:88px;background:linear-gradient(180deg,#F9E1E6,#FBEDF0)}
+.rest .map i{position:absolute;left:30px;right:24px;top:52%;height:3px;border-radius:2px;background:#E7C2CB}
+.rest .map .dot{position:absolute;left:24px;top:calc(52% - 5px);width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid #D9A7B3}
+.rest .map .pin{position:absolute;left:50%;top:12px;color:var(--maroon)}
+.rest .map .tag{position:absolute;right:14px;top:12px;background:var(--maroon-dk);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:8px}
+.rest .body{display:flex;justify-content:space-between;align-items:center;padding:12px 16px}
+.rest .body b{font-size:16px}.rest .body small{display:block;color:var(--muted);font-size:12.5px}
+.rest .dist{text-align:right}.rest .dist b{font-size:22px;color:var(--maroon)}
+.ph{font-size:10px;font-weight:700;letter-spacing:.6px;color:var(--muted);border:1px dashed #D6C6CA;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+/* calibration choices + guided steps */
+.choice{padding:14px 16px;margin-bottom:12px}.choice h3{margin:0 0 2px;font-size:16px;display:flex;align-items:center;gap:8px}
+.choice p{margin:4px 0 10px;font-size:13px;color:var(--muted)}
+.gsteps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.gst{border:1px solid var(--line);border-radius:12px;padding:8px 6px;text-align:center;font-size:12px;background:#fff}
+.gst b{display:block;font-size:12.5px;margin-top:2px;color:var(--muted)}.gst .n{display:inline-flex;width:20px;height:20px;border-radius:50%;border:1.5px solid #CDBFC3;align-items:center;justify-content:center;font-size:11px;color:var(--muted)}
+.gst.done{border-color:#BFE6C8;background:#F2FBF4}.gst.done .n{background:var(--green-ink);border-color:var(--green-ink);color:#fff}.gst.done b{color:var(--green-ink)}
+.gst.cur{border-color:var(--maroon);box-shadow:0 0 0 2px rgba(134,23,44,.12)}.gst.cur .n{border-color:var(--maroon);color:var(--maroon)}
+.gst.skip b{color:var(--yellow-ink)}
+.gprompt{margin-top:10px;font-weight:600;color:var(--maroon)}
+.inp{width:100%;font:inherit;font-size:14px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
+/* AI tab */
+.aihero{text-align:center;padding:8px 6px 4px}.aihero h1{margin:6px 0 4px;font-size:22px;color:var(--maroon-dk)}
+.aihero p{margin:0 auto;max-width:300px;color:var(--muted);font-size:13.5px}
+.mic{width:116px;height:116px;border-radius:50%;margin:18px auto 6px;display:flex;align-items:center;justify-content:center;
+background:radial-gradient(circle,#B51F3B 0 60%,#C94761 61% 100%);color:#fff;box-shadow:0 0 0 14px rgba(181,31,59,.10),0 0 0 28px rgba(181,31,59,.05);cursor:pointer;border:0}
+.mic.pulse{animation:pulse 1.4s ease-in-out infinite}@keyframes pulse{50%{box-shadow:0 0 0 22px rgba(181,31,59,.14),0 0 0 44px rgba(181,31,59,.06)}}
+.tap{color:var(--maroon);font-weight:700;font-size:14px;margin-top:10px}
+.qa{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+.qa button{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;font:inherit;font-size:13.5px;color:var(--ink);box-shadow:var(--shadow);cursor:pointer}
+.qa button span{color:var(--maroon)}
+.bub{max-width:86%;padding:10px 14px;border-radius:16px;margin:8px 0;font-size:14px}
+.bub.me{margin-left:auto;background:var(--blush);display:flex;align-items:center;gap:8px}
+.bub.ai{display:flex;gap:10px;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow)}
+.bub.ai .av{width:30px;height:30px;border-radius:50%;background:var(--button);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.ask{display:flex;gap:8px;align-items:center;margin-top:12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:6px 8px 6px 12px}
+.ask input{flex:1;border:0;font:inherit;font-size:14px;outline:none;background:transparent;color:var(--ink)}
+.ask button{border:0;background:none;color:var(--maroon);cursor:pointer;display:flex}
+.amen{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;text-align:center;font-size:12px;color:var(--muted);padding:6px 10px 12px}
+.amen span{display:flex;flex-direction:column;align-items:center;gap:3px;opacity:.55}
+.warnbox{display:flex;gap:12px;align-items:flex-start;background:#FDE3E7;border:1px solid #F6C2CB;border-radius:16px;padding:12px 14px;color:var(--red-ink)}
+.warnbox b{display:block;font-size:15px}.warnbox small{color:#7A2A36;font-size:12.5px}
+.contact{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line)}
+.contact:first-child{border-top:0}.contact .i{color:var(--maroon);display:flex}
+.contact .t{flex:1;min-width:0}.contact .t small{display:block;font-size:12px;color:var(--muted)}.contact .t b{font-size:15px}
+.callb{width:38px;height:38px;border-radius:50%;background:var(--maroon);color:#fff;display:flex;align-items:center;justify-content:center;border:0;cursor:pointer;flex:none}
+.callb.ghost{background:#fff;color:var(--maroon);border:1px solid var(--line)}
+.sos{background:linear-gradient(180deg,#86172C,#650E20);color:#fff;border-radius:20px;padding:18px 16px 20px;text-align:center}
+.sos h2{color:#fff;justify-content:center;margin:2px 0 10px}
+.sosbtn{width:150px;height:150px;border-radius:50%;margin:8px auto 14px;border:0;cursor:pointer;color:#fff;
+background:radial-gradient(circle,#D7263D 0 55%,#B51F3B 56% 100%);box-shadow:0 0 0 16px rgba(255,255,255,.10),0 0 0 32px rgba(255,255,255,.05);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:30px;font-weight:700}
+.sos .wb{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;background:#fff;color:var(--maroon);border:0;border-radius:14px;padding:12px;font:inherit;font-weight:700;cursor:pointer}
+.sos .wb:disabled{opacity:.6;cursor:default}
 /* bottom navigation */
 nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:#fff;
-border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:6}
+border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:6}
 nav a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:500;color:#7A7A80;text-decoration:none;cursor:pointer}
 nav a.on{color:var(--maroon);font-weight:700}
 .tab{display:none}.tab.on{display:block}
@@ -139,6 +197,7 @@ nav a.on{color:var(--maroon);font-weight:700}
 <main>
 <!-- ============================== HOME ============================== -->
 <section class="tab on" id="t-home">
+ <div class="welcome">Welcome, <span id="wname">Kendra</span><small id="wsub">Drive safe and take breaks.</small></div>
  <div class="card score">
   <div class="gauge"><svg width="118" height="118" viewBox="0 0 118 118">
     <circle cx="59" cy="59" r="50" fill="none" stroke="var(--track)" stroke-width="11"/>
@@ -160,6 +219,19 @@ nav a.on{color:var(--maroon);font-weight:700}
  <h2 style="visibility:hidden;margin:6px 0 0;height:4px"></h2>
  <div class="cam"><img src="/stream.mjpg" alt="Live driver camera"><span class="lbl2"><span class="ldot" id="camdot"></span>Driver Camera (Live)</span>
   <div class="msg" id="feedmsg" style="display:none"></div></div>
+
+ <h2>Active Interventions</h2>
+ <div class="card iv"><span class="ib" data-i="bell" data-s="22"></span><span class="t"><b>Alert buzzer</b><small>Beep · 5 kHz piezo · 1 s on / 1 s off</small></span><span class="pill" id="hp1">STANDBY</span></div>
+ <div class="card iv"><span class="ib" data-i="vibrate" data-s="22"></span><span class="t"><b>Seat vibration</b><small>4× ERM array · PWM · Level 2</small></span><span class="pill" id="hp2">STANDBY</span></div>
+ <div class="card iv"><span class="ib" data-i="speaker" data-s="22"></span><span class="t"><b>Spoken warning</b><small>“Please take a break.” · Whisplay speaker</small></span><span class="pill" id="hp3">STANDBY</span></div>
+ <div class="card iv"><span class="ib" data-i="mic" data-s="22"></span><span class="t"><b>Voice cmd confirm</b><small>“I'm awake.” · Level 3</small></span><span class="pill">PLANNED</span></div>
+
+ <h2>Nearest Rest Stop</h2>
+ <div class="card rest" onclick="aiGo('rest');show('ai')" style="cursor:pointer">
+  <div class="map"><i></i><span class="dot"></span><span class="pin" data-i="pinfill" data-s="34"></span><span class="tag">Level 4</span></div>
+  <div class="body"><div><b>Rest-stop routing <span class="ph">PLACEHOLDER</span></b><small>Needs the phone's location (planned)</small></div>
+   <div class="dist"><b>-- mi</b><small>~-- min</small></div></div>
+ </div>
 </section>
 
 <!-- ============================== HISTORY ============================== -->
@@ -215,8 +287,9 @@ nav a.on{color:var(--maroon);font-weight:700}
 <!-- ============================== SETTINGS ============================== -->
 <section class="tab" id="t-settings">
  <div class="card" style="margin-top:2px">
-  <div class="set" data-go="s-profile"><span class="i" data-i="user" data-s="22"></span><span class="t"><b>Driver Profile</b><small>Default</small></span><span class="chev" data-i="chev"></span></div>
-  <div class="set" data-go="s-calib"><span class="i" data-i="crosshair" data-s="22"></span><span class="t"><b>Calibration</b><small>Head position &amp; road pose</small></span><span class="chev" data-i="chev"></span></div>
+  <div class="set" data-go="s-profile"><span class="i" data-i="user" data-s="22"></span><span class="t"><b>Driver Profile</b><small id="s-profsub">Kendra · no calibration yet</small></span><span class="chev" data-i="chev"></span></div>
+  <div class="set" data-go="s-calib"><span class="i" data-i="crosshair" data-s="22"></span><span class="t"><b>Calibration</b><small>Quick (road pose) · Create profile (9 poses)</small></span><span class="chev" data-i="chev"></span></div>
+  <div class="set" data-go="s-contacts"><span class="i" data-i="users" data-s="22"></span><span class="t"><b>Emergency Contacts</b><small id="s-contsub">None saved</small></span><span class="chev" data-i="chev"></span></div>
   <div class="set" data-go="s-alerts"><span class="i" data-i="bell" data-s="22"></span><span class="t"><b>Alerts &amp; Interventions</b><small>Audio · Vibration · Voice</small></span><span class="chev" data-i="chev"></span></div>
   <div class="set" data-go="s-wifi"><span class="i" data-i="wifi" data-s="22"></span><span class="t"><b>Wi-Fi</b><small id="s-wifisub">--</small></span><span class="chev" data-i="chev"></span></div>
   <div class="set" data-go="s-display"><span class="i" data-i="sliders" data-s="22"></span><span class="t"><b>Display</b><small>Brightness · Theme</small></span><span class="chev" data-i="chev"></span></div>
@@ -230,22 +303,48 @@ nav a.on{color:var(--maroon);font-weight:700}
  <div class="back" data-go="settings"><span data-i="chevl" data-s="16"></span>Settings</div>
  <h2>Driver Profile</h2>
  <div class="card">
-  <div class="row"><span class="i" data-i="user"></span><span class="l">Driver</span><span class="v">Default</span></div>
-  <div class="row"><span class="i" data-i="bell"></span><span class="l">Intervention 1</span><span class="v">below 70</span></div>
-  <div class="row"><span class="i" data-i="bell"></span><span class="l">Intervention 2</span><span class="v">below 50</span></div>
+  <div class="row"><span class="i" data-i="user"></span><span class="l">Driver</span><span class="v" id="pf-name">Kendra</span></div>
+  <div class="row"><span class="i" data-i="cal"></span><span class="l">Calibrated</span><span class="v" id="pf-created">not yet</span></div>
+  <div class="row"><span class="i" data-i="eye"></span><span class="l">Eyes open / closed (EAR)</span><span class="v" id="pf-ear">--</span></div>
+  <div class="row"><span class="i" data-i="mic"></span><span class="l">Yawn threshold (MAR)</span><span class="v" id="pf-yawn">--</span></div>
+  <div class="row"><span class="i" data-i="crosshair"></span><span class="l">Off-road limits (yaw / pitch)</span><span class="v" id="pf-lim">--</span></div>
+  <div class="row"><span class="i" data-i="bell"></span><span class="l">Intervention 1 / 2</span><span class="v">below 70 / 50</span></div>
  </div>
- <div class="note" style="margin:8px 4px">Profiles come later. The thresholds are set in the ESP32 firmware (alertness.h), so the car, this page and the LCD always agree.</div>
+ <div class="btns" style="grid-template-columns:1fr;margin-top:12px"><button class="b fill" onclick="show('s-calib');setTimeout(()=>$('pf-input').focus(),50)">Create or update profile</button></div>
+ <div class="note" style="margin:8px 4px">A profile holds your own eye, mouth and head measurements from the long calibration, saved on the Pi as Raspberry/profiles/&lt;name&gt;.json. The alert thresholds stay in the ESP32 firmware, so the car, this page and the LCD agree.</div>
 </section>
 
 <section class="tab" id="t-s-calib">
  <div class="back" data-go="settings"><span data-i="chevl" data-s="16"></span>Settings</div>
  <h2>Calibration</h2>
- <div class="card pad">
-  <div style="font-weight:600" id="cal-state">--</div>
+ <div class="card choice">
+  <h3><span data-i="crosshair" data-s="18" style="color:var(--maroon);display:flex"></span>1. Quick calibration</h3>
+  <p>About 3 s. Look at the road with your eyes open: DRIFTS takes this as your road pose. Use it at the start of every drive.</p>
+  <div style="font-weight:600;font-size:13.5px" id="cal-state">--</div>
   <div class="bar2"><u id="cal-bar"></u></div>
-  <div class="note">Look at the road with your eyes open and keep a neutral posture. Head yaw and pitch are measured from this pose.</div>
-  <div class="btns" style="grid-template-columns:1fr;margin-top:12px"><button class="b fill" onclick="fetch('/calibrate',{method:'POST'})">Calibrate now</button></div>
+  <div class="btns" style="grid-template-columns:1fr;margin-top:12px"><button class="b fill" onclick="fetch('/calibrate',{method:'POST'})">Quick calibrate</button></div>
  </div>
+ <div class="card choice">
+  <h3><span data-i="user" data-s="18" style="color:var(--maroon);display:flex"></span>2. Create profile</h3>
+  <div style="font-size:12px;color:var(--muted);margin-top:-1px">Long calibration · about 1 min</div>
+  <p>Nine poses, each held for 2 s: eyes closed, eyes open, mouth closed, mouth open, left, right, up, down, forward. Saves your own eye scale, yawn threshold, off-road limits and road pose.</p>
+  <input class="inp" id="pf-input" value="kendra" maxlength="24" aria-label="Profile name">
+  <div class="btns" style="grid-template-columns:1fr 1fr;margin-top:10px"><button class="b fill" id="g-start" onclick="guided('calibrate')">Start</button>
+   <button class="b" onclick="guided('test')">Accuracy test</button></div>
+  <div id="g-box" style="display:none"><div class="gprompt" id="g-prompt">--</div><div class="bar2"><u id="g-bar"></u></div>
+   <div class="gsteps" id="g-steps"></div></div>
+  <div class="note" id="g-note"></div>
+ </div>
+</section>
+
+<section class="tab" id="t-s-contacts">
+ <div class="back" data-go="settings"><span data-i="chevl" data-s="16"></span>Settings</div>
+ <h2>Emergency Contacts</h2>
+ <div class="card" id="c-list"></div>
+ <div class="card iv" style="margin-top:12px;background:var(--blush)"><span class="ib" style="background:#fff" data-i="warn" data-s="20"></span>
+  <span class="t"><b style="font-size:14.5px">Auto-Notify on High Fatigue <span class="ph">PLANNED</span></b><small>Send an alert to your contacts if fatigue is sustained. Needs a messaging service; nothing is sent today.</small></span>
+  <label class="sw"><input type="checkbox" disabled><span></span></label></div>
+ <div class="note" style="margin:8px 4px">Contacts are kept on this phone only (browser storage). Calls open your phone's dialler and always ask first.</div>
 </section>
 
 <section class="tab" id="t-s-alerts">
@@ -295,11 +394,60 @@ nav a.on{color:var(--maroon);font-weight:700}
   <div class="note" id="capdir"></div>
  </div>
 </section>
+<!-- ============================== AI ASSISTANT ============================== -->
+<section class="tab" id="t-ai">
+ <div id="ai-home">
+  <div class="aihero"><span data-i="sparkle" data-s="40" style="color:var(--maroon);display:inline-flex"></span>
+   <h1>Driver AI Assistant <span class="ph">PREVIEW</span></h1><p>Your in-drive co-pilot for alertness, insights, and safer decisions.</p>
+   <button class="mic" onclick="aiGo('listen')" aria-label="Tap to talk"><span data-i="mic" data-s="44"></span></button>
+   <div class="tap">Tap to talk</div></div>
+  <div class="qa"><button onclick="aiAsk('What\'s my alertness score?')"><span data-i="bars" data-s="24"></span>Check Alertness</button>
+   <button onclick="aiAsk('Find the nearest rest stop.')"><span data-i="pin" data-s="24"></span>Find Rest Stop</button>
+   <button onclick="aiAsk('Why is my score what it is?')"><span data-i="info" data-s="24"></span>Explain My Score</button>
+   <button onclick="aiGo('emergency')"><span data-i="phone" data-s="24"></span>Emergency Contacts</button></div>
+  <div class="ask"><span data-i="mic" data-s="18" style="color:var(--maroon);display:flex"></span><input id="ai-in" placeholder="Ask DRIFTS..." onkeydown="if(event.key==='Enter')aiAsk(this.value)"><button onclick="aiAsk($('ai-in').value)"><span data-i="send" data-s="20"></span></button></div>
+  <div class="note" style="margin:10px 4px;text-align:center">Answers come from DRIFTS's own measurements, on the Pi. Voice input and a language model come later.</div>
+ </div>
+ <div id="ai-listen" style="display:none;text-align:center;padding-top:30px">
+  <div class="mic pulse" style="width:150px;height:150px"><span data-i="wave" data-s="54"></span></div>
+  <h1 style="margin:26px 0 6px;font-size:22px">Listening...</h1>
+  <div class="note" style="max-width:290px;margin:0 auto">Voice input isn't connected yet. Tap a question instead:</div>
+  <div class="qa" style="max-width:340px;margin:16px auto 0"><button onclick="aiAsk('What\'s my alertness score?')">“What's my score?”</button><button onclick="aiAsk('Find the nearest rest stop.')">“Find a rest stop.”</button>
+   <button onclick="aiAsk('Why did my score drop?')">“Why did it drop?”</button><button onclick="aiGo('emergency')">“Call my contact.”</button></div>
+  <button class="b" style="margin-top:22px;padding:10px 24px;border-radius:99px" onclick="aiGo('home')">✕ Cancel</button>
+ </div>
+ <div id="ai-chat" style="display:none">
+  <div class="back" onclick="aiGo('home')"><span data-i="chevl" data-s="16"></span>Assistant</div>
+  <div id="ai-thread"></div>
+  <div class="ask"><span data-i="mic" data-s="18" style="color:var(--maroon);display:flex"></span><input id="ai-in2" placeholder="Ask DRIFTS..." onkeydown="if(event.key==='Enter')aiAsk(this.value)"><button onclick="aiAsk($('ai-in2').value)"><span data-i="send" data-s="20"></span></button></div>
+ </div>
+ <div id="ai-emergency" style="display:none">
+  <div class="back" onclick="aiGo('home')"><span data-i="chevl" data-s="16"></span>Assistant</div>
+  <h2 style="font-size:20px;margin-top:4px">Emergency Assistance</h2>
+  <div class="warnbox" id="em-warn"><span data-i="warn" data-s="26"></span><span><b id="em-title">Help is one tap away</b><small id="em-sub">Calls always ask you to confirm first.</small></span></div>
+  <div class="card" style="margin-top:12px">
+   <div class="set" onclick="aiGo('sos')"><span class="i" data-i="phone" data-s="20"></span><span class="t"><b>Call 911</b></span><span class="chev" data-i="chev"></span></div>
+   <div class="set" onclick="callContact(0)"><span class="i" data-i="users" data-s="20"></span><span class="t"><b>Contact a Trusted Person</b></span><span class="chev" data-i="chev"></span></div>
+   <div class="set" style="cursor:default"><span class="i" data-i="pin" data-s="20"></span><span class="t"><b>Share My Location <span class="ph">PLANNED</span></b><small>Needs the phone's location</small></span><label class="sw"><input type="checkbox" disabled><span></span></label></div>
+  </div>
+  <h2>Saved Contacts <a onclick="show('s-contacts')">Edit</a></h2>
+  <div class="card" id="em-list"></div>
+ </div>
+ <div id="ai-sos" style="display:none">
+  <div class="sos"><div class="back" style="color:#fff" onclick="aiGo('emergency')"><span data-i="chevl" data-s="16"></span>Back</div>
+   <h2>Emergency SOS</h2>
+   <button class="sosbtn" onclick="dial('911','Call 911 now?')"><span data-i="phone" data-s="40"></span>SOS</button>
+   <div style="font-size:18px;font-weight:700">Call Emergency Services</div><div style="opacity:.85;font-size:13px">Dial 911. Your phone asks before it calls.</div>
+   <button class="wb" onclick="callContact(0)"><span data-i="users" data-s="20"></span>Call Primary Contact</button>
+   <button class="wb" disabled><span data-i="pin" data-s="20"></span>Share My Location (planned)</button></div>
+ </div>
+</section>
 </main>
 <nav>
  <a class="on" data-t="home"><span data-i="home" data-s="22"></span>Home</a>
  <a data-t="history"><span data-i="activity" data-s="22"></span>History</a>
  <a data-t="devices"><span data-i="radio" data-s="22"></span>Devices</a>
+ <a data-t="ai"><span data-i="sparkle" data-s="22"></span>AI</a>
  <a data-t="settings"><span data-i="gear" data-s="22"></span>Settings</a>
 </nav>
 </div>
@@ -335,7 +483,16 @@ const IC={
  check:'<circle cx="12" cy="12" r="10" fill="currentColor" stroke="none"/><path d="m7.5 12.3 3 3 6-6.3" stroke="#fff" stroke-width="2.4"/>',
  warning:'<path d="M12 3 2 20.5h20z" fill="currentColor" stroke="none"/><path d="M12 9.5v5" stroke="#fff" stroke-width="2.4"/><circle cx="12" cy="17.4" r="1.3" fill="#fff" stroke="none"/>',
  alert:'<circle cx="12" cy="12" r="10" fill="currentColor" stroke="none"/><path d="M12 7v6.5" stroke="#fff" stroke-width="2.4"/><circle cx="12" cy="16.8" r="1.3" fill="#fff" stroke="none"/>',
- dash:'<circle cx="12" cy="12" r="9.5"/><path d="M7.5 12h9"/>'};
+ dash:'<circle cx="12" cy="12" r="9.5"/><path d="M7.5 12h9"/>',
+ sparkle:'<path d="M12 3c.6 4.2 2.8 6.4 7 7-4.2.6-6.4 2.8-7 7-.6-4.2-2.8-6.4-7-7 4.2-.6 6.4-2.8 7-7z"/><path d="M19 2.5v3M17.5 4h3"/>',
+ phone:'<path d="M5 3h3.5l1.6 4.2-2.1 1.5a12 12 0 0 0 7.3 7.3l1.5-2.1L21 15.5V19a2 2 0 0 1-2.2 2A17 17 0 0 1 3 5.2 2 2 0 0 1 5 3z"/>',
+ pin:'<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+ pinfill:'<path d="M12 22s-7.5-6.6-7.5-12.3a7.5 7.5 0 0 1 15 0C19.5 15.4 12 22 12 22z" fill="currentColor"/><circle cx="12" cy="9.7" r="2.8" fill="#fff" stroke="none"/>',
+ users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14a6.5 6.5 0 0 1 3.5 6"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>', send:'<path d="M3 11.5 21 3l-8.5 18-2-7.5z"/>',
+ info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.6" r="1" fill="currentColor"/>',
+ bars:'<path d="M5 20v-6M10 20V9M15 20v-9M20 20V5"/>', warn:'<path d="M12 3 2 20.5h20z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.3" r="1" fill="currentColor"/>',
+ wave:'<path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/>'};
 function svg(name,size){return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC[name]||""}</svg>`}
 document.querySelectorAll("[data-i]").forEach(el=>el.innerHTML=svg(el.dataset.i,+(el.dataset.s||18)));
 // ---- Alarm on this device (simulation without ESP32, or a second alert) ----
@@ -466,6 +623,11 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  if(out){pill($("p1"),out.level>=1,false,1);pill($("p2"),out.level>=2,false,2)}
  else{pill($("p1"),!!ui.outputs_on,lvl==="CAUTION"||lvl==="LOW",1);pill($("p2"),!!ui.outputs_on,lvl==="LOW",2)}
  pill($("p3"),false,lvl==="CAUTION"||lvl==="LOW",lvl==="LOW"?2:1);
+ // the same states on Home
+ pill($("hp1"),out?out.level>=1:!!ui.outputs_on,!out&&(lvl==="CAUTION"||lvl==="LOW"),1);
+ pill($("hp2"),out?out.level>=2:!!ui.outputs_on,!out&&lvl==="LOW",2);
+ pill($("hp3"),false,lvl==="CAUTION"||lvl==="LOW",lvl==="LOW"?2:1);
+ homeExtras(s,ui);
  // calibration
  $("cal-state").textContent=!ps.enabled&&!fc?"Needs head pose: start with --face mesh":ps.calibrated?"Calibrated to the road pose":
   `Calibrating ${Math.round((ps.calib_progress||0)*100)}%`;
@@ -497,6 +659,96 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  const c=s.capture.counts;$("n-open").textContent=c.open;$("n-closed").textContent=c.closed;$("n-drowsy").textContent=c.drowsy;
  $("capdir").textContent=(s.capture.pending?`saving ${s.capture.pending}… · `:"")+"Saved to "+s.capture.dir;
  if(s.time-last>=2&&$("t-history").classList.contains("on")){last=s.time;loadHistory()}}
+// ---- Home welcome, profile, guided calibration, contacts, assistant ----
+let lastS=null;
+const cap1=n=>n?n.charAt(0).toUpperCase()+n.slice(1):n;
+function homeExtras(s,ui){lastS=s;
+ const name=cap1(s.profile&&s.profile!=="default"?s.profile:"kendra");
+ $("wname").textContent=name;
+ $("wsub").textContent=ui.band==="high"?"Please pull over safely and take a break.":ui.band==="caution"?"Signs of fatigue: plan a break soon.":"Drive safe and take breaks.";
+ const pi=s.profile_info;
+ $("pf-name").textContent=name;$("pf-created").textContent=pi?pi.created:"not yet";
+ $("pf-ear").textContent=pi&&pi.ear_open!=null?`${fx(pi.ear_open,2)} / ${fx(pi.ear_closed,2)}`:"--";
+ $("pf-yawn").textContent=pi&&pi.yawn_mar!=null?fx(pi.yawn_mar,2):"--";
+ $("pf-lim").textContent=pi&&pi.yaw_limit!=null?`${fx(pi.yaw_limit)}° / ${fx(pi.pitch_limit)}°`:"30° / 20° (default)";
+ $("s-profsub").textContent=name+(pi?" · calibrated "+pi.created.split(" ")[0]:" · no calibration yet");
+ // guided calibration progress
+ const g=s.guided;
+ $("g-note").textContent=s.guided_capable?"":"Needs the face mesh: start drifts.live with --face mesh.";
+ if(g&&(g.active||g.profile_saved||g.report)){
+  $("g-box").style.display="";$("g-start").textContent=g.active?"Cancel":"Start";
+  $("g-prompt").textContent=g.active?`${g.mode==="test"?"Test":"Step"} ${g.index+1} of ${g.total}: ${g.prompt}`:
+   g.mode==="test"?`Accuracy test done: ${g.report&&g.report.overall!=null?Math.round(g.report.overall*100)+"%":"--"} correct`:"Profile saved and applied.";
+  $("g-bar").style.width=Math.round((g.active?g.hold:1)*100)+"%";
+  $("g-steps").innerHTML=g.steps.map((x,i)=>{const cur=g.active&&i===g.index;
+   const v=g.mode==="test"?(x.value==null?"":Math.round(x.value*100)+"%"):(x.skipped?"skipped":x.done?"✓":cur?"hold":"");
+   return `<div class="gst${x.done?" done":""}${cur?" cur":""}${x.skipped?" skip":""}"><span class="n">${x.done?"✓":i+1}</span><div>${x.label}</div><b>${v}</b></div>`}).join("")}
+ else{$("g-box").style.display="none";$("g-start").textContent="Start"}
+ // emergency banner
+ const hi=ui.band==="high";$("em-title").textContent=hi?"You appear highly fatigued.":"Help is one tap away";
+ $("em-sub").textContent=hi?"For your safety, consider pulling over and taking a break.":"Calls always ask you to confirm first.";}
+async function guided(mode){const g=lastS&&lastS.guided;
+ if(g&&g.active){await fetch("/guided?action=cancel",{method:"POST"});return}
+ const n=($("pf-input").value||"kendra").trim().toLowerCase().replace(/[^a-z0-9_-]/g,"")||"kendra";
+ await fetch(`/guided?mode=${mode}&name=${encodeURIComponent(n)}`,{method:"POST"})}
+// emergency contacts: kept on this phone only
+const SLOTS=["Primary Contact","Secondary Contact","Caregiver / Other"];
+function contacts(){try{return JSON.parse(localStorage.getItem("drifts-contacts")||"[]")}catch(e){return []}}
+function saveContacts(c){try{localStorage.setItem("drifts-contacts",JSON.stringify(c))}catch(e){}drawContacts()}
+function editContact(i){const c=contacts(),cur=c[i]||{};
+ const name=prompt(`${SLOTS[i]}: name (leave empty to remove)`,cur.name||"");if(name===null)return;
+ if(!name.trim()){c[i]=null;saveContacts(c);return}
+ const rel=prompt("Relationship (e.g. parent, sibling)",cur.rel||"");if(rel===null)return;
+ const phone=prompt("Phone number",cur.phone||"");if(phone===null)return;
+ c[i]={name:name.trim(),rel:(rel||"").trim(),phone:(phone||"").replace(/[^0-9+]/g,"")};saveContacts(c)}
+function dial(num,msg){if(num&&confirm(msg||`Call ${num}?`))location.href="tel:"+num}
+function callContact(i){const c=contacts()[i];if(c&&c.phone)dial(c.phone,`Call ${c.name} (${c.phone})?`);else show("s-contacts")}
+function drawContacts(){const c=contacts();
+ const row=(i,edit)=>{const x=c[i];const ic=i===2?"users":"user";
+  return x?`<div class="contact"><span class="i">${svg(ic,22)}</span><span class="t"><small>${SLOTS[i]}</small><b>${x.name}</b><small>${x.rel?x.rel+" · ":""}${x.phone||"no number"}</small></span>
+   ${edit?`<button class="callb ghost" onclick="editContact(${i})">${svg("sliders",16)}</button>`:""}<button class="callb" onclick="callContact(${i})">${svg("phone",18)}</button></div>`:
+   (edit?`<div class="contact"><span class="i">${svg(ic,22)}</span><span class="t"><small>${SLOTS[i]}</small><b style="color:var(--muted);font-weight:500">+ Add Contact</b></span><button class="callb" onclick="editContact(${i})">${svg("plus",18)}</button></div>`:"")};
+ $("c-list").innerHTML=[0,1,2].map(i=>row(i,true)).join("");
+ const saved=[0,1,2].map(i=>row(i,false)).join("");
+ $("em-list").innerHTML=saved||`<div class="contact"><span class="t"><b style="font-weight:500;color:var(--muted)">No contacts yet</b><small>Add them in Settings → Emergency Contacts</small></span></div>`;
+ const n=c.filter(Boolean).length;$("s-contsub").textContent=n?`${n} saved`:"None saved"}
+drawContacts();
+// assistant: answers from DRIFTS's own measurements (no language model yet)
+function aiGo(v){["home","listen","chat","emergency","sos"].forEach(k=>$("ai-"+k).style.display=k===v||(v==="rest"&&k==="chat")?"":"none");
+ if(v==="rest")aiAsk("Find the nearest rest stop.");window.scrollTo(0,0)}
+function bubble(html,me){return me?`<div class="bub me">${svg("mic",16)}<span>${html}</span></div>`:`<div class="bub ai"><span class="av">${svg("sparkle",16)}</span><div>${html}</div></div>`}
+function scoreCard(s){const ui=s.ui||{},sc=s.esp&&s.esp.updated&&(s.time-s.esp.updated)<5?s.esp.score:null,fc=s.face,e=s.eye||{};
+ const off=314.16*(1-(sc==null?0:clamp(sc)/100));
+ const eyes=fc?(fc.found?(fc.eye_state==="closed"?"Closed":"Open")+(fc.openness!=null?` (${Math.round(fc.openness*100)}%)`:""):"No face"):(EYES[e.state]||"--");
+ const per=fc&&fc.perclos!=null?fc.perclos:e.perclos;
+ return `<div class="card" style="margin:10px 0"><div class="score" style="padding:12px 14px"><div class="gauge" style="width:96px;height:96px"><svg width="96" height="96" viewBox="0 0 118 118"><circle cx="59" cy="59" r="50" fill="none" stroke="var(--track)" stroke-width="11"/><circle cx="59" cy="59" r="50" fill="none" stroke="${ui.color||"#8E8E96"}" stroke-width="11" stroke-linecap="round" stroke-dasharray="314.16" stroke-dashoffset="${off}" transform="rotate(-90 59 59)"/></svg><div class="c"><b style="font-size:30px">${fx(sc)}</b><small>/ 100</small></div></div>
+  <div class="st"><div class="t" style="font-size:15px"><span style="color:${BAND_INK[ui.band]||"var(--grey)"};display:flex">${svg(ui.icon||"dash",18)}</span>${titleCase(ui.title)||"No Score"}</div></div></div>
+  <div class="row"><span class="i">${svg("eye",18)}</span><span class="l">Eyes</span><span class="v">${eyes}</span></div>
+  <div class="row"><span class="i">${svg("crosshair",18)}</span><span class="l">Head Pose</span><span class="v">${ui.pose||"--"}</span></div>
+  <div class="row"><span class="i">${svg("activity",18)}</span><span class="l">Blink Rate</span><span class="v">${fc&&fc.blink_rate!=null?fx(fc.blink_rate)+" / min":"--"}</span></div>
+  <div class="row"><span class="i">${svg("wheel",18)}</span><span class="l">PERCLOS</span><span class="v">${per==null?"--":fx(per*100,1)+"%"}</span></div></div>`}
+const titleCase=t=>t?t.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()):"";
+function answer(q){const s=lastS;if(!s)return ["DRIFTS isn't connected yet.",""];
+ const t=q.toLowerCase(),ui=s.ui||{},live=s.esp&&s.esp.updated&&(s.time-s.esp.updated)<5,sc=live?s.esp.score:null,fc=s.face||{};
+ if(/rest|stop|break|gas|fuel/.test(t))return [`I can't find rest stops yet: DRIFTS has no location source. That comes with the phone's GPS (Level 4). Until then, pull over somewhere safe when you need a break.`,
+  `<div class="card rest" style="margin:10px 0"><div class="map"><i></i><span class="dot"></span><span class="pin">${svg("pinfill",34)}</span><span class="tag">Level 4</span></div>
+   <div class="body"><div><b>Rest stop <span class="ph">PLACEHOLDER</span></b><small>-- mi · ~-- min</small></div></div>
+   <div class="amen"><span>${svg("users",20)}Restrooms</span><span>${svg("bars",20)}Food</span><span>${svg("cal",20)}Picnic</span><span>${svg("car",20)}Fuel</span></div>
+   <div style="padding:0 14px 14px"><button class="b fill" style="width:100%" disabled>Start Navigation (planned)</button></div></div>`];
+ if(/why|explain|drop|reason/.test(t)){if(sc==null)return ["There's no alertness score yet, so there's nothing to explain. Check that the ESP32 is connected.",""];
+  const P=fc.parts||{},NM={ear:"eye closure (PERCLOS)",blink:"long blinks",gaze:"eyes off the road",yaw:"head turned",pitch:"head nodding or drooping",roll:"head tilted",mar:"mouth open",yawn:"yawning"};
+  const top=Object.entries(P).filter(([,v])=>v&&v.points>0.5).sort((a,b)=>b[1].points-a[1].points).slice(0,3);
+  const why=top.length?"The biggest contributors right now: "+top.map(([k,v])=>`<b>${NM[k]||k}</b> (+${v.points.toFixed(1)})`).join(", ")+".":"No face signal is adding much drowsiness right now.";
+  return [`Your alertness score is <b>${fx(sc)}</b> (${titleCase(ui.title)}). It is 70 % your face (drowsiness ${fx(fc.drowsiness)} of 100) and 30 % your driving score (${fx(s.esp.drv_score)}). ${why}`,scoreCard(s)]}
+ if(/score|alert|how am i|tired|status/.test(t)){if(sc==null)return ["I don't have a score yet: the ESP32 isn't sending one.",scoreCard(s)];
+  const eyes=fc.found?(fc.eye_state==="closed"?"closed":"open"):"not visible";
+  return [`Your alertness score is <b>${fx(sc)}</b>, ${ui.band==="normal"?"which is in the normal range":ui.band==="caution"?"which shows early signs of fatigue":"which is in the high-fatigue range: please pull over safely"}. Your eyes are ${eyes}${ui.pose?", head position is "+ui.pose.toLowerCase():""}${fc.blink_rate!=null?`, and your blink rate is <b>${fx(fc.blink_rate)} per minute</b>`:""}.`,scoreCard(s)]}
+ if(/emergency|call|help|contact|911|sos/.test(t)){setTimeout(()=>aiGo("emergency"),600);return ["Opening Emergency Assistance.",""]}
+ return [`I can answer from DRIFTS's measurements: “What's my score?”, “Why did my score drop?”, “Find a rest stop”, or “Call my contact”.`,""]}
+function aiAsk(q,keep){q=(q||"").trim();if(!q)return;$("ai-in").value="";$("ai-in2").value="";
+ ["home","listen","emergency","sos"].forEach(k=>$("ai-"+k).style.display="none");$("ai-chat").style.display="";
+ const [txt,extra]=answer(q);if(!keep)$("ai-thread").innerHTML="";
+ $("ai-thread").innerHTML+=bubble(q,true)+bubble(txt,false)+extra;window.scrollTo(0,document.body.scrollHeight)}
 setInterval(tick,500);tick();
 
 // Camera problems (crashed pipeline, no webcam) shown on the feed itself.

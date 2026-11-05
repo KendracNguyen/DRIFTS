@@ -36,10 +36,16 @@ or red** by the ESP32's level, with the same words as the Whisplay LCD
 
 | Tab | Shows |
 | --- | --- |
-| **Home** | Alertness ring and status (Alertness Normal / Caution / High Fatigue / No Score); Current Status: eyes (and openness), head pose, blink rate, PERCLOS; live driver camera |
-| **History** | **Trip**: alertness for this drive (100 / 70 / 50 / 30 axis, dashed 70 and 50 lines) and the Trip History list. **Trends**: trips recorded, average alertness, alerts per trip; eye score, head yaw and RPM charts |
-| **Devices** | ESP32, Raspberry Pi, driver camera, LCD display, vehicle OBD: Online / Offline badges, tap a row for details (ESP32 log, rig performance, driver signals); RPM / speed / throttle |
-| **Settings** | Driver profile, calibration (with **Calibrate now**), alerts & interventions (phone alarm, voice, test buttons), Wi-Fi, display, training capture, **Developer Mode** (the dark dev view) |
+| **Home** | "Welcome, Kendra" (the profile name), the alertness ring and status, Current Status (eyes, head pose, blink rate, PERCLOS), the live camera, **Active Interventions** (alert buzzer, seat vibration, spoken warning, voice confirm), **Nearest Rest Stop** (placeholder until GPS) |
+| **History** | **Trip**: alertness for this drive and the Trip History list. **Trends**: trips recorded, average alertness, alerts per trip; eye score, head yaw and RPM charts |
+| **Devices** | ESP32, Raspberry Pi, driver camera, LCD display, vehicle OBD: Online / Offline badges, tap a row for details; RPM / speed / throttle |
+| **AI** | Driver AI Assistant (preview): Tap to talk, quick actions (Check Alertness, Find Rest Stop, Explain My Score, Emergency Contacts) and "Ask DRIFTS". Answers come from DRIFTS's own measurements; voice input and a language model come later. Emergency Assistance and the SOS screen |
+| **Settings** | Driver profile, **Calibration** (1. Quick: road pose in 3 s; 2. Create profile: the 9-pose long calibration and the accuracy test), Emergency Contacts, alerts & interventions, Wi-Fi, display, training capture, Developer Mode (opens `/dev`) |
+
+**Placeholders, honestly labelled:**
+- Rest-stop routing, Share My Location and Auto-Notify need the phone's location or a messaging service. They show PLACEHOLDER / PLANNED and never show made-up places or results.
+- Calls (911, saved contacts) open the phone's dialler after a confirmation.
+- Contacts are stored on that phone only (browser storage).
 
 **Trip History** lists real sessions only: `drifts.live` saves a summary
 (start, length, average score, alerts) to `Raspberry/logs/trips.json` every
