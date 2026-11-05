@@ -33,6 +33,21 @@ github.com/PiSugar/Whisplay, read Nov 2026):
   **`whisplay-ai-chatbot`** (`chatbot.service`). Either one takes exclusive control of the screen, LED
   and button. DRIFTS refuses to start while one is running, and the installer disables both.
 
+### Screens to check against
+
+- **LCD**, every view with example data:
+  ![LCD screens](../Hardware/drawings/whisplay_screens.png)
+- **Bring-up check** screens (`whisplay_check --hw`):
+  ![Self-test screens](../Hardware/drawings/whisplay_check_screens.png)
+- **Phone dashboard as it is today** (`drifts.live`, iPhone 13 width). It has not been redesigned yet
+  (phase 5): its ring is still burgundy, it says "drive safe", and it shows the eyes / driving / PERCLOS
+  bars the UI spec removes.
+  ![Phone dashboard](../Hardware/drawings/phone_screens.png)
+
+Regenerate: `python -m drifts.whisplay_ui --gallery --out Hardware/drawings` (LCD) and
+`python -m drifts.whisplay_check --hw --sim` (self-test). The phone screenshots are taken with
+Playwright from `drifts.live --esp sim --video Simuletic_DMS_Dataset/images`.
+
 ---
 
 ## Day 1: bring-up (about 30 minutes)
