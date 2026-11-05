@@ -119,3 +119,24 @@ def test_eye_tracker_uses_the_calibrated_scale():
     assert abs(e.update(0.0, 0.20) - 0.5) < 1e-6           # halfway between closed and open
     assert not e.set_calibration(0.11, 0.10)                # too close together: ignored
     assert e.fixed is None
+
+
+def test_turns_count_in_either_sign_convention():
+    # a camera that reports yaw / pitch with the opposite sign: left is +, up is +
+    flipped = {**POSES, "left": frame(yaw=28.0), "right": frame(yaw=-30.0), "up": frame(pitch=20.0),
+               "down": frame(pitch=-6.0)}
+    g = Guided()
+    g.start(0.0, "calibrate", name="flip")
+    run(g, flipped)
+    assert not g.skipped and g.profile["yaw_limit"] is not None and g.profile["pitch_limit"] is not None
+
+
+def test_right_must_go_the_other_way_from_left():
+    g = Guided(step_timeout_s=3.0)
+    g.start(0.0, "calibrate")
+    same = {**POSES, "right": frame(yaw=-32.0)}             # "right" turned the same way as left
+    t = 0.0
+    while g.active and t < 60:                              # always show the pose the current step asks for
+        g.update(t, same[g.steps[g.index].key])
+        t += 0.1
+    assert "right" in g.skipped and g.profile["skipped"] == ["right"]

@@ -217,9 +217,10 @@ class Pipeline:
             self.attn.yaw_limit = prof["yaw_limit"]
         if prof.get("pitch_limit"):
             self.attn.pitch_down = self.attn.pitch_up = prof["pitch_limit"]
-        log.info("Driver profile %s: road pose, limits yaw %s / pitch %s, eye scale %s",
+        log.info("Driver profile %s: road pose, limits yaw %s / pitch %s, eye scale %s%s",
                  prof.get("name"), prof.get("yaw_limit"), prof.get("pitch_limit"),
-                 "on" if prof.get("ear_open") else "off")
+                 "on" if prof.get("ear_open") else "off",
+                 f" (skipped: {', '.join(prof['skipped'])}; re-run the calibration)" if prof.get("skipped") else "")
 
     def _guided_step(self, now: float) -> None:
         g = self.guided

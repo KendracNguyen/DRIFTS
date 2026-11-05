@@ -82,11 +82,20 @@ def _mouth_open(f, rec):
     return m is not None and (m > 0.35 or (j is not None and j > 0.45))
 
 
-def _turned(axis: str, sign: int, deg: float):
+def _turned(axis: str, deg: float, opposite_of: Optional[str] = None):
+    """The head turned at least `deg` from the eyes-open (looking ahead) pose, in
+    EITHER direction: cameras and mirroring differ in the angle's sign. The second
+    step of a pair (right after left, down after up) must go the other way."""
     def ok(f, rec):
-        ref = rec.get("eyes_open", {}).get(axis, 0.0) or 0.0     # head pose while looking ahead
+        ref = rec.get("eyes_open", {}).get(axis)
         v = f.get(axis)
-        return v is not None and sign * (v - ref) > deg
+        if v is None or ref is None:
+            return False
+        d = v - ref
+        if abs(d) <= deg:
+            return False
+        first = rec.get(opposite_of, {}).get(axis) if opposite_of else None
+        return first is None or (first - ref) * d < 0
     return ok
 
 
@@ -103,10 +112,10 @@ CAL_STEPS = [
     Step("eyes_open", "Eyes open", "Open your eyes and look at the road", "ear", lambda f, r: _found(f) and _eyes_open(f, r)),
     Step("mouth_closed", "Mouth closed", "Close your mouth", "mar", lambda f, r: _found(f) and _mouth_closed(f, r)),
     Step("mouth_open", "Mouth open", "Open your mouth wide, as in a yawn", "mar", lambda f, r: _found(f) and _mouth_open(f, r)),
-    Step("left", "Left", "Turn your head to the left (towards the driver's window)", "yaw", lambda f, r: _found(f) and _turned("yaw", -1, 15)(f, r)),
-    Step("right", "Right", "Turn your head to the right (towards the passenger)", "yaw", lambda f, r: _found(f) and _turned("yaw", 1, 15)(f, r)),
-    Step("up", "Up", "Look up (at the mirror)", "pitch", lambda f, r: _found(f) and _turned("pitch", -1, 8)(f, r)),
-    Step("down", "Down", "Look down (at your lap)", "pitch", lambda f, r: _found(f) and _turned("pitch", 1, 10)(f, r)),
+    Step("left", "Left", "Turn your head to the left (towards the driver's window)", "yaw", lambda f, r: _found(f) and _turned("yaw", 15)(f, r)),
+    Step("right", "Right", "Turn your head to the right (towards the passenger)", "yaw", lambda f, r: _found(f) and _turned("yaw", 15, "left")(f, r)),
+    Step("up", "Up", "Look up (at the mirror)", "pitch", lambda f, r: _found(f) and _turned("pitch", 8)(f, r)),
+    Step("down", "Down", "Look down (at your lap)", "pitch", lambda f, r: _found(f) and _turned("pitch", 8, "up")(f, r)),
     Step("forward", "Forward", "Look straight at the road, eyes open", "yaw", lambda f, r: _found(f) and _forward(f, r)),
 ]
 
@@ -131,7 +140,9 @@ def build_profile(rec: dict, name: str) -> dict:
             "road": {"yaw": fwd.get("yaw"), "pitch": fwd.get("pitch"), "roll": fwd.get("roll"),
                      "gaze": fwd.get("gaze")}}
     yl, yr, pu, pd = g("left", "yaw"), g("right", "yaw"), g("up", "pitch"), g("down", "pitch")
-    y0, p0 = fwd.get("yaw"), fwd.get("pitch")
+    # The road pose: the forward step, or the eyes-open step if forward was skipped.
+    y0 = fwd.get("yaw") if fwd.get("yaw") is not None else g("eyes_open", "yaw")
+    p0 = fwd.get("pitch") if fwd.get("pitch") is not None else g("eyes_open", "pitch")
     if None not in (yl, yr, y0):
         # Off road at 60 % of the smaller deliberate turn, kept within 15-35 degrees.
         prof["yaw_limit"] = round(max(15.0, min(35.0, 0.6 * min(abs(yl - y0), abs(yr - y0)))), 1)
@@ -214,6 +225,7 @@ class Guided:
             self.active = False
             if self.mode == "calibrate":
                 self.profile = build_profile(self.recorded, self.name)
+                self.profile["skipped"] = list(self.skipped)
             else:
                 self.report = self._report()
 
