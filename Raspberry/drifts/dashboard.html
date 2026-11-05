@@ -1,99 +1,130 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#7d1d2c">
+<meta name="theme-color" content="#650E20">
 <title>DRIFTS Live</title>
 <style>
-:root{--maroon:#7d1d2c;--maroon-2:#9a2a3b;--maroon-dk:#5e1420;--bg:#f6eeee;--card:#fff;--ink:#2b1b1e;
---muted:#9a8a8d;--line:#eedfe0;--track:#f0e4e5;--soft:#fbf3f3;--ok:#2f8a4a;--warn:#c9861a;--bad:#b3192f}
-*{box-sizing:border-box}html,body{margin:0}html{background:#efe3e4}
-body{font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-color:var(--ink);background:linear-gradient(160deg,#f3e3e4 0%,#efe6e6 45%,#e9d2d5 100%);min-height:100vh}
-.app{max-width:440px;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;
-box-shadow:0 0 0 1px rgba(125,29,44,.06),0 20px 60px rgba(94,20,32,.12)}
-header{background:var(--maroon);color:#fff;padding:22px 20px 18px;position:sticky;top:0;z-index:5}
-.hrow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-header h1{margin:0;font-size:26px;letter-spacing:2px;font-weight:700}
-header .sub{font-size:12.5px;opacity:.8;margin-top:3px}
-header .drive{font-size:12.5px;opacity:.85;text-align:right;white-space:nowrap}
-header .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#7bd88f;margin-right:5px;vertical-align:1px}
-header .dot.off{background:#f2a3ad}
-main{flex:1;padding:4px 14px 90px}
-.sec{font-size:11.5px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--maroon-dk);
-margin:18px 4px 8px}
-.card{background:var(--card);border-radius:16px;padding:14px;border:1px solid var(--line)}
-.score{display:flex;gap:16px;align-items:center}
-.ring{position:relative;width:92px;height:92px;flex:none}
-.ring svg{transform:rotate(-90deg)}
-.ring .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.ring .c b{font-size:22px;color:var(--maroon)}.ring .c small{font-size:10px;color:var(--muted)}
-.big{font-size:40px;font-weight:700;color:var(--maroon);line-height:1}
-.state{font-size:14px;color:var(--maroon-dk);margin:4px 0 10px;font-weight:500}
-.bar{display:grid;grid-template-columns:52px 1fr 30px;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin:5px 0}
-.bar i{display:block;height:6px;border-radius:9px;background:var(--track);overflow:hidden}
-.bar i u{display:block;height:100%;width:0;background:var(--maroon);border-radius:9px;transition:width .4s}
-.bar em{font-style:normal;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
-.lcd{margin-top:12px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
-.lcd pre{margin:0;font:13px/1.25 ui-monospace,Menlo,Consolas,monospace;background:#1e3c8f;color:#e3ecff;
-padding:6px 9px;border-radius:6px}
-.feed{position:relative;border-radius:12px;overflow:hidden;background:#1a1012;aspect-ratio:4/3}
-.feed img{width:100%;height:100%;object-fit:contain;display:block}
-.feed .msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;text-align:center;
+@font-face{font-family:"Inter";font-weight:400;font-display:swap;src:local("Inter Regular"),local("Inter-Regular"),url(/static/fonts/Inter-Regular.woff2) format("woff2")}
+@font-face{font-family:"Inter";font-weight:500;font-display:swap;src:local("Inter Medium"),local("Inter-Medium"),url(/static/fonts/Inter-Medium.woff2) format("woff2")}
+@font-face{font-family:"Inter";font-weight:600;font-display:swap;src:local("Inter SemiBold"),local("Inter-SemiBold"),url(/static/fonts/Inter-SemiBold.woff2) format("woff2")}
+@font-face{font-family:"Inter";font-weight:700;font-display:swap;src:local("Inter Bold"),local("Inter-Bold"),url(/static/fonts/Inter-Bold.woff2) format("woff2")}
+/* Design tokens: the same values as drifts/ui_model.py COLORS */
+:root{--maroon:#86172C;--maroon-dk:#650E20;--maroon-2:#A51E39;--button:#B51F3B;--bg:#FFF4F5;--blush:#FBE8EC;--card:#FFFFFF;
+--ink:#191919;--muted:#66666B;--line:#F0E4E7;--track:#ECE4E6;--soft:#FBE8EC;
+--green:#39D353;--green-ink:#1F9A3A;--yellow:#FFC83D;--yellow-ink:#B7860B;--red:#FF5964;--red-ink:#D7263D;--grey:#8E8E96;
+--shadow:0 2px 10px rgba(90,20,35,.06)}
+*{box-sizing:border-box}html,body{margin:0}html{background:#F6E9EC}
+body{font:14px/1.4 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);
+background:#F6E9EC;min-height:100vh;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1}
+.app{max-width:430px;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;
+box-shadow:0 0 0 1px rgba(134,23,44,.05),0 20px 60px rgba(101,14,32,.10)}
+/* header */
+header{background:linear-gradient(110deg,#650E20,#86172C);color:#fff;padding:14px 16px 12px;position:sticky;top:0;z-index:5}
+.hrow{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+header h1{margin:0;font-size:22px;line-height:1.15;font-weight:700;letter-spacing:.3px}
+.hstat{font-size:12px;font-weight:500;opacity:.95;margin-top:3px;display:flex;align-items:center;gap:5px}
+.ldot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;flex:none}
+.ldot.off{background:#FF9AA3}
+.hright{display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:12px;font-weight:500}
+.hright svg{opacity:.95}
+.devline{display:none;font-size:11.5px;opacity:.8;margin-top:6px}
+.devbtn{display:none}
+.demo{font-size:9.5px;font-weight:700;letter-spacing:.6px;background:#fff;color:var(--maroon);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:3px}
+/* layout */
+main{flex:1;padding:16px 16px 96px}
+h2{font-size:16px;font-weight:700;color:var(--maroon);margin:18px 2px 8px;display:flex;align-items:center;justify-content:space-between}
+h2:first-child{margin-top:2px}
+h2 a{font-size:12px;font-weight:600;color:var(--maroon);cursor:pointer;display:flex;align-items:center;gap:2px}
+.card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);border:1px solid var(--line)}
+.pad{padding:14px 16px}
+/* score card */
+.score{display:flex;align-items:center;gap:18px;padding:16px 18px}
+.gauge{position:relative;width:118px;height:118px;flex:none}
+.gauge svg{transform:rotate(-90deg);display:block}
+.gauge .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.gauge .c b{font-size:40px;font-weight:700;line-height:1;color:var(--maroon-dk);letter-spacing:-.5px}
+.gauge .c small{font-size:13.5px;color:var(--ink);margin-top:2px}
+.st{min-width:0}
+.st .t{display:flex;align-items:center;gap:7px;font-size:17px;font-weight:700;line-height:1.25}
+.st .s{font-size:13.5px;color:var(--ink);margin-top:3px}
+.st .s2{font-size:12px;color:var(--muted);margin-top:6px}
+/* rows */
+.row{display:flex;align-items:center;gap:12px;padding:0 16px;min-height:44px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .i{width:20px;display:flex;justify-content:center;color:var(--ink);flex:none}
+.row .l{flex:1;font-size:13.5px;font-weight:500;min-width:0}
+.row .v{font-size:13.5px;font-weight:700;text-align:right}
+.row .v.ok{color:var(--green-ink)}.row .v.warn{color:var(--yellow-ink)}.row .v.bad{color:var(--red-ink)}
+.row.tap{cursor:pointer}.row.tap:active{background:var(--bg)}
+.chev{color:#9C9CA3;flex:none;display:flex}
+/* camera */
+.cam{position:relative;border-radius:16px;overflow:hidden;background:#1a1012;aspect-ratio:16/10;box-shadow:var(--shadow)}
+.cam img{width:100%;height:100%;object-fit:cover;display:block}
+.cam .lbl2{position:absolute;left:10px;top:10px;display:flex;align-items:center;gap:6px;background:rgba(20,12,14,.62);
+color:#fff;font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;backdrop-filter:blur(4px)}
+.cam .msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;text-align:center;
 color:#f3dfe2;font-size:13px;line-height:1.5;background:rgba(26,16,18,.82)}
-.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.chip{font-size:12px;padding:4px 10px;border-radius:99px;background:var(--soft);border:1px solid var(--line);color:var(--ink)}
-.chip b{color:var(--maroon)}
-.chip.st-open{background:#eaf6ee;border-color:#cfe9d7;color:var(--ok)}
-.chip.st-closed{background:#fbe8eb;border-color:#f3c9d0;color:var(--bad)}
-.chip.st-no_face{background:#fdf3e2;border-color:#f3e0bd;color:var(--warn)}
-.toggle{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:13px;color:var(--muted)}
-.sw{position:relative;width:42px;height:24px}.sw input{opacity:0;width:0;height:0}
-.sw span{position:absolute;inset:0;background:#e3d4d6;border-radius:99px;transition:.2s;cursor:pointer}
-.sw span:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
-.sw input:checked+span{background:var(--maroon)}.sw input:checked+span:before{transform:translateX(18px)}
-.iv{display:flex;align-items:center;gap:12px;padding:12px;margin-bottom:8px}
-.iv .ic{width:38px;height:38px;border-radius:10px;background:var(--soft);display:flex;align-items:center;justify-content:center;flex:none;color:var(--maroon)}
-.iv .t{flex:1;min-width:0}.iv .t b{display:block;font-size:15px}.iv .t small{color:var(--muted);font-size:12px}
-.iv.dim{opacity:.55}
-.pill{font-size:10.5px;font-weight:700;letter-spacing:.8px;padding:4px 9px;border-radius:99px;border:1px solid var(--maroon);color:var(--maroon)}
-.pill.on{background:var(--maroon);color:#fff}
-.pill.grey{border-color:#cdbfc1;color:var(--muted)}
-.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.tile{background:var(--soft);border-radius:12px;padding:10px}.tile small{font-size:11px;color:var(--muted)}
-.tile b{display:block;font-size:24px;color:var(--maroon);font-variant-numeric:tabular-nums}
-.note{font-size:12px;color:var(--muted);margin-top:8px}
-.att{display:flex;align-items:center;gap:12px}
-.att .big2{font-size:22px;font-weight:700;letter-spacing:.5px}
-.att .on{color:var(--ok)}.att .off{color:var(--bad)}.att .unk{color:var(--muted)}
-.row2{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:7px 0;border-top:1px solid var(--line)}
-.row2:first-of-type{border-top:0}.row2 span{color:var(--muted)}
-.tag3{font-size:10.5px;font-weight:700;letter-spacing:.6px;padding:3px 8px;border-radius:99px;border:1px dashed #cdbfc1;color:var(--muted)}
-.ang{display:grid;grid-template-columns:52px 1fr 52px;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin:7px 0}
-.ang i{position:relative;display:block;height:8px;border-radius:9px;background:var(--track)}
-.ang i:before{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:#cdbfc1}
-.ang i u{position:absolute;top:0;height:100%;background:var(--maroon);border-radius:9px;transition:all .3s}
-.ang em{font-style:normal;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
-.rest{padding:0;overflow:hidden}
-.map{height:96px;background:linear-gradient(90deg,#f1e4e5,#f8eeee 40%,#efe0e2);position:relative}
-.map:before{content:"";position:absolute;left:0;right:0;top:55%;height:2px;background:#d9c3c6}
-.map .pin{position:absolute;left:52%;top:28%;color:var(--maroon)}
-.map .tag{position:absolute;right:12px;top:10px;background:var(--maroon-dk);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px}
-.rest .body{display:flex;justify-content:space-between;align-items:center;padding:12px 14px}
-.rest .body b{font-size:15px}.rest .body small{display:block;color:var(--muted);font-size:12px}
-.rest .dist{text-align:right}.rest .dist b{font-size:22px;color:var(--maroon)}
+/* segmented control */
+.seg{display:grid;grid-template-columns:1fr 1fr;background:#fff;border:1px solid var(--line);border-radius:12px;padding:3px;margin:2px 0 4px;box-shadow:var(--shadow)}
+.seg button{font:inherit;font-size:14px;font-weight:600;border:0;border-radius:9px;padding:8px;background:transparent;color:var(--maroon);cursor:pointer}
+.seg button.on{background:var(--maroon);color:#fff}
+/* chart */
+.chartwrap{padding:12px 14px 8px}
+.chart{width:100%;height:150px;display:block}
+.note{font-size:12px;color:var(--muted);margin-top:6px}
+/* trips */
+.trip{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--line);cursor:pointer}
+.trip:first-child{border-top:0}
+.trip .i{color:var(--maroon);display:flex}
+.trip .t{flex:1;min-width:0}.trip .t b{display:block;font-size:14px}.trip .t small{font-size:12px;color:var(--muted)}
+.trip .d{font-size:13px;color:var(--ink);font-weight:500}
+.x{display:none;font-size:12px;color:var(--muted);padding:0 16px 10px 48px}
+.trip.open + .x{display:block}
+.live{font-size:9.5px;font-weight:700;letter-spacing:.5px;color:#fff;background:var(--maroon);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:2px}
+/* devices */
+.dev{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--line);cursor:pointer}
+.dev:first-child{border-top:0}
+.dev .i{color:var(--ink);display:flex;width:26px;justify-content:center}
+.dev .t{flex:1;min-width:0}.dev .t b{display:block;font-size:13.5px;font-weight:700}.dev .t small{font-size:12px;color:var(--muted)}
+.badge{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.badge.on{color:var(--green-ink);background:#E5F7E9}.badge.off{color:var(--red-ink);background:#FDE7EA}.badge.na{color:var(--muted);background:#F1EDEE}
+.detail{display:none;padding:0 16px 12px 54px;font-size:12.5px;color:var(--muted)}
+.dev.open + .detail{display:block}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px}.kv b{color:var(--ink);font-weight:600}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);margin-top:12px;background:var(--blush);border-radius:16px;padding:12px 6px}
+.tile{text-align:center}.tile small{display:block;font-size:12px;color:var(--ink)}
+.tile b{display:block;font-size:20px;font-weight:700;color:var(--maroon-2);margin-top:2px}
+.tile+.tile{border-left:1px solid #EBD3D9}
+.log{font:11.5px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#6f5f62;white-space:pre-wrap;max-height:200px;overflow:auto}
+.sigs .row{min-height:36px}
+/* settings */
+.set{display:flex;align-items:center;gap:14px;padding:12px 16px;border-top:1px solid var(--line);cursor:pointer}
+.set:first-child{border-top:0}.set:active{background:var(--bg)}
+.set .i{color:var(--maroon);display:flex;width:24px;justify-content:center;flex:none}
+.set .t{flex:1;min-width:0}.set .t b{display:block;font-size:14.5px;font-weight:700}.set .t small{font-size:12px;color:var(--muted)}
+.back{display:flex;align-items:center;gap:4px;font-size:14px;font-weight:600;color:var(--maroon);cursor:pointer;margin:0 0 8px}
+.sw{position:relative;width:46px;height:26px;flex:none}.sw input{opacity:0;width:0;height:0}
+.sw span{position:absolute;inset:0;background:#DCCFD3;border-radius:99px;transition:.2s;cursor:pointer}
+.sw span:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.sw input:checked+span{background:var(--button)}.sw input:checked+span:before{transform:translateX(20px)}
+button.b{font:inherit;font-size:13.5px;font-weight:600;border-radius:12px;padding:10px 8px;border:1px solid var(--maroon);
+background:#fff;color:var(--maroon);cursor:pointer}button.b:active{transform:scale(.98)}
+button.b.fill{background:var(--button);border-color:var(--button);color:#fff}
 .btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-button{font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:10px 6px;border:1px solid var(--maroon);
-background:#fff;color:var(--maroon);cursor:pointer}button:active{transform:scale(.98)}
-button.fill{background:var(--maroon);color:#fff}
-.log{font:11.5px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#6f5f62;white-space:pre-wrap;max-height:220px;overflow:auto}
-.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13.5px}.kv span{color:var(--muted)}
-.chart{width:100%;height:120px;display:block}
-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:440px;background:#fff;
+.pill{font-size:10.5px;font-weight:700;letter-spacing:.6px;padding:3px 8px;border-radius:99px;border:1px solid #D8CBCF;color:var(--muted)}
+.pill.on{background:var(--button);border-color:var(--button);color:#fff}.pill.lvl{border-color:var(--maroon);color:var(--maroon)}
+.bar2{height:12px;border-radius:99px;background:var(--track);overflow:hidden;margin-top:10px}
+.bar2 u{display:block;height:100%;width:0;background:var(--maroon-2);border-radius:99px;transition:width .4s}
+.ntile{background:var(--blush);border-radius:12px;padding:10px;text-align:center}.ntile small{font-size:12px;color:var(--muted)}
+.ntile b{display:block;font-size:22px;color:var(--maroon)}
+/* bottom navigation */
+nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:#fff;
 border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:6}
-nav a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--muted);text-decoration:none;cursor:pointer}
-nav a.on{color:var(--maroon);font-weight:600}
+nav a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:500;color:#7A7A80;text-decoration:none;cursor:pointer}
+nav a.on{color:var(--maroon);font-weight:700}
 .tab{display:none}.tab.on{display:block}
-
+</style>
+<style>
 /* ---------- dev view: dark, maroon accents (symposium face analysis) ---------- */
 :root{--c-eyes:#4fc3f7;--c-head:#ffb74d;--c-mouth:#b388ff;--c-nose:#ff5c7a}
 .devbtn{margin-top:8px;font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:99px;border:1px solid rgba(255,255,255,.7);
@@ -173,171 +204,179 @@ body.dev .bbar{display:block}
 .blinkon i{animation:bl 1s steps(2) infinite}@keyframes bl{50%{opacity:.25}}
 .zoomimg{} @media (max-width:1100px){#dv-grid-left{position:static}.dv-grid{grid-template-columns:minmax(0,1fr)}.bb-in{grid-template-columns:1fr;gap:10px}body.dev #devview{padding-bottom:330px}}
 @media (max-width:560px){.twocol{grid-template-columns:1fr}.sg{grid-template-columns:96px 1fr auto}body.dev #devview{padding:10px 10px 360px}}
+
+body.dev header{background:linear-gradient(90deg,#5e1420,#7d1d2c)}
+body.dev .devline{display:block}
+body.dev .devbtn{display:inline-block;margin-top:0}
+body.dev .hright .drv,body.dev .hright>svg{display:none}
 </style></head>
 <body><div class="app">
 <header>
  <div class="hrow">
-  <div><h1>DRIFTS</h1><div class="sub"><span class="dot off" id="dot"></span><span id="linktxt">connecting…</span></div></div>
-  <div class="drive">Drive time: <span id="drive">0h 00m</span><div id="fw" style="opacity:.75;margin-top:2px">fw --</div><div id="rigchip" style="opacity:.9;margin-top:2px"></div>
-   <button class="devbtn" id="devbtn" onclick="toggleDev()">Switch to dev view</button></div>
+  <div><h1>DRIFTS<span class="demo" id="demotag" style="display:none">DEMO</span></h1>
+   <div class="hstat"><span class="ldot off" id="dot"></span><span id="linktxt">Connecting…</span></div>
+   <div class="devline"><span id="fw">fw --</span> · <span id="rigchip"></span></div></div>
+  <div class="hright"><span data-i="car" data-s="24"></span><span class="drv">Drive: <span id="drive">0h 00m</span></span>
+   <button class="devbtn" id="devbtn" onclick="toggleDev()">Switch to driver view</button></div>
  </div>
 </header>
 
 <main>
 <!-- ============================== HOME ============================== -->
 <section class="tab on" id="t-home">
- <div class="sec">Alertness score</div>
+ <div class="card score">
+  <div class="gauge"><svg width="118" height="118" viewBox="0 0 118 118">
+    <circle cx="59" cy="59" r="50" fill="none" stroke="var(--track)" stroke-width="11"/>
+    <circle id="arc" cx="59" cy="59" r="50" fill="none" stroke="var(--grey)" stroke-width="11" stroke-linecap="round"
+     stroke-dasharray="314.16" stroke-dashoffset="314.16" style="transition:stroke-dashoffset .5s,stroke .3s"/></svg>
+   <div class="c"><b id="ringv">--</b><small>/ 100</small></div></div>
+  <div class="st"><div class="t"><span id="sticon"></span><span id="sttitle">No score</span></div>
+   <div class="s" id="stsub">Waiting for the ESP32</div><div class="s2" id="stnote"></div></div>
+ </div>
+
+ <h2>Current Status</h2>
  <div class="card">
-  <div class="score">
-   <div class="ring"><svg width="92" height="92" viewBox="0 0 92 92">
-     <circle cx="46" cy="46" r="38" fill="none" stroke="var(--track)" stroke-width="8"/>
-     <circle id="arc" cx="46" cy="46" r="38" fill="none" stroke="var(--maroon)" stroke-width="8" stroke-linecap="round"
-      stroke-dasharray="238.8" stroke-dashoffset="238.8" style="transition:stroke-dashoffset .5s"/></svg>
-    <div class="c"><b id="ringv">--</b><small>/ 100</small></div></div>
-   <div style="flex:1;min-width:0">
-    <div class="big" id="score">--</div>
-    <div class="state" id="state">Waiting for ESP32…</div>
-    <div class="bar">Eyes<i><u id="b-eye"></u></i><em id="v-eye">--</em></div>
-    <div class="bar">Driving<i><u id="b-drv"></u></i><em id="v-drv">--</em></div>
-    <div class="bar">PERCLOS<i><u id="b-per"></u></i><em id="v-per">--</em></div>
-   </div>
-  </div>
-  <div class="lcd" id="lcdrow" style="display:none"><pre id="lcd"></pre><span id="lcdlabel">LCD on the Pi 5</span></div>
+  <div class="row"><span class="i" data-i="eye"></span><span class="l">Eyes</span><span class="v" id="h-eyes">--</span></div>
+  <div class="row"><span class="i" data-i="crosshair"></span><span class="l">Head Pose</span><span class="v" id="h-pose">--</span></div>
+  <div class="row"><span class="i" data-i="activity"></span><span class="l">Blink Rate</span><span class="v" id="h-blink">--</span></div>
+  <div class="row"><span class="i" data-i="wheel"></span><span class="l">PERCLOS</span><span class="v" id="h-perclos">--</span></div>
  </div>
 
- <div class="sec">Driver camera</div>
- <div class="card">
-  <div class="feed"><img src="/stream.mjpg" alt="Live driver camera"><div class="msg" id="feedmsg" style="display:none"></div></div>
-  <div class="chips">
-   <span class="chip" id="c-eyes">Eyes --</span>
-   <span class="chip">PERCLOS <b id="c-per">--</b></span>
-   <span class="chip">Eye score <b id="c-score">--</b></span>
-   <span class="chip" id="c-fps">-- fps</span>
-  </div>
-  <div class="toggle">Send eye score to ESP32 <span id="c-sent"></span>
-   <label class="sw"><input type="checkbox" id="send" checked><span></span></label></div>
- </div>
-
- <div class="sec">Road attention &amp; gaze</div>
- <div class="card" id="attcard">
-  <div class="att"><div class="big2 unk" id="att">--</div><div class="note" style="margin:0" id="attsub"></div></div>
-  <div style="margin-top:8px">
-   <div class="row2"><span>Off-road glances &gt; 2 s</span><b id="glances">0</b></div>
-   <div class="row2"><span>Gaze target</span><b id="gaze">--</b></div>
-   <div class="row2"><span>Yawn</span><span class="tag3" id="y-yawn">STAGE 3 · PFLD</span></div>
-  </div>
- </div>
-
- <div class="sec">Head position</div>
- <div class="card" id="headcard">
-  <div class="ang">Yaw<i><u id="g-yaw"></u></i><em id="v-yaw">--</em></div>
-  <div class="ang">Pitch<i><u id="g-pitch"></u></i><em id="v-pitch">--</em></div>
-  <div class="ang">Roll<i><u id="g-roll"></u></i><em id="v-roll">--</em></div>
-  <div class="toggle" style="margin-top:6px"><span id="calnote">--</span>
-   <button style="padding:7px 12px" onclick="fetch('/calibrate',{method:'POST'})">Calibrate</button></div>
- </div>
-
- <div class="sec">Eye &amp; mouth</div>
- <div class="card">
-  <div class="row2"><span>Eye openness</span><b id="eo">--</b></div>
-  <div class="row2"><span>EAR (eye aspect ratio)</span><span class="tag3" id="y-ear">STAGE 3 · PFLD</span></div>
-  <div class="row2"><span>Blinking</span><span class="tag3" id="y-blink">STAGE 3 · PFLD</span></div>
-  <div class="row2"><span>PERCLOS (P80, 60 s)</span><span class="tag3" id="y-perclos">STAGE 3 · PFLD</span></div>
-  <div class="row2"><span>Mouth aperture</span><span class="tag3" id="y-mouth">STAGE 3 · PFLD</span></div>
- </div>
-
- <div class="sec">Active interventions</div>
- <div class="card" id="alarmcard" style="margin-bottom:8px">
-  <div class="toggle" style="margin:0"><span><b style="color:var(--ink)">Alarm on this device</b><br>
-   <span id="alarm-note">Off · switch on to beep here when fatigue is detected</span></span>
-   <label class="sw"><input type="checkbox" id="alarm"><span></span></label></div>
-  <div class="toggle" style="margin:8px 0 0"><span><b style="color:var(--ink)">Speak alerts</b><br>
-   <span>Voice on each level change, as on the car's speaker</span></span>
-   <label class="sw"><input type="checkbox" id="voice" checked><span></span></label></div>
-  <div class="btns" style="grid-template-columns:1fr 1fr;margin-top:10px">
-   <button onclick="testLocal();setTimeout(()=>speak('LEVEL1'),1100)">Test sound here</button><button onclick="beepEsp()">Beep ESP32 buzzer</button></div>
- </div>
- <div class="card iv" id="iv1"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1v-6h3zM3 19a2 2 0 002 2h1v-6H3z"/></svg></div>
-  <div class="t"><b>Audio alert</b><small id="p1sub">Piezo · 5 kHz · Level 1</small></div><span class="pill grey" id="p1">STANDBY</span></div>
- <div class="card iv" id="iv2"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></div>
-  <div class="t"><b>Seat vibration</b><small>4× ERM array · PWM · Level 2</small></div><span class="pill grey" id="p2">STANDBY</span></div>
- <div class="card iv dim"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0014 0M12 17v5"/></svg></div>
-  <div class="t"><b>Voice cmd confirm</b><small>"I'm awake" · Level 3</small></div><span class="pill grey">PLANNED</span></div>
-
- <div class="sec">Vehicle</div>
- <div class="card">
-  <div class="tiles">
-   <div class="tile"><small>RPM</small><b id="rpm">--</b></div>
-   <div class="tile"><small>km/h</small><b id="spd">--</b></div>
-   <div class="tile"><small>Throttle %</small><b id="thr">--</b></div>
-  </div>
-  <div class="note">OBD dongle: <b id="obd">--</b> · <span id="hz">--</span> Hz</div>
- </div>
-
- <div class="sec">Nearest rest stop</div>
- <div class="card rest">
-  <div class="map"><span class="tag">Level 4</span><svg class="pin" width="26" height="32" viewBox="0 0 24 30"><path fill="currentColor" d="M12 0C5.4 0 0 5.4 0 12c0 9 12 18 12 18s12-9 12-18C24 5.4 18.6 0 12 0zm0 16.5a4.5 4.5 0 110-9 4.5 4.5 0 010 9z"/></svg></div>
-  <div class="body"><div><b>Rest-stop routing</b><small>Planned · needs phone GPS</small></div>
-   <div class="dist"><b>-- mi</b><small>Level 4</small></div></div>
- </div>
+ <h2 style="visibility:hidden;margin:6px 0 0;height:4px"></h2>
+ <div class="cam"><img src="/stream.mjpg" alt="Live driver camera"><span class="lbl2"><span class="ldot" id="camdot"></span>Driver Camera (Live)</span>
+  <div class="msg" id="feedmsg" style="display:none"></div></div>
 </section>
 
 <!-- ============================== HISTORY ============================== -->
 <section class="tab" id="t-history">
- <div class="sec">Alert score · this session</div>
- <div class="card"><svg class="chart" id="ch-score" viewBox="0 0 400 120" preserveAspectRatio="none"></svg>
-  <div class="note">Dashed lines: 70 (Intervention 1 below) and 50 (Intervention 2 below)</div></div>
- <div class="sec">Eye score (camera)</div>
- <div class="card"><svg class="chart" id="ch-eye" viewBox="0 0 400 120" preserveAspectRatio="none"></svg></div>
- <div class="sec">Head yaw (° · + = driver's right)</div>
- <div class="card"><svg class="chart" id="ch-yaw" viewBox="0 0 400 120" preserveAspectRatio="none"></svg>
-  <div class="note">Centre line = road pose; dashed = ±30° off-road limit</div></div>
- <div class="sec">RPM</div>
- <div class="card"><svg class="chart" id="ch-rpm" viewBox="0 0 400 120" preserveAspectRatio="none"></svg></div>
+ <div class="seg"><button class="on" data-h="trip">Trip</button><button data-h="trends">Trends</button></div>
+ <div id="h-trip">
+  <h2>Alertness (This Drive)</h2>
+  <div class="card chartwrap"><svg class="chart" id="ch-score" viewBox="0 0 320 150"></svg>
+   <div class="note">Dashed: 70 (Intervention 1 below) and 50 (Intervention 2 below)</div></div>
+  <h2>Trip History <a id="seeall">See All <span data-i="chev" data-s="14"></span></a></h2>
+  <div class="card" id="trips"><div class="trip"><span class="t"><small>Loading…</small></span></div></div>
+ </div>
+ <div id="h-trends" style="display:none">
+  <h2>Across Trips</h2>
+  <div class="card" id="trendsum"></div>
+  <h2>Eye Score (Camera)</h2>
+  <div class="card chartwrap"><svg class="chart" id="ch-eye" viewBox="0 0 320 150"></svg></div>
+  <h2>Head Yaw (° · + = Driver's Right)</h2>
+  <div class="card chartwrap"><svg class="chart" id="ch-yaw" viewBox="0 0 320 150"></svg>
+   <div class="note">Centre = road pose; dashed = ±30° off-road limit</div></div>
+  <h2>RPM</h2>
+  <div class="card chartwrap"><svg class="chart" id="ch-rpm" viewBox="0 0 320 150"></svg></div>
+ </div>
 </section>
 
 <!-- ============================== DEVICES ============================== -->
 <section class="tab" id="t-devices">
- <div class="sec">Performance · this rig</div>
- <div class="card kv" id="perfcard">
-  <span>Rig</span><b id="r-name">--</b>
-  <span>Face pipeline</span><b id="r-backend">--</b>
-  <span>Frame rate</span><b id="r-fps">--</b>
-  <span>Inference</span><b id="r-inf">--</b>
-  <span>CPU (all cores)</span><b id="r-cpu">--</b>
-  <span>SoC temperature</span><b id="r-temp">--</b>
-  <span>Memory used</span><b id="r-mem">--</b>
-  <span>Light</span><b id="r-night">--</b>
+ <h2>System Devices</h2>
+ <div class="card">
+  <div class="dev"><span class="i" data-i="chip" data-s="24"></span><span class="t"><b>ESP32 (Controller)</b><small id="d-esp">--</small></span><span class="badge na" id="b-esp">--</span><span class="chev" data-i="chev"></span></div>
+  <div class="detail"><div class="kv"><span>Link</span><b id="d-link">--</b><span>Eye scores sent</span><b id="d-sent">--</b></div>
+   <div class="row" style="padding:6px 0 0;border:0;min-height:0"><span class="l" style="font-weight:500">Send eye score to ESP32 <span id="c-sent"></span></span>
+    <label class="sw"><input type="checkbox" id="send" checked><span></span></label></div>
+   <div class="btns" style="grid-template-columns:1fr;margin-top:8px"><button class="b" onclick="beepEsp()">Beep ESP32 buzzer</button></div>
+   <div style="margin-top:8px">ESP32 log</div><div class="log" id="log">(nothing yet)</div></div>
+  <div class="dev"><span class="i" data-i="pi" data-s="24"></span><span class="t"><b id="d-piname">Raspberry Pi</b><small id="d-pi">--</small></span><span class="badge on">Online</span><span class="chev" data-i="chev"></span></div>
+  <div class="detail"><div class="kv">
+   <span>Face pipeline</span><b id="r-backend">--</b><span>Inference</span><b id="r-inf">--</b><span>CPU (all cores)</span><b id="r-cpu">--</b>
+   <span>SoC temperature</span><b id="r-temp">--</b><span>Memory used</span><b id="r-mem">--</b><span>Light</span><b id="r-night">--</b></div>
+   <div style="margin-top:8px">Driver signals on this rig · <a href="/compare" style="color:var(--maroon)">compare rigs</a></div>
+   <div class="sigs" id="sigcard"></div></div>
+  <div class="dev"><span class="i" data-i="camera" data-s="24"></span><span class="t"><b>Driver Camera</b><small id="d-cam">--</small></span><span class="badge na" id="b-cam">--</span><span class="chev" data-i="chev"></span></div>
+  <div class="detail" id="d-camx">--</div>
+  <div class="dev"><span class="i" data-i="monitor" data-s="24"></span><span class="t"><b>LCD Display</b><small>240 × 280 · 1.69" · Whisplay HAT</small></span><span class="badge na" id="b-lcd">--</span><span class="chev" data-i="chev"></span></div>
+  <div class="detail" id="d-lcdx">--</div>
+  <div class="dev"><span class="i" data-i="car" data-s="24"></span><span class="t"><b>Vehicle (OBD/CAN)</b><small id="d-obd">--</small></span><span class="badge na" id="b-obd">--</span><span class="chev" data-i="chev"></span></div>
+  <div class="detail">The ESP32 reads the OBD-II dongle over Bluetooth and sends RPM, speed and throttle.</div>
  </div>
- <div class="sec">Driver signals · this rig</div>
- <div class="card" id="sigcard"></div>
- <div class="note" style="margin:6px 4px">Compare two rigs side by side: <a href="/compare" style="color:var(--maroon)">/compare</a></div>
- <div class="sec">Devices</div>
- <div class="card kv">
-  <span>ESP32 link</span><b id="d-link">--</b>
-  <span>Firmware</span><b id="d-fw">--</b>
-  <span>OBD dongle</span><b id="d-obd">--</b>
-  <span>Camera</span><b id="d-cam">--</b>
-  <span>Driver screen</span><b id="d-lcd">--</b>
-  <span>Eye scores sent</span><b id="d-sent">--</b>
- </div>
- <div class="btns" style="grid-template-columns:1fr;margin-top:10px"><button onclick="beepEsp()">Beep ESP32 buzzer (BEEP, firmware v15+)</button></div>
- <div class="sec">ESP32 log</div>
- <div class="card"><div class="log" id="log">(nothing yet)</div></div>
+ <div class="tiles"><div class="tile"><small>RPM</small><b id="rpm">--</b></div><div class="tile"><small>Speed</small><b id="spd">--</b></div>
+  <div class="tile"><small>Throttle</small><b id="thr">--</b></div></div>
 </section>
 
-<!-- ============================== TRAINING ============================== -->
-<section class="tab" id="t-train">
- <div class="sec">Eye-model training capture</div>
+<!-- ============================== SETTINGS ============================== -->
+<section class="tab" id="t-settings">
+ <div class="card" style="margin-top:2px">
+  <div class="set" data-go="s-profile"><span class="i" data-i="user" data-s="22"></span><span class="t"><b>Driver Profile</b><small>Default</small></span><span class="chev" data-i="chev"></span></div>
+  <div class="set" data-go="s-calib"><span class="i" data-i="crosshair" data-s="22"></span><span class="t"><b>Calibration</b><small>Head position &amp; road pose</small></span><span class="chev" data-i="chev"></span></div>
+  <div class="set" data-go="s-alerts"><span class="i" data-i="bell" data-s="22"></span><span class="t"><b>Alerts &amp; Interventions</b><small>Audio · Vibration · Voice</small></span><span class="chev" data-i="chev"></span></div>
+  <div class="set" data-go="s-wifi"><span class="i" data-i="wifi" data-s="22"></span><span class="t"><b>Wi-Fi</b><small id="s-wifisub">--</small></span><span class="chev" data-i="chev"></span></div>
+  <div class="set" data-go="s-display"><span class="i" data-i="sliders" data-s="22"></span><span class="t"><b>Display</b><small>Brightness · Theme</small></span><span class="chev" data-i="chev"></span></div>
+  <div class="set" data-go="s-train"><span class="i" data-i="camera" data-s="22"></span><span class="t"><b>Training Capture</b><small>Eye-model frames</small></span><span class="chev" data-i="chev"></span></div>
+  <div class="set" style="cursor:default"><span class="i" data-i="code" data-s="22"></span><span class="t"><b>Developer Mode</b><small>Face analysis · Logs · System control</small></span>
+   <label class="sw"><input type="checkbox" id="devsw"><span></span></label></div>
+ </div>
+</section>
+
+<section class="tab" id="t-s-profile">
+ <div class="back" data-go="settings"><span data-i="chevl" data-s="16"></span>Settings</div>
+ <h2>Driver Profile</h2>
  <div class="card">
+  <div class="row"><span class="i" data-i="user"></span><span class="l">Driver</span><span class="v">Default</span></div>
+  <div class="row"><span class="i" data-i="bell"></span><span class="l">Intervention 1</span><span class="v">below 70</span></div>
+  <div class="row"><span class="i" data-i="bell"></span><span class="l">Intervention 2</span><span class="v">below 50</span></div>
+ </div>
+ <div class="note" style="margin:8px 4px">Profiles come later. The thresholds are set in the ESP32 firmware (alertness.h), so the car, this page and the LCD always agree.</div>
+</section>
+
+<section class="tab" id="t-s-calib">
+ <div class="back" data-go="settings"><span data-i="chevl" data-s="16"></span>Settings</div>
+ <h2>Calibration</h2>
+ <div class="card pad">
+  <div style="font-weight:600" id="cal-state">--</div>
+  <div class="bar2"><u id="cal-bar"></u></div>
+  <div class="note">Look at the road with your eyes open and keep a neutral posture. Head yaw and pitch are measured from this pose.</div>
+  <div class="btns" style="grid-template-columns:1fr;margin-top:12px"><button class="b fill" onclick="fetch('/calibrate',{method:'POST'})">Calibrate now</button></div>
+ </div>
+</section>
+
+<section class="tab" id="t-s-alerts">
+ <div class="back" data-go="settings"><span data-i="chevl" data-s="16"></span>Settings</div>
+ <h2>Alerts &amp; Interventions</h2>
+ <div class="card">
+  <div class="row"><span class="i" data-i="speaker"></span><span class="l">Audio alert<br><small style="color:var(--muted);font-weight:400" id="p1sub">Buzzer · 1 s on / 1 s off</small></span><span class="pill" id="p1">STANDBY</span></div>
+  <div class="row"><span class="i" data-i="vibrate"></span><span class="l">Seat vibration<br><small style="color:var(--muted);font-weight:400">4 motors · Intervention 2</small></span><span class="pill" id="p2">STANDBY</span></div>
+  <div class="row"><span class="i" data-i="mic"></span><span class="l">Spoken warning<br><small style="color:var(--muted);font-weight:400">Whisplay speaker · each level change</small></span><span class="pill" id="p3">STANDBY</span></div>
+ </div>
+ <div class="note" style="margin:8px 4px">The buzzer and motors are controlled by the ESP32 and can't be switched off here.</div>
+ <h2>On This Phone</h2>
+ <div class="card" id="alarmcard">
+  <div class="row"><span class="l">Alarm on this device<br><small style="color:var(--muted);font-weight:400" id="alarm-note">Off</small></span>
+   <label class="sw"><input type="checkbox" id="alarm"><span></span></label></div>
+  <div class="row"><span class="l">Speak alerts<br><small style="color:var(--muted);font-weight:400">Voice on each level change</small></span>
+   <label class="sw"><input type="checkbox" id="voice" checked><span></span></label></div>
+  <div class="pad"><div class="btns" style="grid-template-columns:1fr 1fr"><button class="b" onclick="testLocal();setTimeout(()=>speak('LEVEL1'),1100)">Test sound here</button>
+   <button class="b" onclick="beepEsp()">Beep ESP32 buzzer</button></div></div>
+ </div>
+</section>
+
+<section class="tab" id="t-s-wifi">
+ <div class="back" data-go="settings"><span data-i="chevl" data-s="16"></span>Settings</div>
+ <h2>Wi-Fi</h2>
+ <div class="card"><div class="row"><span class="i" data-i="wifi"></span><span class="l">Network</span><span class="v" id="s-wifi">--</span></div></div>
+ <div class="note" style="margin:8px 4px">The network the Pi running DRIFTS is on. Change it on the Pi (raspi-config).</div>
+</section>
+
+<section class="tab" id="t-s-display">
+ <div class="back" data-go="settings"><span data-i="chevl" data-s="16"></span>Settings</div>
+ <h2>Display</h2>
+ <div class="card">
+  <div class="row"><span class="i" data-i="sliders"></span><span class="l">Theme</span><span class="v">Light (dark in Developer Mode)</span></div>
+  <div class="row"><span class="i" data-i="monitor"></span><span class="l">LCD brightness</span><span class="v">config.toml [whisplay]</span></div>
+ </div>
+</section>
+
+<section class="tab" id="t-s-train">
+ <div class="back" data-go="settings"><span data-i="chevl" data-s="16"></span>Settings</div>
+ <h2>Training Capture</h2>
+ <div class="card pad">
   <div class="note" style="margin:0 0 10px">Hold the state, then save. Keys: <b>O</b> open · <b>C</b> closed · <b>D</b> drowsy.</div>
-  <div class="btns"><button onclick="cap('open')">Open</button><button onclick="cap('closed')">Closed</button><button onclick="cap('drowsy')">Drowsy</button></div>
-  <div class="btns" style="margin-top:8px"><button class="fill" onclick="cap('open',10)">Open ×10</button><button class="fill" onclick="cap('closed',10)">Closed ×10</button><button class="fill" onclick="cap('drowsy',10)">Drowsy ×10</button></div>
-  <div class="tiles" style="margin-top:12px">
-   <div class="tile"><small>Open</small><b id="n-open">0</b></div>
-   <div class="tile"><small>Closed</small><b id="n-closed">0</b></div>
-   <div class="tile"><small>Drowsy</small><b id="n-drowsy">0</b></div>
-  </div>
+  <div class="btns"><button class="b" onclick="cap('open')">Open</button><button class="b" onclick="cap('closed')">Closed</button><button class="b" onclick="cap('drowsy')">Drowsy</button></div>
+  <div class="btns" style="margin-top:8px"><button class="b fill" onclick="cap('open',10)">Open ×10</button><button class="b fill" onclick="cap('closed',10)">Closed ×10</button><button class="b fill" onclick="cap('drowsy',10)">Drowsy ×10</button></div>
+  <div class="btns" style="margin-top:12px"><div class="ntile"><small>Open</small><b id="n-open">0</b></div><div class="ntile"><small>Closed</small><b id="n-closed">0</b></div><div class="ntile"><small>Drowsy</small><b id="n-drowsy">0</b></div></div>
   <div class="note" id="capdir"></div>
  </div>
 </section>
@@ -418,10 +457,10 @@ body.dev .bbar{display:block}
 
 
 <nav>
- <a class="on" data-t="home"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>Home</a>
- <a data-t="history"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>History</a>
- <a data-t="devices"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 010 8.4M7.8 16.2a6 6 0 010-8.4M19 5a10 10 0 010 14M5 19A10 10 0 015 5"/></svg>Devices</a>
- <a data-t="train"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>Training</a>
+ <a class="on" data-t="home"><span data-i="home" data-s="22"></span>Home</a>
+ <a data-t="history"><span data-i="activity" data-s="22"></span>History</a>
+ <a data-t="devices"><span data-i="radio" data-s="22"></span>Devices</a>
+ <a data-t="settings"><span data-i="gear" data-s="22"></span>Settings</a>
 </nav>
 </div>
 
@@ -429,6 +468,36 @@ body.dev .bbar{display:block}
 const $=id=>document.getElementById(id);
 const fx=(v,d=0)=>v==null||isNaN(v)?"--":Number(v).toFixed(d);
 const clamp=v=>Math.max(0,Math.min(100,v));
+// ---- line icons (24 px grid, 2 px stroke) ----
+const IC={
+ home:'<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+ activity:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+ radio:'<circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2"/>',
+ gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+ car:'<path d="M5 17h14v-5l-2-5H7l-2 5z"/><path d="M3 12h18"/><circle cx="7.5" cy="17" r="1.6"/><circle cx="16.5" cy="17" r="1.6"/>',
+ eye:'<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+ crosshair:'<circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
+ wheel:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 14.5V21M9.6 11.2 3.4 9.6M14.4 11.2l6.2-1.6"/>',
+ chip:'<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
+ pi:'<circle cx="8.5" cy="10" r="2.3"/><circle cx="15.5" cy="10" r="2.3"/><circle cx="12" cy="14.2" r="2.3"/><circle cx="8" cy="17.6" r="2"/><circle cx="16" cy="17.6" r="2"/><path d="M9 4.5c1.2.4 2.2 1.3 3 2.6.8-1.3 1.8-2.2 3-2.6"/>',
+ camera:'<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/>',
+ monitor:'<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/>',
+ user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+ bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21a2 2 0 0 0 4 0"/>',
+ wifi:'<path d="M2 8.8a15 15 0 0 1 20 0M5 12.6a10 10 0 0 1 14 0M8.5 16.4a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/>',
+ sliders:'<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+ code:'<path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/>',
+ chev:'<path d="m9 6 6 6-6 6"/>', chevl:'<path d="m15 6-6 6 6 6"/>',
+ cal:'<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4M7.5 14h3M13.5 14h3M7.5 17h3"/>',
+ speaker:'<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
+ vibrate:'<rect x="8" y="3" width="8" height="18" rx="2"/><path d="M4 8v8M20 8v8M2 10v4M22 10v4"/>',
+ mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+ check:'<circle cx="12" cy="12" r="10" fill="currentColor" stroke="none"/><path d="m7.5 12.3 3 3 6-6.3" stroke="#fff" stroke-width="2.4"/>',
+ warning:'<path d="M12 3 2 20.5h20z" fill="currentColor" stroke="none"/><path d="M12 9.5v5" stroke="#fff" stroke-width="2.4"/><circle cx="12" cy="17.4" r="1.3" fill="#fff" stroke="none"/>',
+ alert:'<circle cx="12" cy="12" r="10" fill="currentColor" stroke="none"/><path d="M12 7v6.5" stroke="#fff" stroke-width="2.4"/><circle cx="12" cy="16.8" r="1.3" fill="#fff" stroke="none"/>',
+ dash:'<circle cx="12" cy="12" r="9.5"/><path d="M7.5 12h9"/>'};
+function svg(name,size){return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC[name]||""}</svg>`}
+document.querySelectorAll("[data-i]").forEach(el=>el.innerHTML=svg(el.dataset.i,+(el.dataset.s||18)));
 // ---- Alarm on this device (simulation without ESP32, or a second alert) ----
 // Browsers only allow sound after a tap, so the switch must be turned on by
 // hand. Pattern matches the ESP32 buzzer: 1 s beep, 1 s pause, repeating while
@@ -457,119 +526,136 @@ function voiceUpdate(lvl){if(!alarmOn||!$("voice").checked){spokenLvl=lvl;return
   else if(lvl==="CAUTION"&&spokenLvl==="OK")speak("LEVEL1");else if(lvl==="OK")speak("RECOVERED");spokenLvl=lvl}
  else if(lvl==="LOW"&&now-lastL2>=60000){speak("LEVEL2");lastL2=now}}
 function alarmNote(){$("alarm-note").textContent=!alarmOn?"Off · switch on to beep here when fatigue is detected":
- fatigued?"ALARM · fatigue detected":"Armed · beeps 1 s on / 1 s off"+($("voice").checked?" and speaks":"")+" when fatigue is detected";
- $("alarmcard").style.borderColor=alarmOn&&fatigued?"var(--maroon)":""}
+ fatigued?"ALARM · fatigue detected":"Armed · beeps 1 s on / 1 s off"+($("voice").checked?" and speaks":"")+" when fatigue is detected"}
 $("alarm").onchange=e=>{alarmOn=e.target.checked;if(alarmOn)audio();alarmNote()};
 setInterval(()=>{if(!alarmOn||!fatigued){phase=false;return}phase=!phase;
  if(phase&&Date.now()>=speakingUntil){tone(1000);buzz(1000)}},1000);
-const STATE={OK:"Alert · drive safe",CAUTION:"Moderate fatigue detected",LOW:"Severe fatigue · pull over safely"};
-let hist={score:[],eye:[],rpm:[]};
-async function loadHistory(){try{hist=await (await fetch("/history.json",{cache:"no-store"})).json()}catch(e){}drawCharts()}
-function show(name){const a=document.querySelector(`nav a[data-t="${name}"]`);if(!a)return;
- document.querySelectorAll("nav a").forEach(x=>x.classList.toggle("on",x===a));
- document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.id==="t-"+name));
+// ---- navigation: 4 tabs, settings sub-pages ----
+let hist={score:[],eye:[],rpm:[],yaw:[],t:[]},trips=[],showAll=false,histMode="trip";
+async function loadHistory(){try{hist=await (await fetch("/history.json",{cache:"no-store"})).json()}catch(e){}
+ try{trips=await (await fetch("/trips.json",{cache:"no-store"})).json()}catch(e){}drawCharts();drawTrips()}
+function show(name){const tab=$("t-"+name);if(!tab)return;
+ const navName=name.startsWith("s-")?"settings":name;
+ document.querySelectorAll("nav a").forEach(x=>x.classList.toggle("on",x.dataset.t===navName));
+ document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t===tab));
  history.replaceState(null,"","#"+name);window.scrollTo(0,0);if(name==="history")loadHistory()}
 document.querySelectorAll("nav a").forEach(a=>a.onclick=()=>show(a.dataset.t));
-if(location.hash)show(location.hash.slice(1));
+document.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>show(el.dataset.go));
+document.querySelectorAll(".dev").forEach(el=>el.onclick=()=>el.classList.toggle("open"));
+document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{histMode=b.dataset.h;
+ document.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x===b));
+ $("h-trip").style.display=histMode==="trip"?"":"none";$("h-trends").style.display=histMode==="trends"?"":"none";drawCharts()});
+$("seeall").onclick=()=>{showAll=!showAll;$("seeall").firstChild.textContent=showAll?"Show Less ":"See All ";drawTrips()};
+$("devsw").onchange=()=>{if($("devsw").checked){toggleDev()}};
+if(location.hash&&location.hash!=="#dev")show(location.hash.slice(1));
 async function cap(label,n=1){await fetch(`/capture?label=${label}&n=${n}`,{method:"POST"})}
 $("send").onchange=e=>fetch(`/eye_send?on=${e.target.checked?1:0}`,{method:"POST"});
 document.addEventListener("keydown",e=>{const k=e.key.toLowerCase();
  if(k==="o")cap("open");if(k==="c")cap("closed");if(k==="d")cap("drowsy")});
-function bar(id,v){$("b-"+id).style.width=(v==null?0:clamp(v))+"%";$("v-"+id).textContent=fx(v)}
-// ACTIVE = the ESP32 is driving this output now; LEVEL n = the score has reached
-// that intervention level; STANDBY = not reached.
-function pill(el,on,lvlReached,n){el.className="pill"+(on?" on":lvlReached?"":" grey");el.textContent=on?"ACTIVE":lvlReached?"LEVEL "+n:"STANDBY"}
-function chart(id,data,max,bands){const svg=$(id);if(!svg)return;data=(data||[]).filter(v=>v!=null);const W=400,H=120,n=data.length;
- let s=(bands||[]).map(b=>`<line x1="0" x2="${W}" y1="${H-b/max*H}" y2="${H-b/max*H}" stroke="#d9c3c6" stroke-dasharray="4 4"/>`).join("");
- if(n>1){const pts=data.map((v,i)=>`${(i/(n-1)*W).toFixed(1)},${(H-clamp(v/max*100)/100*H).toFixed(1)}`).join(" ");
-  s+=`<polyline points="0,${H} ${pts} ${W},${H}" fill="rgba(125,29,44,.08)" stroke="none"/>`+
-     `<polyline points="${pts}" fill="none" stroke="#7d1d2c" stroke-width="2" vector-effect="non-scaling-stroke"/>`}
- else s+=`<text x="200" y="64" text-anchor="middle" fill="#9a8a8d" font-size="13">collecting…</text>`;svg.innerHTML=s}
-function drawCharts(){chart("ch-score",hist.score,100,[70,50]);chart("ch-eye",hist.eye,100,[]);
- chart("ch-rpm",hist.rpm,Math.max(1000,...hist.rpm.map(v=>v||0))*1.1,[]);
- chart("ch-yaw",(hist.yaw||[]).map(v=>v==null?null:v+60),120,[30,60,90])}
-const skipNull=a=>a.filter(v=>v!=null);
+// ACTIVE = the output is running now; LEVEL n = the score has reached that level; STANDBY = not reached.
+function pill(el,on,lvlReached,n){el.className="pill"+(on?" on":lvlReached?" lvl":"");el.textContent=on?"ACTIVE":lvlReached?"LEVEL "+n:"STANDBY"}
+// ---- charts: y axis labels, dashed thresholds, time axis ----
+function chart(id,data,opt){const svgEl=$(id);if(!svgEl)return;const W=320,H=150,L=30,R=6,T=8,B=20;
+ const lo=opt.lo,hi=opt.hi,y=v=>T+(1-(v-lo)/(hi-lo))*(H-T-B);
+ let s="";
+ for(const g of opt.ticks){s+=`<text x="${L-6}" y="${y(g)+4}" text-anchor="end" fill="#66666B" font-size="10">${g}</text>`;
+  s+=`<line x1="${L}" x2="${W-R}" y1="${y(g)}" y2="${y(g)}" stroke="${(opt.dash||[]).includes(g)?"#E3B8C1":"#F1E7EA"}" ${(opt.dash||[]).includes(g)?'stroke-dasharray="4 4"':""}/>`}
+ const pts=(data||[]).map((v,i)=>[i,v]).filter(p=>p[1]!=null);const n=(data||[]).length;
+ const span=Math.max(1,n-1);           // 1 sample a second
+ const lab=sec=>span<180?`${Math.round(sec)}s`:`${Math.round(sec/60)}m`;
+ for(let k=0;k<=3;k++){const x=L+k/3*(W-L-R);s+=`<text x="${x}" y="${H-5}" text-anchor="${k===0?"start":k===3?"end":"middle"}" fill="#66666B" font-size="10">${lab(k/3*span)}</text>`}
+ if(pts.length>1){const xy=pts.map(([i,v])=>`${(L+i/(n-1)*(W-L-R)).toFixed(1)},${y(Math.max(lo,Math.min(hi,v))).toFixed(1)}`).join(" ");
+  s+=`<polyline points="${xy}" fill="none" stroke="#86172C" stroke-width="2" stroke-linejoin="round"/>`}
+ else s+=`<text x="${(W+L)/2}" y="${H/2}" text-anchor="middle" fill="#66666B" font-size="12">collecting…</text>`;
+ svgEl.innerHTML=s}
+function drawCharts(){chart("ch-score",hist.score,{lo:20,hi:100,ticks:[100,70,50,30],dash:[70,50]});
+ if(histMode!=="trends")return;
+ chart("ch-eye",hist.eye,{lo:0,hi:100,ticks:[100,70,50,30,0]});
+ const rmax=Math.max(1000,...(hist.rpm||[]).map(v=>v||0));const rt=Math.ceil(rmax/1000)*1000;
+ chart("ch-rpm",hist.rpm,{lo:0,hi:rt,ticks:[rt,Math.round(rt/2),0]});
+ chart("ch-yaw",hist.yaw,{lo:-60,hi:60,ticks:[60,30,0,-30,-60],dash:[30,-30]});
+ const real=trips.filter(t=>!t.demo),use=real.length?real:trips;
+ const avg=use.length?use.reduce((a,t)=>a+t.avg_score,0)/use.length:null;
+ $("trendsum").innerHTML=`<div class="row"><span class="i">${svg("cal",18)}</span><span class="l">Trips recorded</span><span class="v">${use.length}</span></div>
+  <div class="row"><span class="i">${svg("activity",18)}</span><span class="l">Average alertness</span><span class="v">${fx(avg)}</span></div>
+  <div class="row"><span class="i">${svg("bell",18)}</span><span class="l">Alerts per trip</span><span class="v">${use.length?fx(use.reduce((a,t)=>a+t.alerts,0)/use.length,1):"--"}</span></div>`}
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const dur=s=>{const m=Math.floor((s||0)/60);return `${Math.floor(m/60)}h ${String(m%60).padStart(2,"0")}m`};
+let started=null;
+function drawTrips(){const list=trips.slice(0,showAll?50:3);
+ if(!list.length){$("trips").innerHTML=`<div class="trip"><span class="i">${svg("cal",20)}</span><span class="t"><b>No trips yet</b><small>A drive is listed after its first minute</small></span></div>`;return}
+ $("trips").innerHTML=list.map(t=>{const d=new Date(t.start*1000);const cur=started&&Math.abs(t.start-started)<2;
+  return `<div class="trip" onclick="this.classList.toggle('open')"><span class="i">${svg("cal",20)}</span>
+  <span class="t"><b>${MON[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}${cur?'<span class="live">NOW</span>':""}${t.demo?'<span class="live" style="background:#8E8E96">DEMO</span>':""}</b>
+  <small>Avg ${fx(t.avg_score)} · ${t.alerts} alert${t.alerts===1?"":"s"}</small></span><span class="d">${dur(t.duration_s)}</span><span class="chev">${svg("chev",18)}</span></div>
+  <div class="x">Started ${d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})} · lowest score ${fx(t.min_score)}</div>`}).join("")}
+// ---- live update ----
+const EYES={open:"Open",closed:"Closed",no_face:"No face"};
+const BADGE=(el,state,txt)=>{el.className="badge "+(state===true?"on":state===false?"off":"na");el.textContent=txt||(state===true?"Online":state===false?"Offline":"Unknown")};
+const BAND_INK={normal:"var(--green-ink)",caution:"var(--yellow-ink)",high:"var(--red-ink)",unavailable:"var(--grey)"};
 let last=0;
 async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-store"})).json()}
- catch(e){$("linktxt").textContent="dashboard offline";$("dot").className="dot off";return}
- feedProblem(s);
- const p=s.esp,e=s.eye,live=p.updated&&(s.time-p.updated)<5;
- $("dot").className="dot"+(live?"":" off");$("linktxt").textContent="ESP32 · "+p.link;
+ catch(e){$("linktxt").textContent="Dashboard offline";$("dot").className="ldot off";return}
+ feedProblem(s);started=s.started;
+ const p=s.esp,e=s.eye,live=p.updated&&(s.time-p.updated)<5,ui=s.ui||{};
+ $("dot").className="ldot"+(live?"":" off");$("linktxt").textContent=live?(p.link==="simulated"?"Connected (simulated)":"Connected"):"ESP32 not connected";
+ $("demotag").style.display=ui.demo?"":"none";
  $("fw").textContent="fw "+(p.fw||"--");
- const dm=Math.floor((s.time-s.started)/60);$("drive").textContent=`${Math.floor(dm/60)}h ${String(dm%60).padStart(2,"0")}m`;
- // score card
- const sc=p.score;$("score").textContent=fx(sc);$("ringv").textContent=fx(sc);
- $("arc").style.strokeDashoffset=238.8*(1-(sc==null?0:clamp(sc)/100));
- const out=s.outputs;
- $("state").textContent=p.lvl?(STATE[p.lvl]||p.lvl)+(p.part?" · driving data only":"")+(out&&out.no_driving?" · eye only (no ESP32 data)":""):
-  (out?"Waiting for camera…":"Waiting for ESP32…");
- const espEye=p.eye!=null?p.eye:e.last_sent;bar("eye",espEye);
- bar("drv",sc!=null&&espEye!=null?clamp((sc-0.7*espEye)/0.3):null);
- bar("per",e.perclos==null?null:e.perclos*100);
- if(p.lcd1!=null){$("lcdrow").style.display="";$("lcd").textContent=p.lcd1+"\n"+p.lcd2}else $("lcdrow").style.display="none";
- // camera
- const names={open:"Eyes open",closed:"Eyes closed",no_face:"No face"};
- $("c-eyes").textContent=names[e.state]+(e.state==="closed"&&e.closed_for>=1?` ${e.closed_for.toFixed(1)}s`:"");
- $("c-eyes").className="chip st-"+e.state;$("c-per").textContent=e.perclos==null?"--":Math.round(e.perclos*100)+"%";
- $("c-score").textContent=e.warming?"…":fx(e.score);$("c-fps").textContent=fx(e.fps,1)+" fps";
- $("c-sent").textContent=`(${s.eyes_sent} sent)`;$("send").checked=s.eye_sending;
+ $("drive").textContent=dur(s.time-s.started);
+ // score card: colour and words from drifts/ui_model.py (the same as the LCD)
+ const sc=live?p.score:null;$("ringv").textContent=fx(sc);
+ $("arc").style.strokeDashoffset=314.16*(1-(sc==null?0:clamp(sc)/100));
+ $("arc").style.stroke=ui.color||"#8E8E96";
+ const titleCase=t=>t?t.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()):"";
+ $("sttitle").textContent=titleCase(ui.title)||"No Score";$("stsub").textContent=ui.subtitle||"Waiting for the ESP32";
+ $("sticon").innerHTML=svg(ui.icon||"dash",20);$("sticon").style.color=BAND_INK[ui.band]||"var(--grey)";$("sticon").style.display="flex";
+ $("stnote").textContent=(p.part?"Driving data only (no eye data)":"")+(s.outputs&&s.outputs.no_driving?"Eye only (no ESP32 data)":"");
+ // current status
+ const fc=s.face,ps=s.pose||{};
+ const open=fc&&fc.found&&fc.openness!=null?` (${Math.round(Math.max(0,Math.min(1,fc.openness))*100)}%)`:"";
+ const eyesTxt=fc?(fc.found?(fc.eye_state==="closed"?"Closed":"Open")+open:"No face"):(s.eye_tracker?EYES[e.state]||"--":"--");
+ $("h-eyes").textContent=eyesTxt;$("h-eyes").className="v"+(eyesTxt.startsWith("Closed")?" bad":"");
+ $("h-pose").textContent=ui.pose||(ps.enabled&&!ps.found?"No face":"--");
+ $("h-blink").textContent=fc&&fc.blink_rate!=null?`${fx(fc.blink_rate)} / min`:"--";
+ const per=fc&&fc.perclos!=null?fc.perclos:e.perclos;$("h-perclos").textContent=per==null?"--":fx(per*100,1)+"%";
+ $("camdot").className="ldot"+(s.error||s.camera_note?" off":"");
  fatigued=!!live&&(p.lvl==="CAUTION"||p.lvl==="LOW"||!!p.alert);alarmNote();
  if(live)voiceUpdate(p.alert?"LOW":(p.lvl||"OK"));
- // interventions: ACTIVE only while the ESP32 is actually firing the outputs
- const lvl=p.lvl;
- // Tokyo drives its own outputs: Level 1 = buzzer, Level 2 = buzzer + motors.
- if(out){pill($("p1"),out.level>=1,false,1);pill($("p2"),out.level>=2,false,2);
-  $("lcdlabel").textContent="LCD on the Pi 5";$("p1sub").textContent="Buzzer · 1 s on / 1 s off · Level 1"}
- else{pill($("p1"),!!p.alert,lvl==="CAUTION"||lvl==="LOW",1);pill($("p2"),!!p.alert,lvl==="LOW",2)}
- // driver state: head pose + road attention (stage 2), eye/mouth (stage 3)
- const ps=s.pose||{};
- const ATT={on_road:["ON ROAD","on"],off_road:["OFF ROAD","off"],unknown:["NO HEAD POSE","unk"]};
- if(!ps.enabled){$("att").textContent="Head pose off";$("att").className="big2 unk";
-  $("attsub").textContent="Start with --pose imx500 (AI Camera) or --pose sim";$("gaze").textContent="--"}
- else{const a=ATT[ps.attention]||ATT.unknown;$("att").textContent=a[0]+(ps.attention==="off_road"?` ${ps.off_for.toFixed(1)}s`:"");
-  $("att").className="big2 "+a[1];
-  $("attsub").textContent=ps.distracted?"Eyes off road over 2 s":ps.attention==="unknown"?"Driver not detected":
-   (s.face?"Iris gaze + head pose":ps.inference_ms!=null?`AI Camera · ${fx(ps.inference_ms,1)} ms inference`:"Head direction");
-  $("gaze").textContent=!ps.found?"--":ps.profile?"Turned away":ps.gaze_off?"Eyes off road (iris)":ps.attention==="on_road"?"Road":
-   Math.abs(ps.yaw)>=Math.abs(ps.pitch)?(ps.yaw>0?"Right of road":"Left of road"):(ps.pitch>0?"Down (lap / console)":"Up")}
- $("glances").textContent=ps.glances||0;
- const ang=(k,v)=>{const g=$("g-"+k);if(v==null){g.style.width="0";$("v-"+k).textContent="--";return}
-  const c=Math.max(-45,Math.min(45,v)),w=Math.abs(c)/90*100;g.style.width=w+"%";g.style.left=(c<0?50-w:50)+"%";
-  $("v-"+k).textContent=(v>0?"+":"")+v.toFixed(0)+"°"};
- ang("yaw",ps.profile?null:ps.yaw);ang("pitch",ps.profile?null:ps.pitch);ang("roll",ps.profile?null:ps.roll);
- $("calnote").textContent=!ps.enabled?"":ps.calibrated?"Calibrated to road pose":
-  `Calibrating ${Math.round((ps.calib_progress||0)*100)}% · look at the road`;
- const fc=s.face;
- const val=(id,txt)=>{const el=$(id);el.textContent=txt;el.className="";el.style.fontWeight="700"};
- if(fc){
-  $("eo").textContent=!fc.found?"--":fc.openness==null?"--":`${Math.round(Math.max(0,Math.min(1,fc.openness))*100)}% open (${fc.eye_state})`;
-  val("y-ear",fc.ear==null?"--":fc.ear.toFixed(3)+(fc.eye_valid?"":" (head turned)"));
-  val("y-blink",fc.blink_rate==null?"warming up":`${fx(fc.blink_rate)} /min · ${fx(fc.mean_blink_ms)} ms`+(fc.closure_ms>400?` · closed ${fx(fc.closure_ms)} ms`:""));
-  val("y-perclos",fc.perclos==null?(fc.perclos_warming?"warming up (60 s)":"--"):`${fx(fc.perclos*100,1)}%`);
-  val("y-mouth",fc.mar==null?"--":`MAR ${fc.mar.toFixed(2)}`+(fc.yawning?" · YAWNING":""));
-  val("y-yawn",fc.yawning?"YAWNING":`${fc.yawns||0} in 10 min`);
- } else $("eo").textContent=s.eye_tracker?({open:"Open",closed:"Closed",no_face:"--"}[e.state]+" (camera estimate)"):"Off (--no-eyes)";
- // rig + performance
+ // interventions
+ const out=s.outputs,lvl=p.lvl;
+ if(out){pill($("p1"),out.level>=1,false,1);pill($("p2"),out.level>=2,false,2)}
+ else{pill($("p1"),!!ui.outputs_on,lvl==="CAUTION"||lvl==="LOW",1);pill($("p2"),!!ui.outputs_on,lvl==="LOW",2)}
+ pill($("p3"),false,lvl==="CAUTION"||lvl==="LOW",lvl==="LOW"?2:1);
+ // calibration
+ $("cal-state").textContent=!ps.enabled&&!fc?"Needs head pose: start with --face mesh":ps.calibrated?"Calibrated to the road pose":
+  `Calibrating ${Math.round((ps.calib_progress||0)*100)}%`;
+ $("cal-bar").style.width=(ps.calibrated?100:Math.round((ps.calib_progress||0)*100))+"%";
+ // devices
  const rg=s.rig||{},pf=rg.perf||{};
- const BK={mediapipe:"MediaPipe 478 landmarks (dms-face)",imx500:"AI Camera on-sensor pose (5 face points)",sim:"Simulated head",off:"Haar eye estimate"};
+ const BK={mediapipe:"MediaPipe 478 landmarks (dms-face)",mesh:"MediaPipe face mesh",imx500:"AI Camera on-sensor pose",sim:"Simulated head",off:"Haar eye estimate"};
  $("rigchip").textContent=`${rg.name||""} · ${rg.live||0}/${rg.total||8} signals`;
- $("r-name").textContent=rg.name||"--";$("r-backend").textContent=BK[rg.backend]||rg.backend||"--";
- $("r-fps").textContent=fx(rg.fps,1)+" fps";$("r-inf").textContent=rg.inference_ms==null?"--":fx(rg.inference_ms,1)+" ms";
+ $("d-esp").textContent=live?`Firmware ${p.fw||"--"}`:"Not connected";BADGE($("b-esp"),!!live);
+ $("d-link").textContent=p.link;$("d-sent").textContent=s.eyes_sent;$("c-sent").textContent=`(${s.eyes_sent} sent)`;$("send").checked=s.eye_sending;
+ $("log").textContent=s.log.length?s.log.join("\n"):"(nothing yet)";
+ $("d-piname").textContent=rg.name&&/pi/i.test(rg.name)?rg.name:"Raspberry Pi / computer";
+ $("d-pi").textContent=`Inference · ${fx(rg.fps,1)} fps`+(pf.cpu!=null?` · CPU ${fx(pf.cpu)} %`:"");
+ $("r-backend").textContent=BK[rg.backend]||rg.backend||"--";$("r-inf").textContent=rg.inference_ms==null?"--":fx(rg.inference_ms,1)+" ms";
  $("r-cpu").textContent=pf.cpu==null?"--":fx(pf.cpu)+" %";$("r-temp").textContent=pf.temp_c==null?"--":fx(pf.temp_c,1)+" °C";
- $("r-mem").textContent=pf.mem_mb==null?"--":fx(pf.mem_mb)+" MB";
- $("r-night").textContent=fc?(fc.night?"Night (IR)":"Day")+(fc.ir_enhanced?" · IR enhanced":""):"--";
- const LVL={live:["LIVE","pill on"],proxy:["PROXY","pill"],rough:["ROUGH","pill"],none:["NOT AVAILABLE","pill grey"]};
- if(rg.signals)$("sigcard").innerHTML=rg.signals.map(x=>`<div class="row2"><span>${x.label}</span><span class="${LVL[x.level][1]}">${LVL[x.level][0]}</span></div>`).join("");
- // vehicle
- $("rpm").textContent=fx(p.rpm);$("spd").textContent=fx(p.spd);$("thr").textContent=fx(p.thr);
- $("obd").textContent=p.obd||"--";$("hz").textContent=fx(p.hz,1);
- // devices + training
- $("d-link").textContent=p.link;$("d-fw").textContent=p.fw||"--";$("d-obd").textContent=(p.obd||"--")+" · "+fx(p.hz,1)+" Hz";
- $("d-cam").textContent=`${names[e.state]} · ${fx(e.fps,1)} fps`;$("d-lcd").textContent=p.lcd1!=null?"Tokyo LCD":"Whisplay HAT on the Pi";
- $("d-sent").textContent=s.eyes_sent;$("log").textContent=s.log.length?s.log.join("\n"):"(nothing yet)";
+ $("r-mem").textContent=pf.mem_mb==null?"--":fx(pf.mem_mb)+" MB";$("r-night").textContent=fc?(fc.night?"Night (IR)":"Day"):"--";
+ const LV={live:["LIVE","on"],proxy:["PROXY","na"],rough:["ROUGH","na"],none:["N/A","na"]};
+ if(rg.signals)$("sigcard").innerHTML=rg.signals.map(x=>`<div class="row" style="padding:0"><span class="l" style="font-weight:400">${x.label}</span><span class="badge ${LV[x.level][1]}">${LV[x.level][0]}</span></div>`).join("");
+ const camOk=!s.error&&!s.camera_note;
+ $("d-cam").textContent=`${fx(e.fps,1)} fps · ${EYES[e.state]||"--"}`;BADGE($("b-cam"),camOk);
+ $("d-camx").textContent=s.error?"Camera stopped: "+s.error:s.camera_note||`${BK[rg.backend]||"camera"} · ${fx(e.fps,1)} fps`;
+ BADGE($("b-lcd"),s.whisplay?true:null,s.whisplay?"Online":"Not used");
+ $("d-lcdx").textContent=s.whisplay?"This program drives the Whisplay screen (--whisplay).":"Run with --whisplay on the Pi Zero to drive the Whisplay screen. In the car it runs from python -m drifts.";
+ const obdOk=live&&p.obd==="polling";
+ $("d-obd").textContent=live?`${p.obd==="polling"?"Polling":p.obd||"--"} · ${fx(p.hz,1)} Hz`:"--";BADGE($("b-obd"),live?obdOk:null);
+ $("rpm").textContent=live?fx(p.rpm):"--";$("spd").textContent=live&&p.spd!=null?fx(p.spd)+" km/h":"--";$("thr").textContent=live&&p.thr!=null?fx(p.thr)+"%":"--";
+ // settings + training
+ $("s-wifi").textContent=s.wifi||"Not available here";$("s-wifisub").textContent=s.wifi||"--";
  const c=s.capture.counts;$("n-open").textContent=c.open;$("n-closed").textContent=c.closed;$("n-drowsy").textContent=c.drowsy;
  $("capdir").textContent=(s.capture.pending?`saving ${s.capture.pending}… · `:"")+"Saved to "+s.capture.dir;
- // history: refresh every 2 s while that tab is open
  if(s.time-last>=2&&$("t-history").classList.contains("on")){last=s.time;loadHistory()}}
 setInterval(tick,500);tick();
 
@@ -590,9 +676,9 @@ function buildDev(){
   fetch("/dev_layers?"+LAYERS.map(l=>l[0]+"="+(devLayers.has(l[0])?1:0)).join("&"),{method:"POST"})});
  document.querySelectorAll("#gseg button").forEach(b=>b.onclick=()=>fetch("/glasses?mode="+b.dataset.m,{method:"POST"}));
 }
-function toggleDev(){devOn=!devOn;document.body.classList.toggle("dev",devOn);document.documentElement.classList.toggle("dev",devOn);
+function toggleDev(){devOn=!devOn;const sw=$("devsw");if(sw)sw.checked=devOn;document.body.classList.toggle("dev",devOn);document.documentElement.classList.toggle("dev",devOn);
  $("devbtn").textContent=devOn?"Switch to driver view":"Switch to dev view";
- document.querySelector('meta[name="theme-color"]').content=devOn?"#140c0e":"#7d1d2c";
+ document.querySelector('meta[name="theme-color"]').content=devOn?"#140c0e":"#650E20";
  for(const [id,src] of [["devimg","/dev.mjpg"],["zoomimg","/zoom.mjpg"],["mouthimg","/mouth.mjpg"]])$(id).src=devOn?src:"";
  if(devOn)fetch("/dev_layers?"+LAYERS.map(l=>l[0]+"="+(devLayers.has(l[0])?1:0)).join("&"),{method:"POST"});
  try{localStorage.setItem("drifts-dev",devOn?"1":"0")}catch(e){}

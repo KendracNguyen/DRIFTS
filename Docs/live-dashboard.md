@@ -11,8 +11,8 @@ A web page that shows, side by side and live:
 The eye score is sent to the ESP32 as `EYE:<n>` every 2 s, so closing your
 eyes in front of the camera moves the real alert score and alert outputs.
 
-**Dev view (all eight face signals).** Start with `--face mesh` and click
-**Switch to dev view** in the header: landmarks, EAR P1–P6, the nose axis,
+**Dev view (all eight face signals).** Start with `--face mesh` and turn on
+**Settings → Developer Mode** (or open `#dev`): landmarks, EAR P1–P6, the nose axis,
 glasses detection and every signal charted live. See [dev-view.md](dev-view.md).
 
 ```
@@ -25,22 +25,34 @@ Code: `Raspberry/drifts/live.py` (server), `dashboard.html` (the page),
 `eyes.py` (tracker + PERCLOS), `esp_link.py` (USB serial / BLE / simulated
 ESP32). The page is re-read on every load: edit `dashboard.html` and refresh.
 
-### Screens (same design as the DRIFTS phone app)
+### Screens (the DRIFTS phone app design)
 
-A phone-width page in the app's maroon style, usable on a phone or a laptop.
+![Phone app](../Hardware/drawings/phone_screens.png)
+
+A phone-width page in the app's design: burgundy header, Inter font, white
+cards on blush, line icons, and four tabs. The score ring is **green, yellow
+or red** by the ESP32's level, with the same words as the Whisplay LCD
+(`drifts/ui_model.py` decides both).
 
 | Tab | Shows |
 | --- | --- |
-| **Home** | Alertness score ring (ESP32 alert score) with Eyes / Driving / PERCLOS bars (and Tokyo's LCD text when on Tokyo); live driver camera; active interventions; vehicle RPM / speed / throttle; nearest rest stop |
-| **History** | Alert score, eye score and RPM for the whole session (kept by the server, so opening the tab mid-demo shows everything) |
-| **Devices** | ESP32 link, firmware, OBD dongle, camera, driver screen, eye scores sent, ESP32 log |
-| **Training** | Capture buttons and counts |
+| **Home** | Alertness ring and status (Alertness Normal / Caution / High Fatigue / No Score); Current Status: eyes (and openness), head pose, blink rate, PERCLOS; live driver camera |
+| **History** | **Trip**: alertness for this drive (100 / 70 / 50 / 30 axis, dashed 70 and 50 lines) and the Trip History list. **Trends**: trips recorded, average alertness, alerts per trip; eye score, head yaw and RPM charts |
+| **Devices** | ESP32, Raspberry Pi, driver camera, LCD display, vehicle OBD: Online / Offline badges, tap a row for details (ESP32 log, rig performance, driver signals); RPM / speed / throttle |
+| **Settings** | Driver profile, calibration (with **Calibrate now**), alerts & interventions (phone alarm, voice, test buttons), Wi-Fi, display, training capture, **Developer Mode** (the dark dev view) |
 
-Intervention pills: **ACTIVE** = the ESP32 is driving that output right now
-(buzzer + motor during an alert); **LEVEL 1 / LEVEL 2** = the score has
-reached that intervention level; **STANDBY** = not reached; **PLANNED** =
-Level 3 voice and Level 4 rest-stop routing, not built yet. The rest-stop card
-is a placeholder until phone GPS exists: it never shows a made-up place.
+**Trip History** lists real sessions only: `drifts.live` saves a summary
+(start, length, average score, alerts) to `Raspberry/logs/trips.json` every
+30 s, once a session is a minute long. An alert counts when the score falls
+below 70, and again only after it has recovered to 75 (the ESP32's
+hysteresis). Simulated sessions carry a DEMO tag.
+
+The page works offline in the car: Inter is served by the Pi itself
+(`drifts/static/fonts`, SIL Open Font License).
+
+Intervention pills (Settings → Alerts & Interventions): **ACTIVE** = the
+output is running now; **LEVEL 1 / LEVEL 2** = the score has reached that
+level; **STANDBY** = not reached.
 
 > ⚠ The eye tracker is a **demo heuristic** (OpenCV Haar cascades), not the
 > trained model: about **74 %** right on frames where it finds a face in the
@@ -51,7 +63,7 @@ is a placeholder until phone GPS exists: it never shows a made-up place.
 
 ### Alarm and buzzer buttons
 
-- **Alarm on this device** (Home): this phone or laptop beeps **1 s on /
+- **Alarm on this device** (Settings → Alerts & Interventions): this phone or laptop beeps **1 s on /
   1 s off** (and vibrates on Android) while fatigue is detected. Switch it on
   by hand; browsers block sound until you tap. Used for the no-hardware
   simulation; see [`buzzer-alerts.md`](buzzer-alerts.md).

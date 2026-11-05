@@ -181,6 +181,11 @@ class Pipeline:
         self.camera_note: Optional[str] = None    # e.g. "no webcam found: showing a blank image"
         # 1 Hz session history for the History tab: (t, alert score, eye score, rpm)
         self.history: list[tuple] = []
+        from drifts.trips import TripLog
+        self.trips = TripLog(Path(args.trips))     # the History tab's earlier drives
+        self._trip_saved = 0.0
+        self.whisplay = False                      # set when --whisplay drives the HAT
+        self._wifi = (-1e9, None)
 
     def start(self) -> None:
         threading.Thread(target=self._run, name="camera", daemon=True).start()
@@ -413,6 +418,9 @@ class Pipeline:
                     esp = {**self.link.snapshot(), **self.esp_override}
                     self.history.append((round(now, 1), esp["score"], score, esp["rpm"], self.pose["yaw"]))
                     del self.history[:-3600]          # keep the last hour
+                    if now - self._trip_saved >= 30:
+                        self._trip_saved = now
+                        self.save_trip()
                 n_fps += 1
                 if now - t_fps >= 2.0:
                     self.eye["fps"] = n_fps / (now - t_fps)
@@ -424,7 +432,31 @@ class Pipeline:
         finally:
             self.camera.stop()
 
+    def save_trip(self) -> None:
+        from drifts.trips import summarize
+        esp = self.link.snapshot()
+        self.trips.save(summarize(list(self.history), self.started, demo=esp.get("link") == "simulated"))
+
+    def wifi(self) -> Optional[str]:
+        if time.time() - self._wifi[0] > 30:
+            from drifts.whisplay_ui import wifi_ssid
+            self._wifi = (time.time(), wifi_ssid())
+        return self._wifi[1]
+
     def status(self) -> dict:
+        st = self._status()
+        # The alertness band, label and colour, from the same rules as the LCD (drifts/ui_model.py)
+        from drifts.ui_model import BANDS, COLORS, state_from_live
+        ui = state_from_live(st)
+        b = BANDS[ui.band]
+        st["ui"] = {"band": ui.band, "title": b["title"], "subtitle": b["subtitle"], "icon": b["icon"],
+                    "color": COLORS[b["color"]], "pose": ui.pose_label, "demo": ui.demo,
+                    "outputs_on": ui.outputs_on}
+        st["wifi"] = self.wifi()
+        st["whisplay"] = self.whisplay
+        return st
+
+    def _status(self) -> dict:
         with self._lock:
             eye = dict(self.eye)
         return {
@@ -485,6 +517,20 @@ def make_handler(pipe: Pipeline):
                                             "eye": [r[2] for r in h], "rpm": [r[3] for r in h],
                                             "yaw": [r[4] for r in h]}).encode(),
                            "application/json")
+            elif path == "/trips.json":
+                self._send(200, json.dumps(pipe.trips.load()).encode(), "application/json")
+            elif path.startswith("/static/fonts/") and path.endswith(".woff2"):
+                f = FONT_DIR / Path(path).name
+                if f.exists():
+                    self.send_response(200)
+                    body = f.read_bytes()
+                    self.send_header("Content-Type", "font/woff2")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Cache-Control", "max-age=86400")
+                    self.end_headers()
+                    self.wfile.write(body)
+                else:
+                    self._send(404, b"no such font", "text/plain")
             elif path == "/compare":
                 self._send(200, PAGE_FILE.with_name("compare.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/status.json":
@@ -600,6 +646,7 @@ def build_parser(prog: str = "python -m drifts.live") -> argparse.ArgumentParser
     p.add_argument("--work-width", type=int, default=320, help="detection resolution (lower = faster)")
     p.add_argument("--mirror", action="store_true", help="mirror the image (selfie view)")
     p.add_argument("--capture-dir", default="captures", help="where training frames are saved")
+    p.add_argument("--trips", default="logs/trips.json", help="trip summaries for the History tab")
     p.add_argument("--debug", action="store_true")
     p.add_argument("--listen-only", action="store_true",
                    help="BLE: read ESP32 telemetry only, never write (leaves the ESP32 to its own Pi)")
@@ -655,6 +702,7 @@ def start_whisplay(pipe: Pipeline, args):
         log.warning("Whisplay HAT not available (%s): running without the screen", exc)
         return None
     stop = threading.Event()
+    pipe.whisplay = True
     threading.Thread(target=ui.run_thread, args=(lambda: state_from_live(pipe.status()), stop),
                      name="whisplay", daemon=True).start()
     return stop
@@ -675,6 +723,7 @@ def serve(pipe: Pipeline, args) -> int:
     finally:
         if ui_stop is not None:
             ui_stop.set()
+        pipe.save_trip()
         pipe.stop()
         link.stop()
         server.server_close()
@@ -687,6 +736,7 @@ def main(argv=None) -> int:
 
 
 PAGE_FILE = Path(__file__).with_name("dashboard.html")
+FONT_DIR = Path(__file__).with_name("static") / "fonts"
 
 
 if __name__ == "__main__":
