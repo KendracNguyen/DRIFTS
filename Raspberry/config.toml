@@ -41,3 +41,13 @@ brightness = 70        # 0-100
 voice = true
 repeat_s = 60.0        # Level 2 warning repeats this often
 stale_s = 5.0          # ESP32 status older than this = connection lost
+# Side button: next_page, prev_page, repeat_voice, calibrate, ai, brightness,
+# page:<score|driving|vision|devices|setup|ai>, none. During an alert any
+# short or double press acknowledges it; that can't be changed.
+button_short = "next_page"
+button_long = "repeat_voice"     # held >= long_s
+button_double = "calibrate"      # two presses within double_s ("none" = no wait after a press)
+long_s = 1.5
+double_s = 0.4
+joystick = false       # true on the "Joy" version (5-way joystick)
+rotate = 0             # 180 if the screen is upside down in the mount

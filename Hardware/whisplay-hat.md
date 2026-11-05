@@ -75,26 +75,51 @@ Tokyo would need pin changes first.
 
 ## Screen (240 × 280, portrait)
 
-![Whisplay screens: OK, Intervention 1, Intervention 2, recovered](drawings/whisplay_screens.png)
+![Every Whisplay screen](drawings/whisplay_screens.png)
 
-*Rendered by `python -m drifts.whisplay_ui --demo --sim`. The Level 2 bar is
-caught mid-flash.*
+*Rendered by `python -m drifts.whisplay_ui --gallery` with example data
+(the DEMO tag in the header). Inter font (`fonts-inter`), dark background,
+burgundy header.*
 
-- **Boot:** "Welcome to DRIFTS", then "Drive safe".
-- **Score page** (default):
-  - The header shows the level: DRIFTS / INTERVENTION 1 / INTERVENTION 2.
-  - The alert score is in big digits, with a short message.
-  - The coloured **score bar**: each band owns a quarter of the bar (green
-    from 70, yellow 40–69, red 10–39). Below 10, or during the drowsy alert,
-    the bar flashes. Half brightness means a partial score (no eye data).
-  - The driving score, and the OBD and ESP32 links. A lost link turns red and
-    shows "connection lost".
-- **Details page:** alert score, driving score, RPM, speed, eye data.
-- **Links page:** ESP32 and OBD state, firmware version, button help.
-- **During an alert,** the screen always returns to the score page.
-- **The data** comes from the ESP32's 1 Hz BLE status (firmware v20 sends it
-  to every subscriber): score, level, alert, partial flag, driving score, OBD
-  state.
+**Colours follow the ESP32's level,** so the screen always agrees with the
+buzzer and motors (rules in `Raspberry/drifts/ui_model.py`):
+
+| Score | Ring and label |
+| --- | --- |
+| 70–100 | green, `ALERTNESS NORMAL` |
+| 50–69 (Intervention 1) | yellow, `CAUTION` |
+| below 50 (Intervention 2) or the drowsy alert | red, `HIGH FATIGUE`, "Intervention active" |
+| no score, or the ESP32 status is older than 5 s | grey ring, `NO SCORE` (never green) |
+
+The ESP32 has 5 points of hysteresis, so a score of 72 can still be yellow
+while it recovers. A partial score (no eye data) draws the ring dimmer.
+
+**Screens.** The button cycles through the first six. An alert always
+returns to the score.
+
+| Screen | Shows | Data |
+| --- | --- | --- |
+| **Welcome** | DRIFTS, "Starting..." | first 4 s |
+| **Calibration** | head guide, "Look forward and keep a neutral posture", progress | camera pipeline, until the road pose is set |
+| **Score** | ring gauge, label, two readings: eyes and pose (OK), blinks and yaw (caution), intervention (high). Without the camera: driving score, speed, OBD | ESP32 + camera |
+| **Driving Status** | speed, RPM, throttle, driving score | ESP32 (OBD) |
+| **Detection Metrics** | PERCLOS, blink rate, head yaw, head pitch | camera pipeline; `--` without it |
+| **Device Status** | Raspberry Pi, ESP32, OBD dongle, camera, audio: Online / Offline / Unknown | live link state |
+| **System Setup** | profile, Wi-Fi network, calibration, brightness. Changes will come from the phone app | config + `iwgetid` |
+| **Driver AI** | "Assistant offline" until a voice assistant exists. Listening, thinking and response screens are ready for it | — |
+| **Rest stop** | "Location unavailable": there is no GPS yet | — |
+| **Emergency** | "No trusted contact set": contacts will come from the phone app | — |
+
+No screen shows a made-up reading. Missing values are `--`; demo data
+always carries the DEMO tag.
+
+**Where the data comes from:**
+- **In the car program** (`python -m drifts`): the ESP32's 1 Hz BLE status
+  (firmware v20 sends it to every subscriber): score, level, alert, partial
+  flag, driving score, RPM, speed, throttle, OBD state.
+- **With the camera pipeline:** `python -m drifts.live --face mesh --esp ble --whisplay`
+  adds eyes, PERCLOS, blink rate, head pose and calibration.
+  `--whisplay-sim` runs it without the HAT.
 
 ## RGB LED
 
@@ -110,11 +135,17 @@ The only status light in the first model:
 
 ## Button
 
-| Press | Action |
+The side button is programmable: short press, long press (1.5 s) and
+double press each run an action set in `config.toml` (`[whisplay]
+button_short / button_long / button_double`). Actions and setup:
+[`../Docs/whisplay-bringup.md`](../Docs/whisplay-bringup.md#the-side-button).
+
+| Press (defaults) | Action |
 | --- | --- |
-| **Short press, no alert** | Next page: score → details → links |
-| **Short press during an alert** | **Acknowledge** ("I'm awake"): logged, the screen shows "Acknowledged", and the Level 2 voice repeat pauses for 60 s |
+| **Short press, no alert** | Next page: score → driving → metrics → devices → setup → Driver AI |
+| **Any short or double press during an alert** | **Acknowledge** ("I'm awake"): logged, the screen shows "Acknowledged", and the Level 2 voice repeat pauses for 60 s. This one can't be remapped |
 | **Long press (≥ 1.5 s)** | Repeat the last voice message |
+| **Double press** | Re-take the road pose (calibration), with the camera pipeline |
 
 **Safety rule:** no button press stops an alert while the driver is still
 scored as drowsy. The ESP32's buzzer and motors keep running; only the
@@ -145,28 +176,18 @@ the button to confirm") will use the same press.
 
 ## Install and first test
 
-1. Power off. Press the HAT firmly onto the Pi Zero's header (all 40 pins).
-   Set the speaker switch to **onboard** for the first test.
-2. Install PiSugar's driver on the Pi. `cd ~/drifts/Raspberry && WHISPLAY=1 bash deploy/install.sh`
-   does it all, or by hand:
-   ```bash
-   git clone https://github.com/PiSugar/Whisplay.git --depth 1 ~/Whisplay
-   cd ~/Whisplay && sudo bash install_driver.sh      # auto-detects the Pi (or script/install_raspberry_pi.sh)
-   sudo reboot
-   ```
-3. Check each part:
-   - **Audio card:** `aplay -l` lists **whisplaysound**.
-   - **Speaker:** `aplay -D plughw:CARD=whisplaysound ~/drifts/Voice/clips/10_TEST.wav` plays "This is a DRIFTS voice test".
-   - **LCD, LED and button:** run PiSugar's `example/test.py`.
-4. **DRIFTS demo, no ESP32 needed:**
-   `cd ~/drifts/Raspberry && .venv/bin/python -m drifts.whisplay_ui --demo`.
-   It runs OK → Level 1 → Level 2 → OK in 36 s: screens, LED colours and voice.
-5. **In the car program:** set `enabled = true` under `[whisplay]` in
-   `Raspberry/config.toml`, then `sudo systemctl restart drifts`. With
-   firmware v20 on the ESP32, the score appears within a few seconds of the
-   Bluetooth link.
-6. Measure and note here: height with the HAT on, speaker loudness in the car,
-   and the current draw (USB meter) when idle and while speaking.
+Step by step, with what to expect at each step, in
+[`../Docs/whisplay-bringup.md`](../Docs/whisplay-bringup.md). In short:
+
+```bash
+cd ~/drifts/Raspberry && WHISPLAY=1 bash deploy/install.sh && sudo reboot
+.venv/bin/python -m drifts.whisplay_check --hw     # screen, backlight, LED, speaker, mic, button
+.venv/bin/python -m drifts.whisplay_ui --browse    # try the button on every screen
+```
+
+Afterwards, measure and note here: the height with the HAT on, speaker
+loudness in the car, and the current draw (USB meter) when idle and while
+speaking.
 
 ## Open items
 - [ ] Which version arrived: plain or **Joy**, V1 or V2, WM8960 or ES8389? PiSugar warns that V1's button circuit carries 5 V. That only matters on two non-Pi boards (Orange Pi Zero 3W, Radxa Cubie A7Z), not on the Raspberry Pi.
