@@ -23,7 +23,7 @@ CH343 USB chip place pins differently from the Espressif DevKitC.
 
 | ESP32-C6 pin | Goes to | Through | Firmware constant |
 | --- | --- | --- | --- |
-| **5V** | Motor module VCC if they are 5 V parts | — | — |
+| **5V** | **In:** Pi pin 2 or 4 (5V), the single 5 V input. **Out:** VCC of all 4 motor modules (with C1 470–1000 µF) | — | — |
 | **3V3** | MPU-6050 VCC, motor module VCC (3.3 V modules) | — | — |
 | **GND** | Everything: one common ground | — | — |
 | **GPIO 10** | **IN** of all 4 vibration motor modules | R1 100 Ω; R2 10 kΩ IN-to-GND | `MOTOR_PIN` |
@@ -42,7 +42,7 @@ CH343 USB chip place pins differently from the Espressif DevKitC.
 | Part | Wiring |
 | --- | --- |
 | **MPU-6050 (GY-521)** | VCC → 3V3, GND → GND, SDA → GPIO 21, SCL → GPIO 22, AD0 → GND (address 0x68). It's a 3.3 V part: no level shifter. Test: `I2C SCAN` lists `0x68` |
-| **4 motor modules** (GND, VCC, IN) | IN of all four ← R1 100 Ω ← GPIO 10, with R2 10 kΩ from IN to GND (holds them off during reset). VCC → 3V3 (or 5V if the modules are 5 V parts), GND → GND |
+| **4 motor modules** (GND, VCC, IN) | IN of all four ← R1 100 Ω ← GPIO 10, with R2 10 kΩ from IN to GND (holds them off during reset). VCC → **5V** (3V3 can't start four motors alongside the ESP32; 3 V motors: lower `DROWSY_VIB_DUTY`), GND → GND |
 | **Piezo LS1** (passive) | GPIO 11 → R6 100 Ω → LS1 pin 1. LS1 pin 2 → R7 100 Ω → GPIO 18. Neither leg to GND, no flyback diode |
 | **Pi Zero link** (UART, firmware v21) | GPIO 19 → R10 1 kΩ → Pi pin 10 (GPIO 15 RX). Pi pin 8 (GPIO 14 TX) → R11 1 kΩ → GPIO 20. ESP32 GND ↔ Pi pin 6. Both 3.3 V: no level shifter. **TX to RX**, twisted together, away from the motor wires. Test: `STATUS` on the ESP32 console shows `wire=1` once the Pi runs |
 
@@ -79,7 +79,7 @@ behaviour: [`whisplay-hat.md`](whisplay-hat.md).
 | 11 | 17 | Button (HIGH = pressed) |
 | 12 / 35 / 38 / 40 | 18 / 19 / 20 / 21 | Audio I2S |
 | 3 / 5 | 2 / 3 | Audio codec I2C1 |
-| 2, 4 / 6 | 5V / GND | Power from the Pi |
+| 2, 4 / 6 | 5V / GND | Power from the Pi to the HAT, **and to the ESP32's 5V / GND** (single 5 V input, `schematic.md` §5c) |
 | **8 / 10** | **14 / 15** | **Not the HAT: the UART to the ESP32** (TX → ESP32 GPIO 20, RX ← ESP32 GPIO 19, each via 1 kΩ). The HAT leaves these pins free |
 
 **UART setup on the Pi** (`deploy/install.sh` does it): `enable_uart=1` and
@@ -89,8 +89,10 @@ serial login console turned off. The car program reads `[link] kind = "uart"`
 in `config.toml`.
 
 **Power for the Pi Zero + HAT:**
-- On the bench, the Pi's own USB supply is enough: 5 V 2.5 A.
-- In the car, use the 12 V → 5 V buck converter (3 A) on the Pi's 5V/GND
+- **One 5 V input for everything:** a 5 V **3 A** USB supply into the Pi's micro-USB;
+  the ESP32 and motors take 5 V from Pi pin 2 or 4 ([`schematic.md` §5c](schematic.md)).
+  Never plug the ESP32's USB-C into a laptop while that 5V wire is connected.
+- In the car, a USB car charger (5 V 3 A) does the same; wiring to raw 12 V instead needs the 12 V → 5 V buck converter (3 A) on the Pi's 5V/GND
   pins. The speaker's current bursts are on the Pi side.
 
 ---

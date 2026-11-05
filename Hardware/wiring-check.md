@@ -49,6 +49,8 @@ Do every one of these **with all power disconnected**.
 | ☐ | Q1 source to GND | ≈ 0 Ω | Source must be on ground, not drain |
 | ☐ | ESP32 GND to Pi GND to motor-supply GND | ≈ 0 Ω | **Common ground.** Without it the gate drive has no reference |
 | ☐ | Nothing on GPIO 24 – 30 | Open | Flash corruption |
+| ☐ | Pi pin 2/4 (5V) to ESP32 5V | ≈ 0 Ω | Single 5 V input (`schematic.md` §5c). Pi 5V to Pi GND must **not** be a short |
+| ☐ | Motor module VCC to ESP32 5V (not 3V3) | ≈ 0 Ω | 3V3 can't start four motors |
 | ☐ | ESP32 GPIO 19 to Pi pin 10, ESP32 GPIO 20 to Pi pin 8 | ≈ 1 kΩ each | R10, R11 in line. **TX goes to RX**: 19 to pin 8 would be two outputs fighting |
 | ☐ | ESP32 GPIO 19 to GPIO 20 | Open | The two UART lines are not shorted |
 | ☐ | MPU-6050 VCC on **3V3**, not 5V | | 5 V logic on C6 I2C pins can damage them |

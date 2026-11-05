@@ -176,8 +176,10 @@ from LEDC and drives both LOW.
 - **115200 baud, 8N1, one text line per message** (`Esp32/drifts_esp32/pi_uart.h`).
   ESP32 → Pi: `WAKE`, `IDLE`, `STATUS {json}` once a second, `HELLO v21`.
   Pi → ESP32: `PING` every second (the alert fail-safe), `DROWSY`, `NOT_DROWSY`, `EYE:<n>`, `BEEP`.
-- **The ESP32 keeps its own 5 V supply.** Don't power it from the Pi's USB:
-  a Pi crash would then take the buzzer and motors down with it.
+- **Power:** either one 5 V input through the Pi (§5c, the default), or a
+  separate 5 V feed to each board. The Pi's 5V header pins connect straight to
+  its USB power input, so a Pi software crash does not cut the ESP32's power:
+  only unplugging the supply does.
 - **In the car:** twist the three wires together, use a locking connector,
   and keep them away from the motor and piezo leads. At 115200 baud a 1–2 m
   run is fine.
@@ -185,6 +187,50 @@ from LEDC and drives both LOW.
   isn't needed any more, and this gives GPIO 14/15 the full UART,
   `/dev/serial0` → `ttyAMA0`), and no login console on the serial port.
   `deploy/install.sh` does all three.
+
+---
+
+## 5c. Power: one 5 V input, through the Pi (default)
+
+One USB supply (5 V, **3 A**) plugs into the Pi's micro-USB **PWR IN**. The
+ESP32, the motors, the piezo and the MPU-6050 all take their power from the
+Pi's 5V header pin.
+
+```
+ USB supply 5 V 3 A ──► Pi Zero 2 W micro-USB (PWR IN)
+                         │
+ Pi pin 2 or 4 (5V) ─────┴──────────► ESP32 5V pin ──┬──► VCC of the 4 motor modules
+                                                     └──► C1 470–1000 µF to GND (at the modules)
+ Pi pin 6 (GND) ────────────────────► ESP32 GND ─────────► motor, piezo, MPU-6050 ground
+ Pi pin 10 (GPIO 15 RX) ◄──[R10 1k]── ESP32 GPIO 19 (TX)
+ Pi pin 8  (GPIO 14 TX) ──[R11 1k]──► ESP32 GPIO 20 (RX)
+```
+
+| Pi Zero 2 W | Through | ESP32-C6 | |
+| --- | --- | --- | --- |
+| pin 2 or 4 (5V) | — | 5V | power for the ESP32 and the motors |
+| pin 6 (GND) | — | GND | common ground |
+| pin 10 (GPIO 15 RX) | R10 1 kΩ | GPIO 19 (TX) | ESP32 → Pi |
+| pin 8 (GPIO 14 TX) | R11 1 kΩ | GPIO 20 (RX) | Pi → ESP32 |
+
+- **Current budget:** Pi + camera + Whisplay (~1.3 A at loud audio), ESP32
+  (~0.3 A) and 4 motors (0.4–0.6 A, more at start) peak near **2 A**, all through
+  the Pi's micro-USB (rated ~2.5 A). Use a **5 V 3 A** supply and a short, thick
+  cable. C1 at the motors stops their start-up current from dipping the Pi
+  into undervoltage.
+- **Motor VCC on 5V, not 3V3:** the ESP32 board's 3.3 V regulator (~500–600 mA,
+  shared with the ESP32's own Bluetooth peaks) can't also start four motors. If
+  the motors are 3 V parts, lower `DROWSY_VIB_DUTY` in `config.h` (~150).
+- **Never two 5 V sources at once:** unplug the 5V wire from the ESP32 before
+  plugging its USB-C into a laptop to flash or use the serial monitor (keep GND
+  and the two data wires). Many dev boards don't stop two supplies feeding
+  each other.
+- **Pins 2, 4, 6, 8, 10 under the Whisplay HAT:** use a stacking header, or
+  solder the wires to the pads on the underside of the Pi.
+- **In the car:** the USB supply is a car charger in the lighter socket (it has
+  its own 12 V → 5 V converter, so U6 is not needed). Wiring straight to 12 V
+  instead needs U6, F1 and D2 (§1). For more margin, a 2-port charger can feed
+  the ESP32 separately (then leave Pi pin 2/4 unconnected to the ESP32; keep GND).
 
 ---
 

@@ -237,7 +237,7 @@ for k in (3, 2, 1):
     ax.add_patch(Rectangle((165 + k * 1.2, 46 + k * 1.2), 20, 24, fc=FILL, ec=EDGE, lw=1.3, zorder=3))
 m = box(165, 46, 20, 24, "M1–M4\n(×4)", left=[("GND", 52), ("VCC", 58), ("IN", 64)], title_lines=2)
 wire(m["VCC"], (156, 58), (156, 50))
-flag(156, 50, "+3V3")
+flag(156, 50, "+5V")
 wire(m["GND"], (161, 52))
 gnd(161, 52, drop=1.4)
 
@@ -304,8 +304,8 @@ notes = [
         "   front end and use a USB power bank.",
         "2. Motor modules M1–M4 (GND, VCC, IN) have an onboard driver. IN ← GPIO10",
         "   (20 kHz PWM, 8-bit) via R1 100Ω; R2 10k holds IN low during reset.",
-        "3. Module VCC drawn from +3V3. Verify the module rating and that the C6",
-        "   LDO can supply 4 × 60–100 mA plus the IMU; +5V is the alternative.",
+        "3. Module VCC from +5V (the C6's 3.3 V LDO can't also start 4 motors).",
+        "   3 V motors: lower DROWSY_VIB_DUTY (~150). C1 near the modules.",
         "4. U4 GY-521: AD0→GND = 0x68. Wire.begin(21, 22). Breakout has pull-ups.",
     ],
     [
@@ -331,7 +331,8 @@ notes = [
         "   a phone over BLE. See Hardware/pinout.md.",
         "13. U12 Whisplay HAT: screen, RGB LED, speaker, button, driven by U2.",
         "   The alert (buzzer, motors) stays on U1 and works without U2.",
-        "14. U2 + U12 power: 5 V 2.5 A on the bench; the U6 buck in the car.",
+        "14. Power: one 5 V 3 A USB supply into U2; U1 + motors take +5V from",
+        "   U2 pin 2/4, GND pin 6 (schematic.md 5c). U6 only for raw 12 V.",
     ],
 ]
 for col, lines in enumerate(notes):
