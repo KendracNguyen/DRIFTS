@@ -28,12 +28,14 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 /* header */
 .hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 20px 10px;border-bottom:1px solid #0e1517}
 .logo{display:flex;align-items:baseline;gap:22px}
-.logo b{font-size:34px;letter-spacing:.34em;color:var(--cyan);font-weight:700}
+.logo b{font-size:34px;letter-spacing:.34em;color:#fff;font-weight:700}
 .logo .lk{color:var(--green)}.logo .lk.off{color:var(--red)}
 .hright{display:flex;align-items:center;gap:20px;text-align:right;color:var(--muted)}
 .hright div{line-height:1.5}
 .btn{border:1px solid var(--cyan);color:var(--cyan);padding:6px 14px;letter-spacing:.3px;text-decoration:none}
 .btn:hover{background:#06262b}
+.btn.cal{border-color:var(--red);color:var(--red)}.btn.cal:hover{background:#2a0707}
+.btn.cal.on{border-color:var(--green);color:var(--green);background:#04180b}
 /* grid */
 .grid{display:grid;grid-template-columns:minmax(0,1.11fr) minmax(0,.89fr);gap:28px;padding:14px 14px 0}
 .panel{border:1px solid var(--line);background:var(--panel)}
@@ -75,18 +77,20 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .step.cur .bar u{background:var(--cyan)}.step.skip .v{color:var(--orange)}
 .live{border:1px solid var(--line2);padding:6px 12px;display:grid;grid-template-columns:44px 1fr 56px;gap:5px 10px;align-items:center;font-size:12px}
 .live span{letter-spacing:.15em;color:#c9d2d5}.live i{height:5px;background:#0d1416;position:relative;display:block}
-.live i u{position:absolute;top:0;bottom:0;left:0}.live b{text-align:right;font-size:14px}
+.live i u{position:absolute;top:0;bottom:0;left:0}
+.live i.ctr:after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:#8a9499}.live b{text-align:right;font-size:14px}
 .prompt{margin-top:6px;color:var(--cyan);min-height:16px}
 .foot{padding:8px 14px 10px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
 /* right column */
 .rcol{display:flex;flex-direction:column;gap:9px}
 .pb{padding:7px 14px 8px}
-.formula{color:var(--cyan);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.formula b{color:var(--yellow)}
+.formula{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.formula b{color:var(--yellow)}
 .srow{display:grid;grid-template-columns:130px 1fr 90px;gap:14px;align-items:center;margin-top:5px}
 .srow .n{color:#fff}.srow .n small{display:block;color:var(--muted);font-size:11px}
 .srow .v{text-align:right;font-size:18px;font-weight:700}.srow .v small{font-size:11px;color:var(--muted);font-weight:400}
 .track{position:relative;height:7px;background:#0b1214}
 .track u{position:absolute;left:0;top:0;bottom:0}
+.track.ctr:after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:#8a9499}
 .track s{position:absolute;top:-4px;bottom:-4px;width:2px;background:#cfd8db}
 .sub{color:var(--muted);font-size:12px;margin-top:5px}
 .two{display:grid;grid-template-columns:190px 1fr;gap:16px;align-items:center}
@@ -176,7 +180,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
  <div class="layers" id="layers"></div>
  <div class="cal">
   <div class="calh"><span class="ic" data-ic="bars-g"></span><span class="t">CALIBRATION</span><span class="s">guided sequence · hold each pose 2 s</span>
-   <span class="r"><span class="chip c" id="calchip">profile: --</span><button class="btn" id="calbtn">▶ Begin calibration</button></span></div>
+   <span class="r"><span class="chip c" id="calchip">profile: --</span><button class="btn cal" id="calbtn">▶ Begin calibration</button></span></div>
   <div class="calbody" id="steps"></div>
   <div class="prompt" id="prompt"></div>
  </div>
@@ -202,9 +206,9 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
   <div class="ph"><span class="ic" data-ic="head"></span><span class="t">HEAD POSE</span><span class="s">from the nose axis · relative to road pose</span><span class="r chip y" id="pt-head">+0.0 pts</span></div>
   <div class="pb"><div class="two"><svg id="xybox" viewBox="0 0 180 112" width="160" height="96"></svg>
    <div>
-    <div class="srow" style="grid-template-columns:130px 1fr 70px;margin-top:0"><div class="n">Yaw<small id="d-yaw">--</small></div><div class="track"><u id="b-yaw" style="background:var(--red)"></u></div><div class="v" id="v-yaw">--°</div></div>
-    <div class="srow" style="grid-template-columns:130px 1fr 70px"><div class="n">Pitch<small id="d-pitch">--</small></div><div class="track"><u id="b-pitch" style="background:var(--red)"></u></div><div class="v" id="v-pitch">--°</div></div>
-    <div class="srow" style="grid-template-columns:130px 1fr 70px"><div class="n">Head tilt<small>roll</small></div><div class="track"><u id="b-roll" style="background:var(--red)"></u></div><div class="v" id="v-roll">--°</div></div>
+    <div class="srow" style="grid-template-columns:130px 1fr 70px;margin-top:0"><div class="n">Yaw<small id="d-yaw">--</small></div><div class="track ctr"><u id="b-yaw" style="background:var(--red)"></u></div><div class="v" id="v-yaw">--°</div></div>
+    <div class="srow" style="grid-template-columns:130px 1fr 70px"><div class="n">Pitch<small id="d-pitch">--</small></div><div class="track ctr"><u id="b-pitch" style="background:var(--red)"></u></div><div class="v" id="v-pitch">--°</div></div>
+    <div class="srow" style="grid-template-columns:130px 1fr 70px"><div class="n">Head tilt<small>roll</small></div><div class="track ctr"><u id="b-roll" style="background:var(--red)"></u></div><div class="v" id="v-roll">--°</div></div>
    </div></div>
    <div class="sub" id="s-head">--</div></div>
  </section>
@@ -263,12 +267,16 @@ function toggleLayer(k){layers.has(k)?layers.delete(k):layers.add(k);try{localSt
 let mirrorView=null;      // null = follow the server's --mirror
 let mesh={},pkt=null,face={},status=null,sel=null,hover=null,view={s:1,tx:0,ty:0};
 fetch("/mesh.json").then(r=>r.json()).then(j=>mesh=j).catch(()=>{});
-const img=new Image();img.src="/cam.mjpg";
+// The camera frame comes inside each /face.sse event, paired with its landmarks.
+let img=new Image(),decoding=false;
 const cv=$("cv"),ctx=cv.getContext("2d");
 // stream stats
 let sse=0,sseT=performance.now(),sseFps=0,lag=null;
 function openStream(){const es=new EventSource("/face.sse");
- es.onmessage=e=>{pkt=JSON.parse(e.data);sse++;lag=Date.now()/1000-pkt.t;
+ es.onmessage=e=>{const p=JSON.parse(e.data);sse++;lag=Date.now()/1000-p.t;
+  if(p.jpg&&!decoding){decoding=true;const im=new Image();const jpg=p.jpg;delete p.jpg;
+   im.onload=()=>{img=im;pkt=p;decoding=false};im.onerror=()=>{decoding=false};im.src="data:image/jpeg;base64,"+jpg}
+  else if(!p.jpg){pkt=p}
   const n=performance.now();if(n-sseT>1000){sseFps=sse*1000/(n-sseT);sse=0;sseT=n}};
  es.onerror=()=>{es.close();setTimeout(openStream,1500)}}
 openStream();
@@ -294,9 +302,18 @@ function frame(){const g=geom();ctx.fillStyle="#000";ctx.fillRect(0,0,g.W,g.H);
   if(layers.has("head"))path(g,mesh.oval,C.red,2.2);
   if(layers.has("eyes")){path(g,mesh.eyes,C.blue,2);path(g,mesh.brows,C.blue,2);path(g,mesh.irises,C.blue,1.6)}
   if(layers.has("mouth"))path(g,mesh.lips,C.magenta,2.4);
-  if(layers.has("head")&&face.yaw!=null){const L=60*g.d*view.s,y=(face.yaw||0)*Math.PI/180,p=(face.pitch||0)*Math.PI/180;
-   const sx=mir()?-1:1;ctx.strokeStyle=C.red;ctx.lineWidth=2.2*g.d;ctx.beginPath();ctx.moveTo(nose[0],nose[1]);
-   ctx.lineTo(nose[0]+sx*Math.sin(y)*L,nose[1]+Math.sin(p)*L);ctx.stroke()}
+  if(layers.has("head")){
+   // Facing direction: the nose tip's offset from the face's centre, so it follows the
+   // picture exactly (mirrored or not). Frontal = a short arrow plus a ring.
+   const ids=[10,152,234,454],cxy=ids.map(i=>P(g,i)),c=[(cxy[0][0]+cxy[1][0]+cxy[2][0]+cxy[3][0])/4,(cxy[0][1]+cxy[1][1]+cxy[2][1]+cxy[3][1])/4];
+   const a2=P(g,133),b2=P(g,362),iod=Math.hypot(a2[0]-b2[0],a2[1]-b2[1]);
+   let vx=nose[0]-c[0],vy=nose[1]-c[1]-0.12*iod;const k=3.2,len=Math.hypot(vx,vy)*k;
+   const ex=nose[0]+vx*k,ey=nose[1]+vy*k,ang=Math.atan2(ey-nose[1],ex-nose[0]),hd=Math.max(7*g.d,0.18*iod);
+   ctx.strokeStyle=C.red;ctx.fillStyle=C.red;ctx.lineWidth=2.6*g.d;
+   ctx.beginPath();ctx.arc(nose[0],nose[1],Math.max(4*g.d,0.09*iod),0,7);ctx.stroke();
+   if(len>0.15*iod){ctx.beginPath();ctx.moveTo(nose[0],nose[1]);ctx.lineTo(ex,ey);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex-hd*Math.cos(ang-0.45),ey-hd*Math.sin(ang-0.45));
+    ctx.lineTo(ex-hd*Math.cos(ang+0.45),ey-hd*Math.sin(ang+0.45));ctx.closePath();ctx.fill()}}
   if(layers.has("nose")){const br=[168,6,197,195,5,4,1];ctx.strokeStyle=C.yellow;ctx.lineWidth=1.5*g.d;ctx.beginPath();
    br.forEach((i,j)=>{const q=P(g,i);j?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])});ctx.stroke();
    ctx.fillStyle=C.yellow;ctx.beginPath();ctx.arc(nose[0],nose[1],3.5*g.d,0,7);ctx.fill()}
@@ -359,9 +376,10 @@ function drawSteps(gd){const steps=gd?gd.steps:STEPN.map(l=>({label:l}));
    <span class="l">${s.label}</span><span class="v">${s.skipped?"skipped":cur&&!done?(gd.mode==="test"?"…":"hold"):v}</span>
    <span class="bar"><u style="width:${done?100:cur?Math.round(gd.hold*100):0}%"></u></span></div>`}).join("");
  const f=face;const bar=(v,max,col)=>`<i><u style="width:${v==null?0:Math.max(2,Math.min(100,Math.abs(v)/max*100))}%;background:${col}"></u></i>`;
+ const cbar=(v,max,col)=>{const w=v==null?0:Math.min(50,Math.abs(v)/max*50);return `<i class="ctr"><u style="left:${v!=null&&v<0?50-w:50}%;width:${w}%;background:${col}"></u></i>`};
  const live=`<div class="live"><span>EAR</span>${bar(f.ear,.4,C.green)}<b>${fx(f.ear,2)}</b>
-  <span>MAR</span>${bar(f.mar,1,C.magenta)}<b>${fx(f.mar,2)}</b><span>YAW</span>${bar(f.yaw,45,C.cyan)}<b>${sg(f.yaw)}°</b>
-  <span>PITCH</span>${bar(f.pitch,45,C.cyan)}<b>${sg(f.pitch)}°</b><span>ROLL</span>${bar(f.roll,45,C.cyan)}<b>${sg(f.roll)}°</b></div>`;
+  <span>MAR</span>${bar(f.mar,1,C.magenta)}<b>${fx(f.mar,2)}</b><span>YAW</span>${cbar(f.yaw,45,C.cyan)}<b>${sg(f.yaw)}°</b>
+  <span>PITCH</span>${cbar(f.pitch,45,C.cyan)}<b>${sg(f.pitch)}°</b><span>ROLL</span>${cbar(f.roll,45,C.cyan)}<b>${sg(f.roll)}°</b></div>`;
  $("steps").innerHTML=cards.replace(/<div class="step/g,'<div class="step')+(steps.length<9?'<div></div>'.repeat(9-steps.length):"")+live}
 async function post(u){try{await fetch(u,{method:"POST"})}catch(e){}}
 function startCal(){const n=prompt("Driver profile name (saved as Raspberry/profiles/<name>.json)",(status&&status.profile)||"kendra");if(n)post("/guided?mode=calibrate&name="+encodeURIComponent(n))}
@@ -390,13 +408,16 @@ document.addEventListener("click",e=>{const a=e.target.closest("[data-act]");if(
   "gl-auto":()=>post("/glasses?mode=auto"),"gl-on":()=>post("/glasses?mode=on"),"gl-off":()=>post("/glasses?mode=off"),
   beep:()=>post("/beep"),road:()=>post("/calibrate"),driver:()=>location.href="/",compare:()=>location.href="/compare",
   keys:()=>dialog("Mouse and keys","<table><tr><td>Left click</td><td>select the nearest landmark (index and X / Y in the status bar)</td></tr><tr><td>Middle drag, or Shift + drag</td><td>pan</td></tr><tr><td>Right drag, or wheel</td><td>zoom</td></tr><tr><td>Double click</td><td>reset the view</td></tr></table>"),
-  about:()=>dialog("About this view","The Pi sends a plain camera JPEG and 478 landmarks per frame (/cam.mjpg, /face.sse). This browser draws the mesh, so the Pi renders nothing. Docs/dev-view.md.")}[k]||(()=>{}))()});
+  about:()=>dialog("About this view","The Pi sends each camera JPEG together with its 478 landmarks in one stream (/face.sse). This browser draws the mesh, so the Pi renders nothing. Docs/dev-view.md.")}[k]||(()=>{}))()});
 
 // ---------------------------------------------------------------- panels
 const SIGCL={ear:"eyes",blink:"eyes",gaze:"eyes",yaw:"head",pitch:"head",roll:"head",mar:"mouth",yawn:"mouth"};
 const SCOL={ear:C.blue,blink:"#4f8bff",gaze:C.green,yaw:C.red,pitch:"#ff6a5a",roll:"#ff8a7a",mar:C.magenta,yawn:"#ff6ae6"};
 function pts(id,parts,keys){let s=0,any=false;keys.forEach(k=>{const p=parts[k];if(p&&p.points!=null){s+=p.points;any=true}});$(id).textContent=any?`+${s.toFixed(1)} pts`:"no data"}
 function track(id,frac){$(id).style.width=Math.max(0,Math.min(100,frac*100))+"%"}
+// signed values grow from the centre: negative to the left, positive to the right
+function ctrack(id,v,max){const u=$(id);if(v==null){u.style.width="0";return}
+ const w=Math.min(50,Math.abs(v)/max*50);u.style.left=(v<0?50-w:50)+"%";u.style.width=w+"%"}
 function gazeBox(p,f){const W=170,H=80,cx=85,cy=46,off=p.attention==="off_road"||f.gaze_off;
  const gx=(p.yaw??0)+(f.gaze_x??0)*60,gy=(p.pitch??0),x=Math.max(8,Math.min(W-8,cx+gx*1.4)),y=Math.max(10,Math.min(H-6,cy+gy*1.2));
  $("gazebox").innerHTML=`<rect x="2" y="2" width="${W-4}" height="${H-4}" fill="none" stroke="${C.green}" stroke-dasharray="3 3" opacity=".8"/>
@@ -441,7 +462,8 @@ async function tick(){try{status=await (await fetch("/status.json",{cache:"no-st
   else if(s.error||s.camera_note){msg.style.display="block";msg.textContent=s.error?"Camera stopped: "+s.error:s.camera_note}else msg.style.display="none";
  const gd=s.guided;drawSteps(gd);
  $("calchip").textContent=gd&&gd.active?`${gd.mode==="test"?"test":"step"} ${gd.index+1} of ${gd.total} · profile: ${gd.name}.json`:`profile: ${s.profile?s.profile+".json":"none"}`;
- $("calbtn").textContent=gd&&gd.active?"■ Cancel":"▶ Begin calibration";
+ $("calbtn").textContent=gd&&gd.active?"■ Calibrating · cancel":"▶ Begin calibration";
+ $("calbtn").classList.toggle("on",!!(gd&&gd.active));
  $("prompt").textContent=gd&&gd.active?"▸ "+gd.prompt:gd&&gd.profile_saved?"✓ Calibration saved and applied.":gd&&gd.report?`✓ Accuracy test done: ${gd.report.overall==null?"--":Math.round(gd.report.overall*100)+"%"} (Verify → Show last report)`:"";
  if(gd&&gd.report)lastReport=gd.report;
  $("foot").textContent=`layers: ${layers.size} visible · ${rg.name||"--"} · ${rg.backend||"--"} · ${fx(rg.fps,1)} fps · inference ${fx(rg.inference_ms,0)} ms · ${f.found?"face found":"no face"} · stream ${fx(sseFps,1)} fps${lag==null?"":" · lag "+Math.round(lag*1000)+" ms"}`;
@@ -455,7 +477,7 @@ async function tick(){try{status=await (await fetch("/status.json",{cache:"no-st
  $("gazepill").className="pill "+(!f.found?"mid":off?"off":"on");
  $("s-gaze").textContent=`iris ${sg(f.gaze_x,2)} · off ${fx(f.gaze_off_s,1)} s · ${p.glances??0} glances > 2 s`;gazeBox(p,f);pts("pt-gaze",P_,["gaze"]);
  // head
- [["yaw",p.yaw],["pitch",p.pitch],["roll",p.roll]].forEach(([k,v])=>{$("v-"+k).textContent=(v==null?"--":sg(v))+"°";track("b-"+k,v==null?0:Math.abs(v)/45)});
+ [["yaw",p.yaw],["pitch",p.pitch],["roll",p.roll]].forEach(([k,v])=>{$("v-"+k).textContent=(v==null?"--":sg(v))+"°";ctrack("b-"+k,v,45)});
  $("d-yaw").textContent=p.yaw==null?"left / right":Math.abs(p.yaw)<5?"straight ahead":p.yaw>0?"turned right":"turned left";
  $("d-pitch").textContent=p.pitch==null?"up / down":Math.abs(p.pitch)<5?"level":p.pitch>0?"looking down":"looking up";
  $("s-head").textContent=`nods last minute ${f.nods??0} · droop ${fx(f.droop_s,1)} s · ${p.calibrated?"calibrated to the road pose":"calibrating "+Math.round((p.calib_progress||0)*100)+"%"}${nose?` · nose tip at (${Math.round(nose[0])}, ${Math.round(nose[1])}) px`:""}`;
