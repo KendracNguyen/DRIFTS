@@ -12,7 +12,7 @@ echo "==> System packages"
 sudo apt-get update -qq
 # opencv-data holds the Haar cascades the live dashboard's eye tracker needs
 # (python3-opencv alone does not ship them).
-sudo apt-get install -y -qq python3-venv python3-picamera2 python3-opencv opencv-data python3-numpy python3-pil fonts-dejavu-core alsa-utils bluez
+sudo apt-get install -y -qq python3-venv python3-picamera2 python3-opencv opencv-data python3-numpy python3-pil fonts-inter fonts-dejavu-core alsa-utils bluez
 
 # Raspberry Pi AI Camera (Sony IMX500): firmware, model zoo and tools.
 # Opt in with:  AI_CAMERA=1 bash deploy/install.sh   (takes 10-15 min on a Zero 2 W)

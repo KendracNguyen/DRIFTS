@@ -568,6 +568,9 @@ def build_parser(prog: str = "python -m drifts.live") -> argparse.ArgumentParser
                    help="mesh = all eight signals from MediaPipe's face landmarker (laptop, Pi Zero 2 W, Pi 5), "
                         "with the dev view; mediapipe = Pi 5 rig via dms-face")
     p.add_argument("--face-model", default=None, help="face_landmarker.task (default: downloaded to Raspberry/models)")
+    p.add_argument("--whisplay", action="store_true",
+                   help="also drive the Whisplay HAT screen with the live face data (Pi Zero; [whisplay] in config.toml)")
+    p.add_argument("--whisplay-sim", action="store_true", help="--whisplay without the HAT (for testing)")
     p.add_argument("--glasses", choices=["auto", "on", "off"], default="auto",
                    help="--face mesh: glasses detection (on = always lean on head pose)")
     p.add_argument("--dms-dir", default=None, help="dms-face checkout (default ~/dms-face or $DMS_FACE_DIR)")
@@ -628,6 +631,23 @@ def build(args) -> Pipeline:
     return pipe
 
 
+def start_whisplay(pipe: Pipeline, args):
+    """The Whisplay screen, fed from /status.json's data (ESP32 link + face). Returns its stop event."""
+    if not (getattr(args, "whisplay", False) or getattr(args, "whisplay_sim", False)):
+        return None
+    try:
+        from drifts.ui_model import state_from_live
+        from drifts.whisplay_ui import WhisplayUI
+        ui = WhisplayUI(load_config().whisplay, sim=args.whisplay_sim)
+    except Exception as exc:              # no HAT or driver: the dashboard still runs
+        log.warning("Whisplay HAT not available (%s): running without the screen", exc)
+        return None
+    stop = threading.Event()
+    threading.Thread(target=ui.run_thread, args=(lambda: state_from_live(pipe.status()), stop),
+                     name="whisplay", daemon=True).start()
+    return stop
+
+
 def serve(pipe: Pipeline, args) -> int:
     link = pipe.link
     server = ThreadingHTTPServer(("0.0.0.0", args.http_port), make_handler(pipe))
@@ -635,11 +655,14 @@ def serve(pipe: Pipeline, args) -> int:
              args.http_port, args.http_port)
     log.info("ESP32 link: %s   PERCLOS window %.0f s   EYE every %.0f s%s",
              args.esp, args.window, args.eye_every, "  (sending OFF)" if args.no_eye else "")
+    ui_stop = start_whisplay(pipe, args)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         log.info("Stopping.")
     finally:
+        if ui_stop is not None:
+            ui_stop.set()
         pipe.stop()
         link.stop()
         server.server_close()

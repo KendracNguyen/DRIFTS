@@ -9,8 +9,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 
 from drifts.config import WhisplayConfig, load_config
-from drifts.whisplay_ui import (H, W, ButtonDecoder, SimBoard, UiState, VoiceDirector, WhisplayUI, bar_fraction,
-                                led_color, render, rgb565, state_from_status)
+from drifts.ui_model import (BANDS, CAUTION, HIGH, NORMAL, UNAVAILABLE, band_color, band_for, state_from_live)
+from drifts.whisplay_ui import (AI_STATES, PAGES, VIEWS, H, W, ButtonDecoder, SimBoard, UiState, VoiceDirector,
+                                WhisplayUI, demo_state, font_name, gallery, led_color, render, rgb565,
+                                state_from_status)
 
 
 def st(score=90.0, lvl="OK", alert=False, obd="polling", linked=True, **kw):
@@ -26,10 +28,32 @@ def test_state_from_esp32_status():
     assert stale.score is None and not stale.alert and not stale.esp_linked
 
 
-def test_bar_bands():
-    assert bar_fraction(100) == 1.0 and bar_fraction(70) == 0.75
-    assert bar_fraction(40) == 0.5 and bar_fraction(10) == 0.25 and bar_fraction(5) == 1.0
-    assert all(bar_fraction(s + 1) >= bar_fraction(s) for s in range(10, 100))
+def test_alertness_bands_match_the_esp32():
+    # the three design states, from the score alone (thresholds of alertness.h: 70 / 50)
+    assert [band_for(s) for s in (92, 66, 34)] == [NORMAL, CAUTION, HIGH]
+    assert band_for(70) == NORMAL and band_for(69.9) == CAUTION and band_for(50) == CAUTION and band_for(49.9) == HIGH
+    assert band_for(None) == UNAVAILABLE and band_for(95, alert=True) == HIGH
+    assert band_for(72, level="CAUTION") == CAUTION           # the ESP32's hysteresis wins
+    assert [st(s, l).band for s, l in ((92, "OK"), (66, "CAUTION"), (34, "LOW"))] == [NORMAL, CAUTION, HIGH]
+    assert st(None).band == UNAVAILABLE                        # missing score: never green
+    assert band_color(NORMAL) == (0x39, 0xD3, 0x53) and band_color(CAUTION) == (0xFF, 0xC8, 0x3D)
+    assert band_color(HIGH) == (0xFF, 0x59, 0x64)
+    assert BANDS[NORMAL]["title"] == "ALERTNESS NORMAL" and BANDS[HIGH]["subtitle"] == "Pull over safely"
+
+
+def test_firmware_thresholds_unchanged():
+    from drifts import ui_model
+    src = (Path(__file__).resolve().parents[2] / "Esp32/drifts_esp32/alertness.h").read_text()
+    assert f"okAbove = {ui_model.OK_ABOVE:.1f}f" in src and f"lowBelow = {ui_model.LOW_BELOW:.1f}f" in src
+
+
+def test_gauge_colour_follows_the_band():
+    # the ring's right-hand side (3 o'clock) is lit for any score above 25
+    for score, lvl, col in ((92, "OK", (0x39, 0xD3, 0x53)), (66, "CAUTION", (0xFF, 0xC8, 0x3D)),
+                            (34, "LOW", (0xFF, 0x59, 0x64))):
+        img = render(st(score, lvl, alert=lvl == "LOW"), 0.2, "score")
+        px = img.getpixel((120 + 60, 106))
+        assert max(abs(a - b) for a, b in zip(px, col)) < 40, (score, px)
 
 
 def test_led_colours():
@@ -42,14 +66,75 @@ def test_led_colours():
     assert lost == [(255, 0, 0), (0, 0, 0)]                         # connection lost: slow red blink
 
 
-def test_render_every_page_and_state():
-    for state in (st(), st(62, "CAUTION"), st(30, "LOW", alert=True), st(5, "LOW"), st(None, linked=False),
-                  st(85, part=True)):
-        for page in (0, 1, 2):
-            img = render(state, 0.2, page)
-            assert img.size == (W, H)
+def test_render_every_view_and_state():
+    states = (st(), st(62, "CAUTION"), st(30, "LOW", alert=True), st(5, "LOW"), st(None, linked=False),
+              st(85, part=True), demo_state(92), demo_state(66), demo_state(None, calibrated=False, face_found=False))
+    for state in states:
+        for view in VIEWS:
+            assert render(state, 0.2, view).size == (W, H)
+        for page in range(len(PAGES)):
+            assert render(state, 0.2, page).size == (W, H)
+    for ai in AI_STATES:
+        assert render(st(), 0.2, "ai", ctx={"ai": {"state": ai, "title": "Alertness: 90", "text": "ok"}}).size == (W, H)
+    ctx = {"rest_stop": {"distance_mi": 12, "minutes": 11, "name": "Seguin Rest Area"}, "contact": "Primary contact"}
+    assert render(st(), 0.2, "rest_stop", ctx=ctx).size == (W, H)
+    assert render(st(), 0.2, "emergency", ctx=ctx).size == (W, H)
     assert render(st(), 0.2, booted=False).size == (W, H)
     assert len(rgb565(render(st(), 0.2))) == W * H * 2
+
+
+def test_inter_font_when_installed():
+    name = font_name()
+    assert name.endswith((".otf", ".ttf")) or name == "built-in"
+
+
+def test_gallery_writes_every_screen(tmp_path):
+    sheet = gallery(tmp_path)
+    assert sheet.exists() and len(list(tmp_path.glob("whisplay_*.png"))) == 17
+
+
+def test_demo_data_is_labelled():
+    assert demo_state(92).demo and not st().demo
+
+
+def test_state_from_live_status():
+    now = 1000.0
+    status = {"esp": {"link": "BLE DRIFTS", "updated": now - 1, "score": 66.0, "lvl": "CAUTION", "alert": False,
+                      "obd": "polling", "drv_score": 80.0, "rpm": 742.0, "spd": 0.0, "thr": 15.0, "fw": "v20"},
+              "eye": {"state": "open", "perclos": 0.047}, "face": {"blink_rate": 16.0},
+              "pose": {"enabled": True, "found": True, "yaw": 6.0, "pitch": 1.0, "calibrated": True,
+                       "calib_progress": 1.0}, "error": None, "camera_note": None}
+    s = state_from_live(status, now=now)
+    assert s.band == CAUTION and s.vision and s.camera_ok and s.eyes == "open" and s.blink_rate == 16
+    assert s.throttle == 15 and s.pose_label == "Neutral" and not s.demo
+    d = s.to_dict()
+    assert d["alertness"] == {"score": 66.0, "state": "caution", "valid": True, "partial": False, "level": 1}
+    assert d["vision"]["perclos"] == 0.047 and d["vehicle"]["rpm"] == 742 and d["devices"]["camera"] == "online"
+    stale = state_from_live({**status, "esp": {**status["esp"], "updated": now - 30}}, now=now)
+    assert stale.score is None and stale.band == UNAVAILABLE and not stale.esp_linked
+    sim = state_from_live({**status, "esp": {**status["esp"], "link": "simulated"}}, now=now)
+    assert sim.demo                                                         # simulated ESP32 = DEMO on screen
+
+
+def test_calibration_view_while_calibrating():
+    ui = WhisplayUI(WhisplayConfig(enabled=True), board=SimBoard(), sim=True)
+    cal = demo_state(92, calibrated=False, calib_progress=0.4)
+    assert ui.view(cal, booted=False) == "welcome"
+    assert ui.view(cal, booted=True) == "calibration"
+    assert ui.view(demo_state(34, calibrated=False), booted=True) == "score"   # an alert beats calibration
+    assert ui.view(st(), booted=True) == "score"                               # car app: no camera data
+
+
+def test_frame_redrawn_only_on_change():
+    board = SimBoard()
+    shown = []
+    board.show = shown.append
+    ui = WhisplayUI(WhisplayConfig(enabled=True, voice=False), board=board, sim=True)
+    for t in (5.0, 5.25, 5.5):
+        ui.tick(st(), t)
+    assert len(shown) == 1
+    ui.tick(st(80), 5.75)
+    assert len(shown) == 2
 
 
 def test_rgb565_byte_order():
