@@ -255,6 +255,7 @@ pedals and airbag deployment paths.
 | `schematic.md` | Driver circuits, power tree, connector detail |
 | `BOM.csv` | Bill of materials |
 | `drawings/DRIFTS_Schematic_rev5.pdf` | **Full system schematic, rev 5** (adds the LED strip and DFPlayer). Regenerate with `python Hardware/drawings/draw_schematic.py`. Rev 4 is kept alongside |
+| `whisplay-hat.md` | **PiSugar Whisplay HAT** (Pi Zero): datasheet, pinout, LCD screens, RGB LED, button actions. Replaces the 16×2 LCD, level shifters, LED strip and DFPlayer |
 | `pinout.svg` | ESP32-C6 pinout diagram, firmware v18. Regenerate with `python Hardware/drawings/draw_pinout.py` |
 | `pinout.md` / `pinout.svg` | **Wiring diagram** and pin-by-pin table, LEDs + LCD |
 | `pinout.csv` | Pin map as data, for diffing against `config.h` |
