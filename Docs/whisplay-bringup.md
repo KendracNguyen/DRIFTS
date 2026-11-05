@@ -39,12 +39,11 @@ github.com/PiSugar/Whisplay, read Nov 2026):
   ![LCD screens](../Hardware/drawings/whisplay_screens.png)
 - **Bring-up check** screens (`whisplay_check --hw`):
   ![Self-test screens](../Hardware/drawings/whisplay_check_screens.png)
-- **Phone dashboard as it is today** (`drifts.live`, iPhone 13 width). It has not been redesigned yet
-  (phase 5): its ring is still burgundy, it says "drive safe", and it shows the eyes / driving / PERCLOS
-  bars the UI spec removes.
-  ![Phone dashboard](../Hardware/drawings/phone_screens.png)
+- **Phone app** (`drifts.live`, iPhone 13 width), the same design and alertness colours:
+  ![Phone app](../Hardware/drawings/phone_screens.png)
 
-Regenerate: `python -m drifts.whisplay_ui --gallery --out Hardware/drawings` (LCD) and
+Regenerate: `python -m drifts.whisplay_ui --gallery --out <folder>` and copy its
+`whisplay_screens.png` to `Hardware/drawings` (LCD), and
 `python -m drifts.whisplay_check --hw --sim` (self-test). The phone screenshots are taken with
 Playwright from `drifts.live --esp sim --video Simuletic_DMS_Dataset/images`.
 
@@ -165,7 +164,7 @@ the screens, and the centre press counts as a short press.
 | **2: in the car** | `enabled = true`, ESP32 v20 over BLE. Measure the height with the HAT, loudness over road noise, and the current when idle and speaking (USB meter). Set the brightness for day/night | phase 1, the car | a drive with every level shown and heard; numbers in `whisplay-hat.md` |
 | **3: camera on the Zero** | `drifts.live --face mesh --whisplay` on the Pi Zero. Measure fps and CPU with the screen running; the screen only redraws on change, ~10 ms a frame on a laptop | phase 1, Arducam | fps noted; decide whether the Zero runs the mesh or keeps the Haar tracker |
 | **4: Driver AI (push to talk)** | Long press (or `button_long = "ai"`) records from the HAT's mics: listening → thinking → answer screens, which are already drawn. **Fixed intents first**, answered from DRIFTS data with Piper speech, no internet needed: "what's my score", "why did it drop" (the measured signals that changed), "is my camera connected". Then optional speech-to-text and a language model | phase 1; a speech-to-text choice (below) | 4 intents work parked, answers use only measured values |
-| **5: phone app** | 5-tab app from the UI spec, reading `UiState.to_dict()` | — | separate PR |
+| **5: phone app** | ✅ 4 tabs (Home, History, Devices, Settings) in the mockup's design, band colours from `ui_model.py`, real trip history. Next: the AI tab | — | AI tab with phase 4 |
 | **6: rest stop and emergency** | Real data only: GPS or the phone's location for rest stops, contacts from the phone app, confirmed calls. Opt-in "notify a contact after sustained high fatigue" with a cancel period | phase 5 | screens leave "unavailable" with real data |
 
 **Phase 4 options.** PiSugar's `whisplay-ai-chatbot` is a reference, not

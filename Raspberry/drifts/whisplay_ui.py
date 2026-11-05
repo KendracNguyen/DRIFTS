@@ -345,8 +345,9 @@ def gauge(c: Canvas, x: float, y: float, r: float, thick: float, score: Optional
         c.arc(x, y, r, 0, 360, col, thick)
 
 
-def pill(c: Canvas, x0, y0, x1, y1, text, fill, ink=INK, ico: Optional[str] = None, size=15, weight=700):
-    c.rrect(x0, y0, x1, y1, (y1 - y0) / 2 if y1 - y0 < 30 else 12, fill=fill)
+def pill(c: Canvas, x0, y0, x1, y1, text, fill, ink=INK, ico: Optional[str] = None, size=15, weight=700,
+         r: Optional[float] = None):
+    c.rrect(x0, y0, x1, y1, r if r is not None else ((y1 - y0) / 2 if y1 - y0 < 30 else 12), fill=fill)
     cy = (y0 + y1) / 2
     tw = c.width(text, size, weight)
     if ico:
@@ -443,19 +444,21 @@ def view_score(c: Canvas, st: UiState, ctx: dict) -> None:
     col = band_color(band)
     if st.partial and band != UNAVAILABLE:
         col = mix(BG, col, 0.6)                       # dimmer: driving data only
-    gauge(c, 120, 106, 66, 13, st.score, col)
-    c.text(120, 100, _fmt(st.score), 50, 700, INK if band != UNAVAILABLE else MUTED, "mm")
-    c.text(120, 134, "/100", 16, 500, MUTED, "mm")
+    gauge(c, 120, 106, 70, 14, st.score, col)
+    c.text(120, 98, _fmt(st.score), 52, 700, INK if band != UNAVAILABLE else MUTED, "mm")
+    c.text(120, 135, "/ 100", 17, 500, INK if band != UNAVAILABLE else MUTED, "mm")
     b = BANDS[band]
     ink = INK if band in (HIGH, UNAVAILABLE) else DARK_INK
     fill = col if band != UNAVAILABLE else SURFACE
-    pill(c, 20, 182, 220, 208, b["title"], fill, ink if band != UNAVAILABLE else MUTED, b["icon"], 15, 700)
+    pw = min(216, c.width(b["title"], 15, 700) + 46)          # the pill fits its words, as in the mockup
+    pill(c, 120 - pw / 2, 184, 120 + pw / 2, 212, b["title"], fill, ink if band != UNAVAILABLE else MUTED,
+         b["icon"], 15, 700, r=8)
     if ctx.get("banner"):
         return
     for i, (ico, text) in enumerate(_score_rows(st)):
-        y = 230 + i * 26
-        icon(c, ico, 40, y, INK, 16)
-        c.text(58, y, text, 14, 500, INK, "lm")
+        y = 231 + i * 25
+        icon(c, ico, 46, y, INK, 17)
+        c.text(64, y, text, 14, 500, INK, "lm")
 
 
 def view_driving(c: Canvas, st: UiState, ctx: dict) -> None:
@@ -495,21 +498,16 @@ def view_devices(c: Canvas, st: UiState, ctx: dict) -> None:
 
 def view_setup(c: Canvas, st: UiState, ctx: dict) -> None:
     title(c, "System Setup")
-    cal = None if st.calibrated is None else ("Done" if st.calibrated else "Not set")
-    items = [("user", "User Profile", ctx.get("profile") or "--"),
-             ("wifi", "Wi-Fi", ctx.get("wifi") or "--"),
-             ("target", "Calibration", cal or "--"),
-             ("sliders", "Display & Alerts", f"{ctx.get('brightness', '--')}%")]
-    for i, (ico, label, value) in enumerate(items):
-        y = 66 + i * 42 + 21
+    items = [("user", "User Profile"), ("wifi", "Wi-Fi Settings"), ("target", "Calibration"),
+             ("sliders", "Display & Alerts")]
+    for i, (ico, label) in enumerate(items):
+        y = 64 + i * 48 + 24
         if i:
-            c.line([(14, y - 21), (226, y - 21)], fill=LINE, width=1)
-        icon(c, ico, 26, y, INK, 16)
-        c.text(44, y, label, 14, 500, INK, "lm")
-        v = value if c.width(value, 11) < 70 else value[:9] + "…"
-        c.text(210, y, v, 11, 400, MUTED, "rm")
-        icon(c, "chevron", 220, y, MUTED, 14)
-    footer(c, "Change settings in the phone app")
+            c.line([(14, y - 24), (226, y - 24)], fill=LINE, width=1)
+        icon(c, ico, 28, y, INK, 20)
+        c.text(50, y, label, 15, 500, INK, "lm")
+        icon(c, "chevron", 218, y, INK, 16)
+    footer(c, "Change these in the phone app", y=266)
 
 
 AI_STATES = ("offline", "idle", "listening", "processing", "responding", "error", "mic_unavailable")

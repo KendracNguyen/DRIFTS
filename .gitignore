@@ -17,3 +17,6 @@ Esp32/drifts_esp32/build/
 
 # downloaded model files
 Raspberry/models/
+
+# trip summaries written by drifts.live
+Raspberry/logs/

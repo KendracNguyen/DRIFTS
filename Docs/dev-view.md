@@ -1,8 +1,8 @@
 # Dev View: Full Face Analysis (Symposium Demo)
 
-The live dashboard has a **Switch to dev view** button in the header. It turns
+Turn on **Settings → Developer Mode** in the live dashboard. It turns
 the page dark (maroon accents stay) and shows how DRIFTS reads the driver's
-face. **Switch to driver view** returns to the normal phone dashboard. The dev
+face. **Switch to driver view** (in the header) returns to the phone app. The dev
 view also opens directly at `http://<address>:8080/#dev`.
 
 ```
@@ -56,7 +56,7 @@ cd C:\Users\Kendra\Documents\School\Senior\DRIFTS\Raspberry
 pip install mediapipe "opencv-python<5" bleak pyserial
 python -m drifts.live --face mesh --camera 0 --esp sim --mirror
 ```
-Then open http://localhost:8080 and click **Switch to dev view**.
+Then open http://localhost:8080 and turn on **Settings → Developer Mode**.
 
 - The first run downloads the face model (3.7 MB, Apache 2.0) to `Raspberry/models/`.
 - `--esp serial --port COM5` uses the real ESP32 over USB instead of `sim`.
