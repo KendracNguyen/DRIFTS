@@ -133,6 +133,16 @@ class EyeTracker:
         self.ear_open: Optional[float] = None
         self.last_blink_ms: Optional[float] = None
         self.long_closures = 0
+        self.fixed: Optional[tuple] = None   # (open EAR, closed EAR) from a calibration profile
+
+    def set_calibration(self, ear_open: Optional[float], ear_closed: Optional[float]) -> bool:
+        """Use the driver's measured open / closed EAR (guided calibration) for
+        the openness scale instead of the adaptive baseline."""
+        if ear_open is None or ear_closed is None or ear_open <= ear_closed * 1.15:
+            self.fixed = None
+            return False
+        self.fixed = (float(ear_open), float(ear_closed))
+        return True
 
     def _baseline(self) -> float:
         vals = sorted(e for _, e in self._ears)
@@ -152,8 +162,11 @@ class EyeTracker:
             self.closed, self.closed_since = False, None
             return None
         self._ears.append((now, ear))
-        self.ear_open = self._baseline()
-        lo = 0.35 * self.ear_open
+        if self.fixed:
+            self.ear_open, lo = self.fixed
+        else:
+            self.ear_open = self._baseline()
+            lo = 0.35 * self.ear_open
         self.openness = max(0.0, min(1.0, (ear - lo) / (self.ear_open - lo)))
         self._samples.append((now, self.openness))
         if not self.closed and self.openness < self.closed_below:

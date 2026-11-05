@@ -185,6 +185,18 @@ class Pipeline:
         self.trips = TripLog(Path(args.trips))     # the History tab's earlier drives
         self._trip_saved = 0.0
         self.whisplay = False                      # set when --whisplay drives the HAT
+        # Dev view XL (/dev): raw camera frames + landmarks; the browser draws the mesh,
+        # so the Pi only encodes a plain JPEG and sends 478 points (docs/dev-view.md).
+        self.xl_until = 0.0
+        self.cam_jpeg: Optional[bytes] = None
+        self.face_pkt: Optional[dict] = None
+        self.xl_id = 0
+        self.drowsy_hist: list = []                # (t, composite drowsiness), 1 Hz, last hour
+        from drifts.guided import Guided, load_profile
+        self.guided = Guided(name=args.profile)
+        self.profile = load_profile(args.profile) if self.face_on else None
+        if self.profile:
+            self.apply_profile(self.profile)
         self._wifi = (-1e9, None)
 
     def start(self) -> None:
@@ -192,6 +204,45 @@ class Pipeline:
 
     def stop(self) -> None:
         self._stop.set()
+
+    def apply_profile(self, prof: dict) -> None:
+        """A guided-calibration profile: road pose, off-road limits, eye and mouth scale."""
+        if hasattr(self.camera, "apply_profile"):
+            self.camera.apply_profile(prof)
+        road = prof.get("road") or {}
+        if road.get("yaw") is not None and road.get("pitch") is not None:
+            self.cal.yaw0, self.cal.pitch0 = road["yaw"], road["pitch"]
+            self.cal.roll0, self.cal.done = road.get("roll") or 0.0, True
+        if prof.get("yaw_limit"):
+            self.attn.yaw_limit = prof["yaw_limit"]
+        if prof.get("pitch_limit"):
+            self.attn.pitch_down = self.attn.pitch_up = prof["pitch_limit"]
+        log.info("Driver profile %s: road pose, limits yaw %s / pitch %s, eye scale %s",
+                 prof.get("name"), prof.get("yaw_limit"), prof.get("pitch_limit"),
+                 "on" if prof.get("ear_open") else "off")
+
+    def _guided_step(self, now: float) -> None:
+        g = self.guided
+        if not g.active:
+            return
+        # Camera-relative angles from the face mesh: the sequence measures its own road pose.
+        g.update(now, dict(self.camera.face), dict(self.pose))
+        if not g.active and g.profile and not g.profile.get("_saved"):
+            from drifts.guided import save_profile
+            path = save_profile(g.profile)
+            g.profile["_saved"] = str(path)
+            self.profile = g.profile
+            self.apply_profile(g.profile)
+            log.info("Calibration saved: %s", path)
+        if not g.active and g.report and not g.report.get("_saved"):
+            from drifts.guided import save_report
+            path = save_report(g.report, Path(self.args.trips).parent)
+            g.report["_saved"] = str(path)
+            log.info("Accuracy test: overall %s, report %s", g.report.get("overall"), path)
+
+    def start_guided(self, mode: str, name: Optional[str] = None) -> None:
+        yawn = getattr(getattr(self.camera, "yawns", None), "open_thr", 0.5)
+        self.guided.start(time.time(), mode=mode, name=name or self.args.profile, yawn_mar=yawn)
 
     def recalibrate(self) -> None:
         """Driver looks at the road; the next ~3 s become the neutral pose."""
@@ -403,6 +454,13 @@ class Pipeline:
                 if now - self._perf_t >= 2.0:
                     self._perf, self._perf_t = self.perf.snapshot(), now
                 jpeg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 70])[1].tobytes()
+                if self.face_on and hasattr(self.camera, "packet"):
+                    self._guided_step(now)
+                    if now < self.xl_until and getattr(self.camera, "last_frame", None) is not None:
+                        cj = cv2.imencode(".jpg", self.camera.last_frame, [cv2.IMWRITE_JPEG_QUALITY, 75])[1].tobytes()
+                        pkt = self.camera.packet(mirror=self.args.mirror)
+                        with self._lock:
+                            self.cam_jpeg, self.face_pkt, self.xl_id = cj, pkt, self.xl_id + 1
                 if self.dev_capable and now < self.dev_until:
                     raw = getattr(self.camera, "last_frame", None)
                     if raw is not None:
@@ -418,6 +476,9 @@ class Pipeline:
                     esp = {**self.link.snapshot(), **self.esp_override}
                     self.history.append((round(now, 1), esp["score"], score, esp["rpm"], self.pose["yaw"]))
                     del self.history[:-3600]          # keep the last hour
+                    dz = self.camera.face.get("drowsiness") if self.face_on else None
+                    self.drowsy_hist.append((round(now, 1), None if dz is None else round(dz, 1)))
+                    del self.drowsy_hist[:-3600]
                     if now - self._trip_saved >= 30:
                         self._trip_saved = now
                         self.save_trip()
@@ -454,6 +515,9 @@ class Pipeline:
                     "outputs_on": ui.outputs_on}
         st["wifi"] = self.wifi()
         st["whisplay"] = self.whisplay
+        st["guided"] = self.guided.snapshot(time.time())
+        st["profile"] = (self.profile or {}).get("name")
+        st["mirror"] = bool(self.args.mirror)
         return st
 
     def _status(self) -> dict:
@@ -517,6 +581,54 @@ def make_handler(pipe: Pipeline):
                                             "eye": [r[2] for r in h], "rpm": [r[3] for r in h],
                                             "yaw": [r[4] for r in h]}).encode(),
                            "application/json")
+            elif path == "/dev":
+                self._send(200, PAGE_FILE.with_name("devview.html").read_bytes(), "text/html; charset=utf-8")
+            elif path == "/mesh.json":
+                conn = getattr(pipe.camera, "conn", {}) or {}
+                self._send(200, json.dumps({k: [x for ab in v for x in ab] for k, v in conn.items()}).encode(),
+                           "application/json")
+            elif path == "/drowsy.json":
+                self._send(200, json.dumps(list(pipe.drowsy_hist)).encode(), "application/json")
+            elif path == "/face.sse":
+                # One event per processed frame: 478 landmarks (+ blendshapes). The
+                # browser draws the mesh, so nothing is rendered on the Pi.
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                last = -1
+                try:
+                    while True:
+                        pipe.xl_until = time.time() + 3.0
+                        with pipe._lock:
+                            pkt, fid = pipe.face_pkt, pipe.xl_id
+                        if pkt is not None and fid != last:
+                            last = fid
+                            self.wfile.write(b"data: " + json.dumps({**pkt, "t": time.time()}).encode() + b"\n\n")
+                            self.wfile.flush()
+                        time.sleep(0.02)
+                except ConnectionError:
+                    pass
+            elif path == "/cam.mjpg":
+                self.send_response(200)
+                self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                last = -1
+                try:
+                    while True:
+                        pipe.xl_until = time.time() + 3.0
+                        with pipe._lock:
+                            jpeg, fid = pipe.cam_jpeg, pipe.xl_id
+                        if jpeg is not None and fid != last:
+                            last = fid
+                            self.wfile.write(b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                                             + str(len(jpeg)).encode() + b"\r\n\r\n" + jpeg + b"\r\n")
+                        time.sleep(0.02)
+                except ConnectionError:
+                    pass
             elif path == "/trips.json":
                 self._send(200, json.dumps(pipe.trips.load()).encode(), "application/json")
             elif path.startswith("/static/fonts/") and path.endswith(".woff2"):
@@ -587,6 +699,14 @@ def make_handler(pipe: Pipeline):
             elif u.path == "/calibrate":
                 pipe.recalibrate()
                 self._send(200, b"ok", "text/plain")
+            elif u.path == "/guided":
+                act = q.get("action", ["start"])[0]
+                if act == "cancel":
+                    pipe.guided.cancel()
+                elif q.get("mode", ["calibrate"])[0] in ("calibrate", "test") and pipe.face_on:
+                    name = "".join(ch for ch in q.get("name", [pipe.args.profile])[0] if ch.isalnum() or ch in "-_")
+                    pipe.start_guided(q.get("mode", ["calibrate"])[0], name or pipe.args.profile)
+                self._send(200, b"ok", "text/plain")
             elif u.path == "/beep":
                 pipe.link.send_command("BEEP")      # ESP32 firmware v15+: one 1 s beep
                 self._send(200, b"ok", "text/plain")
@@ -632,7 +752,11 @@ def build_parser(prog: str = "python -m drifts.live") -> argparse.ArgumentParser
     p.add_argument("--glasses", choices=["auto", "on", "off"], default="auto",
                    help="--face mesh: glasses detection (on = always lean on head pose)")
     p.add_argument("--dms-dir", default=None, help="dms-face checkout (default ~/dms-face or $DMS_FACE_DIR)")
-    p.add_argument("--profile", default="default", help="dms-face driver profile (run.py --calibrate)")
+    p.add_argument("--profile", default="default",
+                   help="driver profile: Raspberry/profiles/<name>.json from the dev view's guided "
+                        "calibration (--face mesh), or the dms-face profile (--face mediapipe)")
+    p.add_argument("--face-delegate", choices=["cpu", "gpu"], default="cpu",
+                   help="MediaPipe delegate for --face mesh (gpu: Linux / macOS; falls back to the CPU)")
     p.add_argument("--ir", choices=["auto", "on", "off"], default="auto",
                    help="IR contrast enhancement: auto = when the image looks like night/IR")
     p.add_argument("--yaw-sign", type=int, choices=[-1, 1], default=1, help="flip if yaw reads backwards")
@@ -677,7 +801,7 @@ def build(args) -> Pipeline:
         if args.face == "mesh":
             from drifts.facemesh import FaceMeshSource
             camera = FaceMeshSource(camera=camera, model=args.face_model, ir=args.ir, yaw_sign=args.yaw_sign,
-                                    glasses=args.glasses)
+                                    glasses=args.glasses, delegate=args.face_delegate)
         elif args.face == "mediapipe":
             from drifts.face_mediapipe import DEFAULT_DMS_DIR, Pi5FaceSource
             camera = Pi5FaceSource(dms_dir=args.dms_dir or DEFAULT_DMS_DIR, profile=args.profile,

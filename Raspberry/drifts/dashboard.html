@@ -124,100 +124,15 @@ nav a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11
 nav a.on{color:var(--maroon);font-weight:700}
 .tab{display:none}.tab.on{display:block}
 </style>
-<style>
-/* ---------- dev view: dark, maroon accents (symposium face analysis) ---------- */
-:root{--c-eyes:#4fc3f7;--c-head:#ffb74d;--c-mouth:#b388ff;--c-nose:#ff5c7a}
-.devbtn{margin-top:8px;font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:99px;border:1px solid rgba(255,255,255,.7);
-background:transparent;color:#fff;cursor:pointer}
-.devbtn:hover{background:rgba(255,255,255,.12)}
-#devview{display:none}
-html.dev,body.dev{background:#0f090b}
-body.dev{--bg:#140c0e;--card:#1c1315;--ink:#f3e7e9;--muted:#a8969b;--line:#33252a;--track:#2c1f23;--soft:#231719;
---acc:#e8677d;color:var(--ink);background:#0f090b}
-body.dev .app{max-width:1520px;background:var(--bg);box-shadow:none}
-body.dev header{background:linear-gradient(90deg,#5e1420,#7d1d2c)}
-body.dev main,body.dev nav{display:none}
-body.dev #devview{display:block;padding:14px 18px 150px}
-.dv-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;align-items:start}
-.dv-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
-.dv-h{font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);margin:0 0 10px;display:flex;align-items:center;gap:8px}
-.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
-.d-eyes{background:var(--c-eyes)}.d-head{background:var(--c-head)}.d-mouth{background:var(--c-mouth)}.d-nose{background:var(--c-nose)}
-.dfeed{position:relative;border-radius:10px;overflow:hidden;background:#000;aspect-ratio:4/3}
-.dfeed img{width:100%;height:100%;object-fit:contain;display:block}
-.dfeed .msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#e9d9db;
-padding:24px;text-align:center;font-size:14px;line-height:1.5;background:rgba(0,0,0,.6)}
-.layers{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.lay{font-size:12px;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:transparent;cursor:pointer;
-display:flex;align-items:center;gap:6px;color:var(--muted);user-select:none}
-.lay.on{border-color:#6b3a44;color:var(--ink);background:var(--soft)}
-.perf{font-size:12px;color:var(--muted);margin-top:8px;font-variant-numeric:tabular-nums}
-/* clusters */
-.cl{padding:12px 0;border-top:1px solid var(--line)}.cl:first-child{border-top:0;padding-top:2px}
-.cl-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:8px}
-.calbtn{margin-left:auto;font-size:11px;padding:4px 10px;border-radius:8px;border:1px solid #6b3a44;background:transparent;color:var(--ink)}
-.calbtn:hover{background:#7d1d2c}
-.cl-h small{font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted);font-size:11.5px}
-.sg{display:grid;grid-template-columns:118px 1fr auto;align-items:center;gap:10px;padding:5px 0}
-.sg .n{font-size:13px;color:var(--ink)}.sg .n small{display:block;color:var(--muted);font-size:11px}
-.sg .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;min-width:74px}
-.sg .v small{font-size:11px;font-weight:500;color:var(--muted);margin-left:2px}
-.mbar{position:relative;height:8px;border-radius:9px;background:var(--track)}
-.mbar u{position:absolute;left:0;top:0;bottom:0;border-radius:9px;transition:width .25s}
-.mbar s{position:absolute;top:-4px;bottom:-4px;width:2px;background:#d9c7cb;opacity:.55}
-.sub{font-size:11.5px;color:var(--muted);margin-top:2px}
-.pts{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:99px;background:var(--soft);border:1px solid var(--line);color:var(--muted);font-variant-numeric:tabular-nums}
-.pts.hot{color:#fff;background:#7d1d2c;border-color:#7d1d2c}
-.twocol{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:center}
-.viz{width:100%;max-width:240px;justify-self:end;display:block;background:#120a0c;border:1px solid var(--line);border-radius:10px}
-#dv-grid-left{position:sticky;top:150px}
-.zoomimg{width:100%;max-width:440px;border-radius:8px;display:block;background:#000;margin-top:8px}
-.pill2{font-size:10.5px;font-weight:700;letter-spacing:.8px;padding:3px 9px;border-radius:99px;border:1px solid}
-.pill2.on{color:#7ee2a0;border-color:#2f6b45;background:#13261a}.pill2.off{color:#ff8a9b;border-color:#7d1d2c;background:#2a1015}
-.pill2.mid{color:var(--muted);border-color:var(--line)}
-.formula2{font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;color:var(--muted);margin-top:6px;overflow-x:auto;white-space:nowrap}
-.formula2 b{color:var(--c-eyes)}
-/* bottom bar */
-.bbar{position:fixed;left:0;right:0;bottom:0;z-index:7;background:rgba(20,12,14,.96);border-top:1px solid #4a2830;
-backdrop-filter:blur(6px);display:none}
-body.dev .bbar{display:block}
-.bb-in{max-width:1520px;margin:0 auto;padding:12px 18px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:22px;align-items:center}
-.comp{display:flex;align-items:center;gap:14px;min-width:0}
-.comp .big{font-size:40px;font-weight:800;color:var(--acc);line-height:1;font-variant-numeric:tabular-nums;min-width:74px}
-.comp .lbl{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700}
-.stack{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--track);margin:6px 0 4px}
-.stack span{height:100%;transition:width .3s}
-.gl{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
-.seg2{display:inline-flex;border:1px solid #6b3a44;border-radius:8px;overflow:hidden}
-.seg2 button{border:0;border-radius:0;padding:3px 9px;font-size:11px;background:transparent;color:var(--muted)}
-.seg2 button.on{background:#7d1d2c;color:#fff}
-.fsm{display:flex;align-items:center;gap:6px}
-.node{font-size:11px;font-weight:700;letter-spacing:.8px;padding:7px 11px;border-radius:9px;border:1px solid var(--line);color:var(--muted);background:var(--soft);transition:.2s}
-.node.on.n0{color:#7ee2a0;border-color:#2f6b45;background:#13261a}
-.node.on.n1{color:#ffd27a;border-color:#7a5a1d;background:#2b2010}
-.node.on.n2{color:#fff;border-color:#e8677d;background:#7d1d2c;box-shadow:0 0 18px rgba(232,103,125,.45)}
-.arrow{color:#5a4248;font-size:13px}
-.outs{display:flex;gap:8px}
-.out{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;color:var(--muted);min-width:56px;padding:6px 8px;border-radius:9px;border:1px solid var(--line)}
-.out i{width:12px;height:12px;border-radius:50%;background:#3a2a2e}
-.out.on{color:var(--ink);border-color:#6b3a44}.out.on i{background:var(--acc);box-shadow:0 0 10px var(--acc)}
-.blinkon i{animation:bl 1s steps(2) infinite}@keyframes bl{50%{opacity:.25}}
-.zoomimg{} @media (max-width:1100px){#dv-grid-left{position:static}.dv-grid{grid-template-columns:minmax(0,1fr)}.bb-in{grid-template-columns:1fr;gap:10px}body.dev #devview{padding-bottom:330px}}
-@media (max-width:560px){.twocol{grid-template-columns:1fr}.sg{grid-template-columns:96px 1fr auto}body.dev #devview{padding:10px 10px 360px}}
-
-body.dev header{background:linear-gradient(90deg,#5e1420,#7d1d2c)}
-body.dev .devline{display:block}
-body.dev .devbtn{display:inline-block;margin-top:0}
-body.dev .hright .drv,body.dev .hright>svg{display:none}
-</style></head>
+</head>
 <body><div class="app">
 <header>
  <div class="hrow">
   <div><h1>DRIFTS<span class="demo" id="demotag" style="display:none">DEMO</span></h1>
    <div class="hstat"><span class="ldot off" id="dot"></span><span id="linktxt">Connecting…</span></div>
-   <div class="devline"><span id="fw">fw --</span> · <span id="rigchip"></span></div></div>
+   <div class="devline" style="display:none"><span id="fw">fw --</span> · <span id="rigchip"></span></div></div>
   <div class="hright"><span data-i="car" data-s="24"></span><span class="drv">Drive: <span id="drive">0h 00m</span></span>
-   <button class="devbtn" id="devbtn" onclick="toggleDev()">Switch to driver view</button></div>
+</div>
  </div>
 </header>
 
@@ -306,7 +221,7 @@ body.dev .hright .drv,body.dev .hright>svg{display:none}
   <div class="set" data-go="s-wifi"><span class="i" data-i="wifi" data-s="22"></span><span class="t"><b>Wi-Fi</b><small id="s-wifisub">--</small></span><span class="chev" data-i="chev"></span></div>
   <div class="set" data-go="s-display"><span class="i" data-i="sliders" data-s="22"></span><span class="t"><b>Display</b><small>Brightness · Theme</small></span><span class="chev" data-i="chev"></span></div>
   <div class="set" data-go="s-train"><span class="i" data-i="camera" data-s="22"></span><span class="t"><b>Training Capture</b><small>Eye-model frames</small></span><span class="chev" data-i="chev"></span></div>
-  <div class="set" style="cursor:default"><span class="i" data-i="code" data-s="22"></span><span class="t"><b>Developer Mode</b><small>Face analysis · Logs · System control</small></span>
+  <div class="set" style="cursor:default"><span class="i" data-i="code" data-s="22"></span><span class="t"><b>Developer Mode</b><small>Opens the desktop dev view (/dev)</small></span>
    <label class="sw"><input type="checkbox" id="devsw"><span></span></label></div>
  </div>
 </section>
@@ -381,81 +296,6 @@ body.dev .hright .drv,body.dev .hright>svg{display:none}
  </div>
 </section>
 </main>
-<!-- ============================== DEV VIEW ============================== -->
-<section id="devview">
- <div class="dv-grid">
-  <!-- left: camera with the cluster-coloured landmark overlay -->
-  <div class="dv-card" id="dv-grid-left">
-   <div class="dv-h">Face analysis · 478 landmarks</div>
-   <div class="dfeed"><img id="devimg" alt="Face analysis overlay"><div class="msg" id="devmsg" style="display:none"></div></div>
-   <div class="layers" id="layers"></div>
-   <div class="perf" id="devperf">--</div>
-  </div>
-  <!-- right: the signals, grouped by what they measure -->
-  <div class="dv-card" id="clusters">
-   <div class="cl">
-    <div class="cl-h"><span class="dot d-eyes"></span>Eyes <small>EAR · blinking · gaze target</small></div>
-    <div class="sg"><div class="n">Eye openness<small>EAR</small></div><div><div class="mbar"><u id="dv-b-ear" style="background:var(--c-eyes)"></u><s id="dv-t-ear"></s></div>
-      <div class="sub" id="dv-s-ear">--</div></div><div><div class="v" id="dv-v-ear">--</div><span class="pts" id="dv-p-ear">--</span></div></div>
-    <div class="formula2" id="dv-f-ear">--</div>
-    <div class="sg"><div class="n">Blinking<small>rate · PERCLOS</small></div><div><div class="mbar"><u id="dv-b-blink" style="background:var(--c-eyes)"></u></div>
-      <div class="sub" id="dv-s-blink">--</div></div><div><div class="v" id="dv-v-blink">--</div><span class="pts" id="dv-p-blink">--</span></div></div>
-    <div class="twocol" style="margin-top:6px">
-     <div><div class="sg" style="grid-template-columns:1fr auto"><div class="n">Gaze target<small>on / off road</small></div><span class="pill2 mid" id="dv-v-gaze">--</span></div>
-      <div class="sub" id="dv-s-gaze">--</div><div style="margin-top:6px"><span class="pts" id="dv-p-gaze">--</span></div></div>
-     <svg class="viz" id="gazebox" viewBox="0 0 200 120"></svg>
-    </div>
-    <img class="zoomimg" id="zoomimg" alt="Eye close-ups with P1-P6">
-   </div>
-   <div class="cl">
-    <div class="cl-h"><span class="dot d-head"></span>Head pose <small>from the nose axis · relative to the road pose</small>
-     <button class="calbtn" id="dv-calbtn" onclick="fetch('/calibrate',{method:'POST'})">Calibrate</button></div>
-    <div class="twocol">
-     <svg class="viz" id="xybox" viewBox="0 0 200 150"></svg>
-     <div>
-      <div class="sg" style="grid-template-columns:1fr auto"><div class="n">Yaw<small id="dv-yawdir">left / right</small></div><div><div class="v" id="dv-v-yaw">--</div><span class="pts" id="dv-p-yaw">--</span></div></div>
-      <div class="sg" style="grid-template-columns:1fr auto"><div class="n">Pitch<small id="dv-pitchdir">up / down</small></div><div><div class="v" id="dv-v-pitch">--</div><span class="pts" id="dv-p-pitch">--</span></div></div>
-      <div class="sg" style="grid-template-columns:1fr auto"><div class="n">Head tilt<small>roll</small></div><div><div class="v" id="dv-v-roll">--</div><span class="pts" id="dv-p-roll">--</span></div></div>
-     </div>
-    </div>
-    <div class="sub" id="dv-s-head">--</div>
-   </div>
-   <div class="cl">
-    <div class="cl-h"><span class="dot d-mouth"></span>Mouth <small>MAR · yawn</small></div>
-    <div class="sg"><div class="n">Mouth<small>MAR</small></div><div><div class="mbar"><u id="dv-b-mar" style="background:var(--c-mouth)"></u><s style="left:62.5%"></s></div>
-      <div class="sub" id="dv-s-mar">--</div></div><div><div class="v" id="dv-v-mar">--</div><span class="pts" id="dv-p-mar">--</span></div></div>
-    <div class="sg"><div class="n">Yawn<small>last 10 min</small></div><div class="sub" id="dv-s-yawn">--</div><div><div class="v" id="dv-v-yawn">--</div><span class="pts" id="dv-p-yawn">--</span></div></div>
-    <img class="zoomimg" id="mouthimg" alt="Mouth close-up" style="max-width:220px">
-   </div>
-   <div class="cl">
-    <div class="cl-h"><span class="dot d-nose"></span>Anchor · nose <small>reference point for head pose (not scored)</small></div>
-    <div class="sub" id="dv-s-nose">--</div>
-   </div>
-  </div>
- </div>
-</section>
-<!-- bottom bar: composite score + alert tier + outputs -->
-<div class="bbar" id="bbar"><div class="bb-in">
- <div class="comp">
-  <div><div class="lbl">Drowsiness</div><div class="big" id="dv-c-score">--</div></div>
-  <div style="flex:1;min-width:0">
-   <div class="lbl">Weighted sum of the 8 signals <span id="c-wset" style="text-transform:none;letter-spacing:0;font-weight:500"></span></div>
-   <div class="stack" id="c-stack"></div>
-   <div class="gl">Glasses <span id="g-state" class="pill2 mid">--</span>
-    <span class="seg2" id="gseg"><button data-m="auto">Auto</button><button data-m="on">On</button><button data-m="off">Off</button></span>
-    <span id="c-esp">→ ESP32 EYE --</span></div>
-  </div>
- </div>
- <div><div class="lbl" style="font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px">DRIFTS alert tier</div>
-  <div class="fsm"><span class="node n0" id="n0">NONE</span><span class="arrow">→</span><span class="node n1" id="n1">WARNING</span><span class="arrow">→</span><span class="node n2" id="n2">INTERVENTION</span></div>
-  <div class="sub" id="tiernote">--</div></div>
- <div class="outs">
-  <div class="out" id="o-motor"><i></i>Motors</div><div class="out" id="o-buzz"><i></i>Buzzer</div><div class="out" id="o-led"><i id="o-ledi"></i>Status</div>
- </div>
-</div></div>
-
-
-
 <nav>
  <a class="on" data-t="home"><span data-i="home" data-s="22"></span>Home</a>
  <a data-t="history"><span data-i="activity" data-s="22"></span>History</a>
@@ -546,7 +386,7 @@ document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{histMode=b.da
  document.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x===b));
  $("h-trip").style.display=histMode==="trip"?"":"none";$("h-trends").style.display=histMode==="trends"?"":"none";drawCharts()});
 $("seeall").onclick=()=>{showAll=!showAll;$("seeall").firstChild.textContent=showAll?"Show Less ":"See All ";drawTrips()};
-$("devsw").onchange=()=>{if($("devsw").checked){toggleDev()}};
+$("devsw").onchange=()=>{if($("devsw").checked){$("devsw").checked=false;toggleDev()}};
 if(location.hash&&location.hash!=="#dev")show(location.hash.slice(1));
 async function cap(label,n=1){await fetch(`/capture?label=${label}&n=${n}`,{method:"POST"})}
 $("send").onchange=e=>fetch(`/eye_send?on=${e.target.checked?1:0}`,{method:"POST"});
@@ -659,115 +499,10 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  if(s.time-last>=2&&$("t-history").classList.contains("on")){last=s.time;loadHistory()}}
 setInterval(tick,500);tick();
 
-// ============================== DEV VIEW ==============================
-// Dark analysis page for the symposium: camera + cluster-coloured landmarks on
-// the left, the signals grouped by what they measure on the right, and the
-// composite score with the alert tier and active outputs along the bottom.
-const CL={eyes:"var(--c-eyes)",head:"var(--c-head)",mouth:"var(--c-mouth)",nose:"var(--c-nose)"};
-const SIGCL={ear:"eyes",blink:"eyes",gaze:"eyes",yaw:"head",pitch:"head",roll:"head",mar:"mouth",yawn:"mouth"};
-const SIGNM={ear:"EAR",blink:"Blink",gaze:"Gaze",yaw:"Yaw",pitch:"Pitch",roll:"Tilt",mar:"MAR",yawn:"Yawn"};
-const LAYERS=[["mesh","Wireframe","#5c484e"],["eyes","Eyes","var(--c-eyes)"],["head","Head pose","var(--c-head)"],
- ["mouth","Mouth","var(--c-mouth)"],["nose","Nose anchor","var(--c-nose)"],["glasses","Glasses box","#ffc800"]];
-let devOn=false,devLayers=new Set(["mesh","eyes","head","mouth","nose"]),earHist=[];
-function buildDev(){
- $("layers").innerHTML=LAYERS.map(([k,n,c])=>`<span class="lay${devLayers.has(k)?" on":""}" data-k="${k}"><span class="dot" style="background:${c}"></span>${n}</span>`).join("");
- document.querySelectorAll(".lay").forEach(el=>el.onclick=()=>{const k=el.dataset.k;
-  devLayers.has(k)?devLayers.delete(k):devLayers.add(k);el.classList.toggle("on",devLayers.has(k));
-  fetch("/dev_layers?"+LAYERS.map(l=>l[0]+"="+(devLayers.has(l[0])?1:0)).join("&"),{method:"POST"})});
- document.querySelectorAll("#gseg button").forEach(b=>b.onclick=()=>fetch("/glasses?mode="+b.dataset.m,{method:"POST"}));
-}
-function toggleDev(){devOn=!devOn;const sw=$("devsw");if(sw)sw.checked=devOn;document.body.classList.toggle("dev",devOn);document.documentElement.classList.toggle("dev",devOn);
- $("devbtn").textContent=devOn?"Switch to driver view":"Switch to dev view";
- document.querySelector('meta[name="theme-color"]').content=devOn?"#140c0e":"#650E20";
- for(const [id,src] of [["devimg","/dev.mjpg"],["zoomimg","/zoom.mjpg"],["mouthimg","/mouth.mjpg"]])$(id).src=devOn?src:"";
- if(devOn)fetch("/dev_layers?"+LAYERS.map(l=>l[0]+"="+(devLayers.has(l[0])?1:0)).join("&"),{method:"POST"});
- try{localStorage.setItem("drifts-dev",devOn?"1":"0")}catch(e){}
- if(devOn)devTick();window.scrollTo(0,0)}
 // Camera problems (crashed pipeline, no webcam) shown on the feed itself.
 function feedProblem(s){const m=s.error?"Camera stopped: "+s.error+"<br><small>Full error in the terminal. Fix it, then restart drifts.live.</small>":
- s.camera_note||"";["feedmsg","devmsg"].forEach(id=>{const el=$(id);if(!el)return;if(m){el.innerHTML=m;el.style.display="flex"}
- else if(id==="feedmsg")el.style.display="none"})}
-const n2=(v,d=2)=>v==null?"--":Number(v).toFixed(d);
-const sgn=(v,d=0)=>v==null?"--":(Math.abs(v)<.5&&d===0?"0":(v>0?"+":"")+Number(v).toFixed(d));
-function pts(id,part){const el=$(id);if(!part||part.points==null){el.textContent="no data";el.className="pts";return}
- el.textContent=`+${part.points.toFixed(1)} pts`;el.className="pts"+(part.d>=.5?" hot":"")}
-function mbar(id,frac){$(id).style.width=Math.max(0,Math.min(100,frac*100))+"%"}
-// gaze target: where the driver is looking, with the road zone as a box
-function drawGaze(p,f){const W=200,H=120,cx=100,cy=60,sx=100/50,sy=60/40;
- const gx=(p.yaw??0)+(f.gaze_x??0)*60,gy=(p.pitch??0);
- const x=Math.max(6,Math.min(W-6,cx+gx*sx)),y=Math.max(6,Math.min(H-6,cy+gy*sy));
- const off=p.attention==="off_road"||f.gaze_off;
- $("gazebox").innerHTML=`<rect x="${cx-30*sx}" y="${cy-20*sy}" width="${60*sx}" height="${40*sy}" rx="6" fill="rgba(126,226,160,.07)" stroke="#2f6b45" stroke-dasharray="4 3"/>
- <text x="${cx}" y="${cy-20*sy-5}" fill="#6f9c80" font-size="9" text-anchor="middle">ROAD</text>
- <line x1="${cx}" y1="4" x2="${cx}" y2="${H-4}" stroke="#2c1f23"/><line x1="4" y1="${cy}" x2="${W-4}" y2="${cy}" stroke="#2c1f23"/>
- ${f.found?`<circle cx="${x}" cy="${y}" r="13" fill="none" stroke="${off?"#ff5c7a":"#4fc3f7"}" stroke-width="1.5"/>
- <circle cx="${x}" cy="${y}" r="4" fill="${off?"#ff5c7a":"#4fc3f7"}"/>
- <line x1="${x-19}" y1="${y}" x2="${x-9}" y2="${y}" stroke="${off?"#ff5c7a":"#4fc3f7"}"/><line x1="${x+9}" y1="${y}" x2="${x+19}" y2="${y}" stroke="${off?"#ff5c7a":"#4fc3f7"}"/>`:
- `<text x="${cx}" y="${cy+4}" fill="#a8969b" font-size="11" text-anchor="middle">no face</text>`}`}
-// head pose: yaw on X, pitch on Y, roll as the tilt of the marker
-function drawXY(p,f){const W=200,H=150,cx=100,cy=75,sx=90/60,sy=65/45;
- const y=p.yaw,pi=p.pitch,r=p.roll??0,ok=f.found&&y!=null&&pi!=null;
- const x=ok?Math.max(8,Math.min(W-8,cx+y*sx)):cx,yy=ok?Math.max(8,Math.min(H-8,cy+pi*sy)):cy;
- const a=-r*Math.PI/180,L=16;
- $("xybox").innerHTML=`<line x1="${cx}" y1="6" x2="${cx}" y2="${H-6}" stroke="#3a2a2e"/><line x1="6" y1="${cy}" x2="${W-6}" y2="${cy}" stroke="#3a2a2e"/>
- <rect x="${cx-30*sx}" y="${cy-20*sy}" width="${60*sx}" height="${40*sy}" fill="none" stroke="#7a5a1d" stroke-dasharray="4 3" rx="4"/>
- <text x="${W-6}" y="${cy-4}" fill="#8a777c" font-size="9" text-anchor="end">yaw R →</text><text x="6" y="${cy-4}" fill="#8a777c" font-size="9">← L</text>
- <text x="${cx+4}" y="12" fill="#8a777c" font-size="9">pitch up</text><text x="${cx+4}" y="${H-5}" fill="#8a777c" font-size="9">down</text>
- ${ok?`<line x1="${x-L*Math.cos(a)}" y1="${yy-L*Math.sin(a)}" x2="${x+L*Math.cos(a)}" y2="${yy+L*Math.sin(a)}" stroke="#ffb74d" stroke-width="2.5" stroke-linecap="round"/>
- <circle cx="${x}" cy="${yy}" r="5" fill="#ffb74d"/><circle cx="${cx}" cy="${cy}" r="3" fill="#ff5c7a"/>`:
- `<text x="${cx}" y="${cy+20}" fill="#a8969b" font-size="11" text-anchor="middle">no face</text>`}`}
-async function devTick(){if(!devOn)return;let s;
- try{s=await (await fetch("/status.json",{cache:"no-store"})).json()}catch(e){setTimeout(devTick,1000);return}
- const f=s.face||{},p=s.pose||{},ok=s.dev&&s.dev.capable,P=f.parts||{};
- $("devmsg").style.display=ok?"none":"flex";
- if(!ok)$("devmsg").innerHTML="The dev view needs the face-mesh backend.<br>Restart with:<br><code>python -m drifts.live --face mesh --camera 0</code>";
- if(ok)feedProblem(s);
- const rig=s.rig||{};$("devperf").textContent=`${rig.name||"--"} · ${rig.backend||"--"} · ${fx(rig.fps,1)} fps · inference ${fx(rig.inference_ms,0)} ms · ${f.found?"face found":"no face"}`;
- // eyes
- const eo=f.ear_open||0.3;mbar("dv-b-ear",(f.ear??0)/(eo*1.2));$("dv-t-ear").style.left=Math.min(100,(0.35*eo+0.3*0.65*eo)/(eo*1.2)*100)+"%";
- $("dv-v-ear").innerHTML=n2(f.ear)+"<small>EAR</small>";
- $("dv-s-ear").textContent=`L ${n2(f.ear_l)} · R ${n2(f.ear_r)} · ${f.openness==null?"--":Math.round(f.openness*100)+"% open"} · ${(f.eye_state||"--").replace("_"," ")}`+(f.closed_for>=1?` ${f.closed_for.toFixed(1)} s`:"");
- const tr=(f.ear_terms||{}).r;$("dv-f-ear").innerHTML=tr?`right eye: (|P2−P6| + |P3−P5|) / 2|P1−P4| = (${tr[0].toFixed(1)} + ${tr[1].toFixed(1)}) / (2·${tr[2].toFixed(1)}) = <b>${n2(f.ear_r,3)}</b>`:"EAR = (|P2−P6| + |P3−P5|) / 2|P1−P4|";
- mbar("dv-b-blink",(f.perclos??0)/0.3);$("dv-v-blink").innerHTML=(f.blink_rate==null?"--":Math.round(f.blink_rate))+"<small>/min</small>";
- $("dv-s-blink").textContent=`PERCLOS ${f.perclos==null?"warming up":Math.round(f.perclos*100)+"%"} · mean ${fx(f.mean_blink_ms,0)} ms · long closures ${f.long_closures??0}`;
- const off=p.attention==="off_road"||f.gaze_off;$("dv-v-gaze").textContent=!f.found?"NO FACE":f.eyes_closed?"EYES CLOSED · OFF ROAD":off?"OFF ROAD":"ON ROAD";$("dv-v-gaze").className="pill2 "+(!f.found?"mid":off?"off":"on");
- $("dv-s-gaze").textContent=(f.gaze_reason?f.gaze_reason+" · ":"")+(p.attention==="off_road"&&!f.gaze_reason?"head turned away · ":"")+
-  `iris ${sgn(f.gaze_x,2)}${f.gaze_calibrated?"":" (calibrating)"} · off ${n2(f.gaze_off_s,1)} s · ${p.glances??0} glances > 2 s`;
- drawGaze(p,f);
- // head
- $("dv-v-yaw").innerHTML=sgn(p.yaw)+"<small>°</small>";$("dv-v-pitch").innerHTML=sgn(p.pitch)+"<small>°</small>";$("dv-v-roll").innerHTML=sgn(p.roll)+"<small>°</small>";
- $("dv-yawdir").textContent=p.yaw==null?"left / right":Math.abs(p.yaw)<5?"straight ahead":p.yaw>0?"turned right":"turned left";
- $("dv-pitchdir").textContent=p.pitch==null?"up / down":Math.abs(p.pitch)<5?"level":p.pitch>0?"looking down":"looking up";
- const calP=Math.min(p.calib_progress??0,f.gaze_calib_progress??1),calOk=p.calibrated&&f.gaze_calibrated!==false;
- $("dv-s-head").textContent=`Nods in the last minute ${f.nods??0} · droop ${n2(f.droop_s,1)} s · `+
-  (calOk?"calibrated: head + eyes":`calibrating ${Math.round(calP*100)}%: look at the road with your eyes open`);
- $("dv-calbtn").textContent=calOk?"Calibrate":"Calibrating…";
- drawXY(p,f);
- // mouth
- mbar("dv-b-mar",(f.mar??0)/0.8);$("dv-v-mar").innerHTML=n2(f.mar)+"<small>MAR</small>";
- $("dv-s-mar").textContent=f.mar==null?"--":f.mar<0.1?"closed":f.mar<0.4?"talking range":"wide open (yawn > 0.50)";
- $("dv-v-yawn").textContent=f.yawns??"--";$("dv-s-yawn").textContent=f.yawning?"YAWNING NOW":"held > 0.50 for 1.5 s = a yawn";
- // anchor
- const nn=f.nose_neutral||{};$("dv-s-nose").textContent=f.nose?`Nose tip at (${Math.round(f.nose[0])}, ${Math.round(f.nose[1])}) px · the three head-pose arrows start here · neutral yaw ${sgn(nn.yaw)}° pitch ${sgn(nn.pitch)}° roll ${sgn(nn.roll)}°`:"no face";
- for(const k of Object.keys(SIGCL))pts("dv-p-"+k,P[k]);
- // bottom bar: composite
- $("dv-c-score").textContent=f.drowsiness==null?"--":Math.round(f.drowsiness);
- $("c-stack").innerHTML=Object.keys(SIGCL).map(k=>{const q=P[k];const w=q&&q.points?q.points:0;
-  return `<span title="${SIGNM[k]} +${w.toFixed(1)}" style="width:${w}%;background:${CL[SIGCL[k]]};opacity:${.55+.45*(q&&q.d||0)}"></span>`}).join("");
- $("c-wset").textContent=f.glasses?"· glasses weights: eyes 25 %, head 50 %, mouth 25 %":"· eyes 55 %, head 25 %, mouth 20 %";
- $("g-state").textContent=f.glasses?"ON":"OFF";$("g-state").className="pill2 "+(f.glasses?"off":"mid");
- document.querySelectorAll("#gseg button").forEach(b=>b.classList.toggle("on",b.dataset.m===(f.glasses_mode||"auto")));
- $("c-esp").textContent=`→ ESP32 EYE ${f.face_score==null?"--":Math.round(f.face_score)} (100 − drowsiness)`;
- // tier state machine + outputs (ESP32, or Tokyo's own outputs)
- const e=s.esp||{},out=s.outputs;let tier=0;
- if(out)tier=Math.min(2,out.level||0);else if(e.alert||e.lvl==="LOW")tier=2;else if(e.lvl==="CAUTION")tier=1;
- ["n0","n1","n2"].forEach((id,i)=>$(id).classList.toggle("on",i===tier));
- $("tiernote").textContent=`alert score ${fx(e.score)} · ${e.lvl||"--"}${e.alert?" · drowsy alert running":""} · ${out?"Tokyo outputs":"ESP32 "+(e.link||"--")}`;
- const buzz=out?!!out.buzzer:!!e.alert,motor=out?!!out.motors:!!e.alert;
- $("o-buzz").className="out"+(buzz?" on":"");$("o-motor").className="out"+(motor?" on":"");
- const led=tier===2?"#ff5c7a":tier===1?"#ffd27a":"#7ee2a0";$("o-led").className="out on"+(tier===2?" blinkon":"");
- $("o-ledi").style.background=led;$("o-ledi").style.boxShadow="0 0 10px "+led;
- setTimeout(devTick,250)}
-buildDev();
-try{if(localStorage.getItem("drifts-dev")==="1"||location.hash==="#dev")toggleDev()}catch(e){}
+ s.camera_note||"";const el=$("feedmsg");if(!el)return;if(m){el.innerHTML=m;el.style.display="flex"}else el.style.display="none"}
+// Developer Mode: the desktop dev view (/dev) with the face mesh drawn in the browser.
+function toggleDev(){location.href="/dev"}
+if(location.hash==="#dev")location.replace("/dev");
 </script></body></html>

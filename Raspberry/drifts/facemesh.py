@@ -103,7 +103,7 @@ class FaceMeshSource:
     backend = "mesh"
 
     def __init__(self, camera=None, model: Optional[str] = None, ir: str = "auto", yaw_sign: int = 1,
-                 glasses: str = "auto", landmarker=None):
+                 glasses: str = "auto", landmarker=None, delegate: str = "cpu"):
         self.camera, self.model_path, self.ir, self.yaw_sign = camera, model, ir, yaw_sign
         self._lm = landmarker                      # injectable for tests
         self.eyes = fs.EyeTracker()
@@ -131,6 +131,11 @@ class FaceMeshSource:
         self.last_frame = None
         self._ts_ms = 0
         self.conn = {"mesh": [], "eyes": [], "lips": [], "oval": []}   # filled from MediaPipe in start()
+        self.delegate, self.delegate_used = delegate, "CPU"
+        self.blend: dict = {}                      # the 52 blendshape scores of the last frame
+        self.frame_size = (0, 0)                   # (w, h) of the frame the landmarks are in
+        self.frame_id = 0
+        self.profile: Optional[dict] = None        # guided-calibration profile (drifts/guided.py)
 
     # ------------------------------------------------------------------ setup
     def start(self) -> None:
@@ -138,18 +143,28 @@ class FaceMeshSource:
             import mediapipe as mp
             from mediapipe.tasks.python import BaseOptions, vision
             model = ensure_model(Path(self.model_path) if self.model_path else DEFAULT_MODEL)
-            opts = vision.FaceLandmarkerOptions(
-                base_options=BaseOptions(model_asset_path=str(model)),
-                running_mode=vision.RunningMode.VIDEO, num_faces=1,
-                output_facial_transformation_matrixes=True)
-            self._lm = vision.FaceLandmarker.create_from_options(opts)
+            def make(delegate):
+                base = (BaseOptions(model_asset_path=str(model), delegate=BaseOptions.Delegate.GPU)
+                        if delegate == "gpu" else BaseOptions(model_asset_path=str(model)))
+                return vision.FaceLandmarker.create_from_options(vision.FaceLandmarkerOptions(
+                    base_options=base, running_mode=vision.RunningMode.VIDEO, num_faces=1,
+                    output_face_blendshapes=True, output_facial_transformation_matrixes=True))
+            if self.delegate == "gpu":
+                try:
+                    self._lm, self.delegate_used = make("gpu"), "GPU"
+                except Exception as exc:          # no GPU delegate on this platform (Windows): CPU
+                    log.warning("GPU delegate not available (%s): using the CPU", exc)
+            if self._lm is None:
+                self._lm, self.delegate_used = make("cpu"), "CPU"
             self._mp = mp
             c = vision.FaceLandmarksConnections
             pairs = lambda conns: [(k.start, k.end) for k in conns]
             self.conn = {"mesh": pairs(c.FACE_LANDMARKS_TESSELATION),
                          "eyes": pairs(c.FACE_LANDMARKS_LEFT_EYE) + pairs(c.FACE_LANDMARKS_RIGHT_EYE),
                          "lips": pairs(c.FACE_LANDMARKS_LIPS),
-                         "oval": pairs(c.FACE_LANDMARKS_FACE_OVAL)}
+                         "oval": pairs(c.FACE_LANDMARKS_FACE_OVAL),
+                         "brows": pairs(c.FACE_LANDMARKS_LEFT_EYEBROW) + pairs(c.FACE_LANDMARKS_RIGHT_EYEBROW),
+                         "irises": pairs(c.FACE_LANDMARKS_LEFT_IRIS) + pairs(c.FACE_LANDMARKS_RIGHT_IRIS)}
         if self.camera is not None:
             self.camera.start()
 
@@ -158,6 +173,32 @@ class FaceMeshSource:
         become the 'looking at the road' iris position."""
         self.calib_frames = frames
         self._gaze_samples, self.gaze_calibrated, self.gaze0 = [], False, 0.0
+
+    def apply_profile(self, prof: Optional[dict]) -> None:
+        """Use a guided-calibration profile: the driver's own open / closed EAR,
+        yawn threshold and road-pose iris position."""
+        self.profile = prof
+        if not prof:
+            self.eyes.set_calibration(None, None)
+            return
+        self.eyes.set_calibration(prof.get("ear_open"), prof.get("ear_closed"))
+        if prof.get("yawn_mar"):
+            self.yawns.open_thr = prof["yawn_mar"]
+            self.yawns.close_thr = 0.75 * prof["yawn_mar"]
+        gaze = (prof.get("road") or {}).get("gaze")
+        if gaze is not None:
+            self.gaze0, self.gaze_calibrated = gaze, True
+
+    def packet(self, mirror: bool = False) -> dict:
+        """The last frame's landmarks for the browser-drawn mesh (/face.sse):
+        478 x/y pixel pairs, rounded to 0.1 px, plus the top blendshapes."""
+        px = self.landmarks
+        w, h = self.frame_size
+        top = sorted(self.blend.items(), key=lambda kv: kv[1], reverse=True)[:4]
+        return {"id": self.frame_id, "w": w, "h": h, "mirror": mirror, "found": bool(px),
+                "lm": [round(v, 1) for p in px for v in p] if px else [],
+                "ms": None if self.inference_ms is None else round(self.inference_ms, 1),
+                "delegate": self.delegate_used, "blend_top": [[k, round(v, 3)] for k, v in top]}
 
     def set_glasses_mode(self, mode: str) -> None:
         if mode in ("auto", "on", "off"):
@@ -176,6 +217,8 @@ class FaceMeshSource:
         self._ts_ms = max(self._ts_ms + 1, int(time.monotonic() * 1000))
         res = self._lm.detect_for_video(self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=rgb),
                                         self._ts_ms)
+        self.blend = ({b.category_name: b.score for b in res.face_blendshapes[0]}
+                      if getattr(res, "face_blendshapes", None) else {})
         if not res.face_landmarks:
             return None, None
         h, w = rgb.shape[:2]
@@ -193,6 +236,7 @@ class FaceMeshSource:
         px, m = self._detect(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         self.inference_ms = (time.perf_counter() - t0) * 1000
         self.landmarks, self.matrix = px, m
+        self.frame_size, self.frame_id = (frame.shape[1], frame.shape[0]), self.frame_id + 1
         self.people = 1 if px else 0
         edge = bridge_edge(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), px) if px else None
         return self.compute(now, px, m, edge, night, use_ir)
@@ -271,7 +315,10 @@ class FaceMeshSource:
             "basis": "glasses: weight moved from the eyes to the nose axis" if glasses else "normal weights",
             "state": state, "night": night, "ir_enhanced": ir_enhanced,
             "saturation": self.night.saturation, "inference_ms": self.inference_ms,
-            "profile": "auto", "profile_loaded": True,
+            "profile": (self.profile or {}).get("name", "auto"), "profile_loaded": True,
+            "calibrated_eyes": self.eyes.fixed is not None,
+            "blend": {k: round(v, 3) for k, v in self.blend.items()},
+            "jaw_open": self.blend.get("jawOpen"), "delegate": self.delegate_used,
         }
         return self.face
 
