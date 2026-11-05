@@ -735,20 +735,77 @@ class Speaker:
 
 # ---------------------------------------------------------------- button
 class ButtonDecoder:
-    """press/release times -> "short" or "long" (long = held >= long_s)."""
+    """Press / release times -> "short", "long" or "double".
 
-    def __init__(self, long_s: float = 1.5):
-        self.long_s = long_s
+    long:   fires once the button has been held long_s (while still held, so
+            the driver feels it trigger); the release then does nothing.
+    double: a second press within double_s of a short press. With
+            double_s = 0 there is no double press and a short press fires on
+            release at once; otherwise it waits double_s first.
+    Callbacks come from the driver's thread, so this is locked.
+    """
+
+    def __init__(self, long_s: float = 1.5, double_s: float = 0.0):
+        import threading
+        self.long_s, self.double_s = long_s, double_s
         self._down: Optional[float] = None
+        self._long_fired = False
+        self._short_at: Optional[float] = None       # a short press waiting for a possible second one
+        self._out: list = []
+        self._lock = threading.Lock()
+
+    def _flush_short(self) -> None:
+        if self._short_at is not None:
+            self._short_at = None
+            self._out.append("short")
 
     def press(self, now: float) -> None:
-        self._down = now
+        with self._lock:
+            if self._short_at is not None and now - self._short_at > self.double_s:
+                self._flush_short()                  # too late to be a double press
+            self._down, self._long_fired = now, False
 
     def release(self, now: float) -> Optional[str]:
-        if self._down is None:
-            return None
-        held, self._down = now - self._down, None
-        return "long" if held >= self.long_s else "short"
+        """Returns the event this release completes (also queued for poll)."""
+        with self._lock:
+            if self._down is None:
+                return None
+            held, self._down = now - self._down, None
+            if self._long_fired:
+                return None
+            if held >= self.long_s:
+                self._flush_short()
+                ev = "long"
+            elif self._short_at is not None:         # second press inside the window
+                self._short_at, ev = None, "double"
+            elif self.double_s <= 0:
+                ev = "short"
+            else:
+                self._short_at = now                 # wait: a second press makes it a double
+                return None
+            self._out.append(ev)
+            return ev
+
+    def poll(self, now: float) -> list:
+        """Events ready now (a held long press, a short press whose double window ran out)."""
+        with self._lock:
+            if self._down is not None and not self._long_fired and now - self._down >= self.long_s:
+                self._flush_short()
+                self._long_fired = True
+                self._out.append("long")
+            if self._short_at is not None and self._down is None and now - self._short_at > self.double_s:
+                self._flush_short()
+            out, self._out = self._out, []
+            return out
+
+
+ACTIONS = ("next_page", "prev_page", "repeat_voice", "calibrate", "ai", "brightness", "none")
+
+
+def check_action(name: str) -> str:
+    if name in ACTIONS or (name.startswith("page:") and name[5:] in PAGES):
+        return name
+    raise ValueError(f"[whisplay] button action {name!r}: use one of {', '.join(ACTIONS)} or page:<{'|'.join(PAGES)}>")
 
 
 # ---------------------------------------------------------------- hardware
@@ -757,7 +814,8 @@ class SimBoard:
 
     def __init__(self, out_dir: Optional[Path] = None):
         self.out_dir, self.frame, self.rgb, self.backlight = out_dir, None, (0, 0, 0), 0
-        self._press = self._release = None
+        self._press = self._release = self._joy = None
+        self.closed = False
 
     def show(self, img) -> None:
         self.frame = img
@@ -771,16 +829,47 @@ class SimBoard:
     def on_button(self, press: Callable, release: Callable) -> None:
         self._press, self._release = press, release
 
+    def on_joystick(self, press: Callable) -> None:
+        self._joy = press
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def hat_conflicts() -> list:
+    """Other programs that take the HAT's screen and button for themselves."""
+    found = []
+    if Path("/tmp/whisplay-daemon.sock").exists():
+        found.append("whisplay-daemon (PiSugar's app launcher)")
+    if shutil.which("systemctl"):
+        for svc, what in (("whisplay-daemon.service", "whisplay-daemon (PiSugar's app launcher)"),
+                          ("chatbot.service", "whisplay-ai-chatbot")):
+            try:
+                r = subprocess.run(["systemctl", "is-active", "--quiet", svc], timeout=3,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except (OSError, subprocess.SubprocessError):
+                continue
+            if r.returncode == 0 and what not in found:
+                found.append(what)
+    return found
+
 
 class HatBoard:
     """PiSugar's WhisplayBoard (github.com/PiSugar/Whisplay, runtime/whisplay.py)."""
 
-    def __init__(self, driver_dir: str):
+    def __init__(self, driver_dir: str, rotate: int = 0, joystick: bool = False):
+        others = hat_conflicts()
+        if others:
+            raise RuntimeError("the Whisplay HAT is in use by " + " and ".join(others) +
+                               ". Stop it first: sudo systemctl disable --now whisplay-daemon chatbot")
         sys.path.insert(0, str(Path(driver_dir).expanduser()))
         from whisplay import WhisplayBoard            # noqa: E402  (PiSugar's driver)
-        self.b = WhisplayBoard()
+        self.b = WhisplayBoard(enable_joystick=joystick) if joystick else WhisplayBoard()
+        self.rotate = rotate % 360
 
     def show(self, img) -> None:
+        if self.rotate:
+            img = img.rotate(self.rotate)
         self.b.draw_image(0, 0, W, H, rgb565(img))
 
     def set_rgb(self, r, g, b) -> None:
@@ -792,6 +881,21 @@ class HatBoard:
     def on_button(self, press: Callable, release: Callable) -> None:
         self.b.on_button_press(press)
         self.b.on_button_release(release)
+
+    def on_joystick(self, press: Callable) -> None:
+        if hasattr(self.b, "on_joystick_press"):
+            self.b.on_joystick_press(press)
+
+    def close(self) -> None:
+        if getattr(self, "_closed", False):
+            return
+        self._closed = True
+        try:
+            self.b.fill_screen(0)
+            self.b.set_rgb(0, 0, 0)
+            self.b.set_backlight(0)
+        finally:
+            self.b.cleanup()
 
 
 # ---------------------------------------------------------------- the UI
@@ -806,48 +910,114 @@ def wifi_ssid() -> Optional[str]:
         return None
 
 
+BRIGHTNESS_STEPS = (30, 70, 100)
+
+
 class WhisplayUI:
     PAGES = len(PAGES)
 
-    def __init__(self, cfg: WhisplayConfig, board=None, sim: bool = False):
+    def __init__(self, cfg: WhisplayConfig, board=None, sim: bool = False, hooks: Optional[dict] = None):
         self.cfg = cfg
         self.sim = sim
-        self.board = board or (SimBoard() if sim else HatBoard(cfg.driver_dir))
+        self.actions = {"short": check_action(cfg.button_short), "long": check_action(cfg.button_long),
+                        "double": check_action(cfg.button_double)}
+        self.board = board or (SimBoard() if sim else HatBoard(cfg.driver_dir, cfg.rotate, cfg.joystick))
         self.speaker = Speaker(cfg.audio_device, sim=sim)
         self.voice = VoiceDirector(repeat_s=cfg.repeat_s)
-        self.button = ButtonDecoder()
+        self.button = ButtonDecoder(cfg.long_s, 0.0 if self.actions["double"] == "none" else cfg.double_s)
+        self.hooks = dict(hooks or {})            # e.g. {"calibrate": pipeline.recalibrate}
         self.page = 0
+        self.brightness = cfg.brightness
         self.t0: Optional[float] = None
         self.banner: Optional[str] = None
         self.banner_until = 0.0
         self.ai = {"state": "offline"}          # no assistant service yet: shown as offline
-        self._events: list = []
+        self.presses: list = []                 # (time, event, what it did): for the self-test and logs
+        self._joy: list = []
         self._wifi: tuple = (-1e9, None)
         self._key = None
         self._frame = None
-        self.board.set_backlight(cfg.brightness)
+        self.board.set_backlight(self.brightness)
         self.board.on_button(lambda: self.button.press(time.monotonic()),
-                             lambda: self._events.append(self.button.release(time.monotonic())))
+                             lambda: self.button.release(time.monotonic()))
+        if hasattr(self.board, "on_joystick"):
+            self.board.on_joystick(lambda d: self._joy.append(d))
 
     def _flash(self, text: str, now: float, s: float = 2.0) -> None:
         self.banner, self.banner_until = text, now + s
 
+    def _turn(self, step: int) -> None:
+        self.page = (self.page + step) % self.PAGES
+
+    def do(self, action: str, st: UiState, now: float) -> str:
+        """Runs one button action. Returns what happened (for the log)."""
+        if action == "next_page":
+            self._turn(1)
+            return f"page {PAGES[self.page]}"
+        if action == "prev_page":
+            self._turn(-1)
+            return f"page {PAGES[self.page]}"
+        if action.startswith("page:"):
+            self.page = PAGES.index(action[5:])
+            return f"page {PAGES[self.page]}"
+        if action == "repeat_voice":
+            if self.speaker.last:
+                self.speaker.play(self.speaker.last, now)
+                self._flash("Repeating message", now)
+                return f"repeat {self.speaker.last}"
+            self._flash("Nothing to repeat", now)
+            return "nothing to repeat"
+        if action == "calibrate":
+            fn = self.hooks.get("calibrate")
+            if fn is None:
+                self._flash("Calibrate: needs the camera", now)
+                return "calibrate: no camera"
+            fn()
+            self.page = 0
+            self._flash("Calibrating: look ahead", now)
+            return "calibrate"
+        if action == "ai":
+            self.page = PAGES.index("ai")
+            fn = self.hooks.get("ai")
+            if fn is None:
+                self._flash("Assistant offline", now)
+                return "ai: offline"
+            fn()
+            return "ai"
+        if action == "brightness":
+            i = BRIGHTNESS_STEPS.index(self.brightness) if self.brightness in BRIGHTNESS_STEPS else -1
+            self.brightness = BRIGHTNESS_STEPS[(i + 1) % len(BRIGHTNESS_STEPS)]
+            self.board.set_backlight(self.brightness)
+            self._flash(f"Brightness {self.brightness}%", now)
+            return f"brightness {self.brightness}"
+        return "none"
+
     def handle(self, event: Optional[str], st: UiState, now: float) -> None:
-        if event == "short":
-            if st.tier >= 1:
-                self.voice.acknowledge(now)
-                log.info("[UI] Driver acknowledged the alert")
-                self._flash("Acknowledged", now)
-            else:
-                self.page = (self.page + 1) % self.PAGES
-        elif event == "long" and self.speaker.last:
-            self.speaker.play(self.speaker.last, now)
-            self._flash("Repeating message", now)
+        if event is None:
+            return
+        if st.tier >= 1 and event in ("short", "double"):
+            # Safety: during an alert a press acknowledges ("I'm awake"). It pauses
+            # the voice repeat only; the ESP32's buzzer and motors keep going.
+            self.voice.acknowledge(now)
+            log.info("[UI] Driver acknowledged the alert")
+            self._flash("Acknowledged", now)
+            did = "acknowledge"
+        else:
+            did = self.do(self.actions.get(event, "none"), st, now)
+        self.presses.append((now, event, did))
+        del self.presses[:-50]
+        log.info("[UI] button %s -> %s", event, did)
+
+    def _joystick(self, direction: str, st: UiState, now: float) -> None:
+        if direction == "center":
+            self.handle("short", st, now)
+        elif st.tier < 1:
+            self._turn(-1 if direction in ("up", "left") else 1)
 
     def context(self, now: float) -> dict:
         if now - self._wifi[0] > 30 and not self.sim:
             self._wifi = (now, wifi_ssid())
-        return {"audio_ok": None if self.sim else self.speaker.ok, "brightness": self.cfg.brightness,
+        return {"audio_ok": None if self.sim else self.speaker.ok, "brightness": self.brightness,
                 "voice": self.cfg.voice, "wifi": self._wifi[1], "profile": "Default", "ai": self.ai}
 
     def view(self, st: UiState, booted: bool):
@@ -865,8 +1035,10 @@ class WhisplayUI:
         if self.t0 is None:
             self.t0 = now
         booted = now - self.t0 >= BOOT_S
-        while self._events:
-            self.handle(self._events.pop(0), st, now)
+        for ev in self.button.poll(now):
+            self.handle(ev, st, now)
+        while self._joy:
+            self._joystick(self._joy.pop(0), st, now)
         if st.tier >= 1 and self.page != 0:
             self.page = 0
         if self.cfg.voice and booted:
@@ -884,25 +1056,37 @@ class WhisplayUI:
             self.board.show(self._frame)
         return self._frame
 
-    async def run(self, get_state: Callable[[], UiState], period_s: float = 0.25) -> None:
-        import asyncio
-        log.info("[UI] Whisplay display running (font: %s)", font_name())
-        while True:
-            try:
-                self.tick(get_state(), time.monotonic())
-            except Exception as exc:        # the display must never stop the app
-                log.warning("[UI] update failed: %s", exc)
-            await asyncio.sleep(period_s)
+    def close(self) -> None:
+        """Screen and LED off, driver released (on shutdown)."""
+        try:
+            if hasattr(self.board, "close"):
+                self.board.close()
+        except Exception as exc:
+            log.warning("[UI] close failed: %s", exc)
 
-    def run_thread(self, get_state: Callable[[], UiState], stop, period_s: float = 0.25) -> None:
+    async def run(self, get_state: Callable[[], UiState], period_s: float = 0.1) -> None:
+        import asyncio
+        log.info("[UI] Whisplay display running (font: %s; button %s)", font_name(), self.actions)
+        try:
+            while True:
+                try:
+                    self.tick(get_state(), time.monotonic())
+                except Exception as exc:        # the display must never stop the app
+                    log.warning("[UI] update failed: %s", exc)
+                await asyncio.sleep(period_s)
+        finally:
+            self.close()
+
+    def run_thread(self, get_state: Callable[[], UiState], stop, period_s: float = 0.1) -> None:
         """The same loop for a threaded program (drifts.live --whisplay)."""
-        log.info("[UI] Whisplay display running (font: %s)", font_name())
+        log.info("[UI] Whisplay display running (font: %s; button %s)", font_name(), self.actions)
         while not stop.is_set():
             try:
                 self.tick(get_state(), time.monotonic())
             except Exception as exc:
                 log.warning("[UI] update failed: %s", exc)
             stop.wait(period_s)
+        self.close()
 
 
 # ---------------------------------------------------------------- demo and gallery
@@ -994,11 +1178,36 @@ def demo(sim: bool, out_dir: Path, driver_dir: str) -> int:
     return 0
 
 
+def browse(sim: bool, driver_dir: str, seconds: Optional[float] = None) -> int:
+    """Example OK state (DEMO) on the HAT; every button press is printed."""
+    from drifts.config import load_config
+    cfg = load_config().whisplay
+    cfg.driver_dir = driver_dir
+    ui = WhisplayUI(cfg, sim=sim)
+    print(f"Button: short={ui.actions['short']}  long={ui.actions['long']}  double={ui.actions['double']}"
+          "  (change them under [whisplay] in config.toml).  Ctrl-C to stop.", flush=True)
+    t0 = time.monotonic()
+    try:
+        while seconds is None or time.monotonic() - t0 < seconds:
+            ui.tick(demo_state(92), time.monotonic())
+            for at, ev, did in ui.presses:
+                print(f"  {at - t0:6.1f} s  {ev:<6} -> {did}", flush=True)
+            ui.presses.clear()
+            time.sleep(0.05)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        ui.close()
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="python -m drifts.whisplay_ui", description=__doc__.splitlines()[0])
     ap.add_argument("--demo", action="store_true", help="cycle OK -> Level 1 -> Level 2 -> OK (36 s)")
     ap.add_argument("--sim", action="store_true", help="no HAT: save the screens as PNGs")
     ap.add_argument("--gallery", action="store_true", help="write every screen as a PNG and a contact sheet")
+    ap.add_argument("--browse", action="store_true",
+                    help="hold an example OK state so you can try the button on every screen (Ctrl-C to stop)")
     ap.add_argument("--out", default="whisplay_screens", help="PNG folder for --sim and --gallery")
     ap.add_argument("--driver-dir", default=WhisplayConfig.driver_dir)
     args = ap.parse_args(argv)
@@ -1006,6 +1215,8 @@ def main(argv=None) -> int:
     if args.gallery:
         print(f"screens in {gallery(Path(args.out))}  (font: {font_name()})")
         return 0
+    if args.browse:
+        return browse(args.sim, args.driver_dir)
     if not args.demo:
         ap.print_help()
         return 0

@@ -10,7 +10,7 @@ import pytest
 
 from drifts.config import WhisplayConfig, load_config
 from drifts.ui_model import (BANDS, CAUTION, HIGH, NORMAL, UNAVAILABLE, band_color, band_for, state_from_live)
-from drifts.whisplay_ui import (AI_STATES, PAGES, VIEWS, H, W, ButtonDecoder, SimBoard, UiState, VoiceDirector,
+from drifts.whisplay_ui import (AI_STATES, PAGES, VIEWS, H, W, ButtonDecoder, SimBoard, VoiceDirector,
                                 WhisplayUI, demo_state, font_name, gallery, led_color, render, rgb565,
                                 state_from_status)
 
@@ -201,3 +201,89 @@ def test_ble_status_notifications_update_state():
     c = BleClient(load_config().ble)
     c._on_status_notify(None, bytearray(b'{"score":63,"lvl":"CAUTION","alert":false,"obd":"polling","dscore":71}'))
     assert c.status["score"] == 63 and c.status["drv_score"] == 71 and c.status_t > 0
+
+
+# ---------------------------------------------------------------- the side button
+def test_button_short_long_double():
+    b = ButtonDecoder(long_s=1.5, double_s=0.4)
+    b.press(0.0); b.release(0.1)
+    assert b.poll(0.3) == []                                      # might still become a double
+    assert b.poll(0.6) == ["short"]
+    b.press(1.0); b.release(1.1); b.press(1.3); b.release(1.4)
+    assert b.poll(1.5) == ["double"]
+    b.press(2.0)
+    assert b.poll(3.0) == [] and b.poll(3.6) == ["long"]          # fires while still held
+    assert b.release(4.0) is None and b.poll(5.0) == []
+    b.press(6.0); b.release(6.1); b.press(6.8); b.release(6.9)     # second press too late: two shorts
+    assert b.poll(7.5) == ["short", "short"]
+    b.press(8.0); b.release(8.1); b.press(8.3)                     # a short press, then a hold
+    assert b.poll(8.5) == []                                       # still held: nothing decided yet
+    assert b.poll(9.9) == ["short", "long"]
+    nb = ButtonDecoder(long_s=1.5, double_s=0.0)                   # no double press: no wait
+    nb.press(0.0)
+    assert nb.release(0.2) == "short"
+
+
+def test_button_actions_are_configurable():
+    from drifts.whisplay_ui import check_action
+    cfg = WhisplayConfig(enabled=True, voice=False, button_short="prev_page", button_long="brightness",
+                         button_double="page:devices")
+    calls = []
+    ui = WhisplayUI(cfg, board=SimBoard(), sim=True, hooks={"calibrate": lambda: calls.append("cal")})
+    ok = st()
+    ui.handle("short", ok, 5.0)
+    assert PAGES[ui.page] == "ai"                                   # prev from score wraps to the last page
+    ui.handle("double", ok, 5.1)
+    assert PAGES[ui.page] == "devices"
+    ui.handle("long", ok, 5.2)
+    assert ui.brightness == 100 and ui.board.backlight == 100
+    assert ui.do("calibrate", ok, 5.3) == "calibrate" and calls == ["cal"]
+    assert ui.do("ai", ok, 5.4) == "ai: offline" and PAGES[ui.page] == "ai"
+    with pytest.raises(ValueError):
+        check_action("explode")
+    with pytest.raises(ValueError):
+        WhisplayUI(WhisplayConfig(button_long="page:nowhere"), board=SimBoard(), sim=True)
+
+
+def test_alert_press_always_acknowledges():
+    cfg = WhisplayConfig(enabled=True, voice=False, button_short="brightness", button_double="page:setup")
+    ui = WhisplayUI(cfg, board=SimBoard(), sim=True)
+    alert = st(30, "LOW", alert=True)
+    ui.handle("double", alert, 10.0)
+    assert ui.presses[-1][2] == "acknowledge" and ui.brightness == cfg.brightness and ui.page == 0
+    ui.handle("short", alert, 11.0)
+    assert ui.presses[-1][2] == "acknowledge"
+
+
+def test_button_events_flow_through_tick():
+    board = SimBoard()
+    ui = WhisplayUI(WhisplayConfig(enabled=True, voice=False, double_s=0.4), board=board, sim=True)
+    ui.tick(st(), 0.0)
+    board._press(); board._release()                               # real callbacks, monotonic time
+    import time as _t
+    _t.sleep(0.5)
+    ui.tick(st(), _t.monotonic())
+    assert ui.page == 1 and ui.presses[-1][1] == "short"
+
+
+def test_joystick_pages():
+    ui = WhisplayUI(WhisplayConfig(enabled=True, voice=False), board=SimBoard(), sim=True)
+    ui.board._joy("down"); ui.board._joy("down"); ui.board._joy("up")
+    ui.tick(st(), 5.0)
+    assert ui.page == 1
+
+
+def test_close_turns_the_hat_off():
+    ui = WhisplayUI(WhisplayConfig(enabled=True), board=SimBoard(), sim=True)
+    ui.close()
+    assert ui.board.closed
+
+
+def test_bringup_check_runs_simulated(tmp_path):
+    from drifts.whisplay_check import main
+    main(["--hw", "--sim", "--out", str(tmp_path), "--button-s", "6"])
+    report = (tmp_path / "whisplay_check_report.txt").read_text()
+    for name in ("Screen", "RGB LED", "Button short press", "Button long press", "Button double press"):
+        line = next(l for l in report.splitlines() if name in l)
+        assert line.startswith("PASS"), line
+    assert len(list(tmp_path.glob("whisplay_check_*.png"))) >= 6
