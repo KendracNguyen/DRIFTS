@@ -1,5 +1,5 @@
 """Spoken alerts on Tokyo (Pi 5), with the same phrases and rules as the
-first model's ESP32 + DFPlayer (Esp32/drifts_esp32/voice.h).
+first model's Whisplay HAT (Raspberry/drifts/whisplay_ui.py).
 
 Clips come from Voice/phrases.json, generated once with Piper by
 Voice/make_clips.py (Voice/clips/NN_NAME.wav), and play through `aplay` on

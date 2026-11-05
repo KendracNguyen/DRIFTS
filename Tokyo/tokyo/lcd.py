@@ -1,7 +1,6 @@
 """16x2 LCD (HD44780 + PCF8574 backpack) on the Pi 5's I2C bus.
 
-Screens are a line-for-line port of the first model's
-Esp32/drifts_esp32/lcd_screen.h, so both projects show the same thing:
+Screens:
   boot   "Welcome to / DRIFTS" -> "Drive Safe" -> live screen
   OK     "ALERT     87/100" / "Drive Safe"
   Lv 1/2 "INTERVENTION n" / rotating: meaning -> "Score NN/100" (-> "PULL OVER SAFELY")

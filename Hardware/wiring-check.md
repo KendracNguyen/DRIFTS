@@ -25,7 +25,6 @@ your board**, not from a DevKitC-1 pinout image.
 | Motor gate | 10 | via 100 Ω to Q1 gate |
 | Piezo leg A | 11 | via R6 100 Ω to LS1 pin 1 |
 | Piezo leg B | 18 | via R7 100 Ω to LS1 pin 2 (neither leg to GND) |
-| Status LED | 2 | via 330 Ω |
 | MPU-6050 SDA / SCL | 21 / 22 | 3.3 V only |
 | **Never use** | **24 – 30** | SPI flash lines. Writing them corrupts flash, often silently |
 
@@ -49,15 +48,7 @@ Do every one of these **with all power disconnected**.
 | ☐ | Q1 source to GND | ≈ 0 Ω | Source must be on ground, not drain |
 | ☐ | ESP32 GND to Pi GND to motor-supply GND | ≈ 0 Ω | **Common ground.** Without it the gate drive has no reference |
 | ☐ | Nothing on GPIO 24 – 30 | Open | Flash corruption |
-| ☐ | GPIO 4 has only the red LED + resistor to GND | No pull-up, nothing else on it | Strapping pin; only an LED is safe there |
-| ☐ | Each status LED's long leg (anode) toward its resistor, short leg to GND | Diode test lights it faintly | A reversed LED never lights; the lamp test at power-up shows it |
 | ☐ | MPU-6050 VCC on **3V3**, not 5V | | 5 V logic on C6 I2C pins can damage them |
-| ☐ | GPIO 23 to 74AHCT125 pin 2; pin 3 → 330 Ω → strip DIN | ≈ 0 Ω, then ≈ 330 Ω | Strip data path (rev 5) |
-| ☐ | 74AHCT125 pin 14 on **5V**, pins 1 and 7 on GND; unused 5/9/12 on GND, 4/10/13 on 5V | | Unpowered or floating = dark or flickering strip |
-| ☐ | Strip DIN at the end the arrows point **away** from | | Reversed strip never lights |
-| ☐ | C5 1000 µF across strip 5V/GND, stripe to GND | | Reversed electrolytic can burst |
-| ☐ | GPIO 19 → 1 kΩ → DFPlayer pin 2 (RX); DFPlayer pin 3 (TX) → GPIO 20 | ≈ 1 kΩ, then ≈ 0 Ω | Crossed UART; the 1 kΩ protects the pin |
-| ☐ | Neither speaker wire to GND | Open | Built-in bridge amplifier: a speaker wire on GND shorts it |
 
 ### MOSFET pinout — check the package, not memory
 
@@ -118,11 +109,9 @@ during the DROWSY test.
 well as braking. A loose board or soft foam turns vibration into false steering
 reversals. Flat = `IMU_YAW_AXIS = 2`; see `Docs/steering-weave.md`.
 
-**⚠ LCD backpack is 5 V — level shifter required.** Never wire the backpack's
-SDA/SCL directly to GPIO 21/22: its pull-ups go to 5 V and the C6 pins are
-3.3 V only. Before connecting, power the backpack alone and measure SDA and
-SCL to GND: if they read ~5 V, they must stay on the HV side of the shifter.
-See `schematic.md` §5a.
+**⚠ Whisplay HAT: seat it fully.** Power off, line up all 40 pins and press
+the HAT down evenly. A HAT shifted by one row puts 5 V on 3.3 V pins.
+See `whisplay-hat.md`.
 
 **⚠ Keep motor wiring away from SDA/SCL.** Switching noise couples into the
 MPU-6050 lines and shows up as I2C errors or false harsh-brake events.

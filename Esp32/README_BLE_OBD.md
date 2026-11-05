@@ -99,7 +99,6 @@ Only the IMU is wired now — the OBD connection is wireless.
 | --- | --- |
 | GPIO 10 | Vibration motor transistor base (keep the flyback diode) |
 | GPIO 11 | Buzzer transistor base |
-| GPIO 2 / 3 / 4 | Status LEDs: green connections, yellow caution/system, red drowsiness (`Docs/status-leds.md`) |
 | GPIO 21 | MPU-6050 SDA |
 | GPIO 22 | MPU-6050 SCL |
 

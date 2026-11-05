@@ -213,18 +213,18 @@ def test_serial_session_end_to_end(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# Eye score -> expected LEDs (mirrors alertness.h / status_leds.h)
+# Eye score -> expected alert level (mirrors alertness.h)
 # --------------------------------------------------------------------------- #
-from drifts.alert_test import expected_alert, expected_leds
+from drifts.alert_test import expected_alert, expected_level
 
 
-def test_expected_led_bands_match_firmware():
+def test_expected_level_bands_match_firmware():
     assert expected_alert(100) == 100
     assert round(expected_alert(57)) == 70              # 0.7*57 + 30 = 69.9 -> boundary
-    assert expected_leds(70) == "red and yellow off (OK)"
-    assert expected_leds(69.9).startswith("YELLOW solid")
-    assert expected_leds(50).startswith("YELLOW solid")
-    assert expected_leds(49.9).startswith("RED fast blink")
+    assert expected_level(70).startswith("OK")
+    assert expected_level(69.9).startswith("CAUTION")
+    assert expected_level(50).startswith("CAUTION")
+    assert expected_level(49.9).startswith("LOW")
 
 
 def test_eye_option_sends_eye_message(tmp_path):
@@ -253,7 +253,7 @@ def test_eye_option_sends_eye_message(tmp_path):
     finally:
         asyncio.sleep = real_sleep
     assert "EYE:30" in sent
-    assert any("alert score 51" in l and "YELLOW solid" in l for l in lines)
+    assert any("alert score 51" in l and "CAUTION" in l for l in lines)
 
 
 def test_menu_box_lines_are_aligned():

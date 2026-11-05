@@ -16,7 +16,7 @@ view also opens directly at `http://<address>:8080/#dev`.
 │                              │ ──────────────────────────────── │
 │                              │ ● NOSE   anchor (not scored)      │
 ├──────────────────────────────┴──────────────────────────────────┤
-│ Drowsiness 23  [▮▮▮▮ weighted sum of the 8 ]  NONE→WARNING→INTERVENTION  Motors Buzzer LEDs │
+│ Drowsiness 23  [▮▮▮▮ weighted sum of the 8 ]  NONE→WARNING→INTERVENTION  Motors Buzzer Status │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -45,7 +45,7 @@ view also opens directly at `http://<address>:8080/#dev`.
     stacked bar showing each signal's share in its group colour.
   - **Glasses switch:** Auto / On / Off.
   - **DRIFTS alert tier:** NONE → WARNING → INTERVENTION.
-  - **Outputs:** whether the motors, buzzer and LEDs are active right now.
+  - **Outputs:** whether the motors and buzzer are active, and the status-light colour.
 
 ## Run it on a laptop first
 
@@ -118,7 +118,7 @@ EAR P1–P6 use MediaPipe landmarks:
 Each of the 8 signals becomes a drowsiness part *d* from 0 (fine) to 1 (as
 bad as it gets). The composite is their weighted sum, 0–100, where higher
 means drowsier. The ESP32 receives **100 − composite** as `EYE:<n>`, so its
-alert score, LEDs and LCD follow it.
+alert score and outputs follow it, and so does the Whisplay screen.
 
 | Signal | d = 1 when | Weight | With glasses |
 | --- | --- | --- | --- |
@@ -140,9 +140,9 @@ outputs:
 
 | Tier | When | Outputs |
 | --- | --- | --- |
-| NONE | score ≥ 70 | LEDs green |
-| WARNING | Intervention 1 (score 50–69) | LEDs yellow (Tokyo: buzzer) |
-| INTERVENTION | Intervention 2 (score < 50) or the drowsy alert | buzzer + motors, LEDs red |
+| NONE | score ≥ 70 | status light green |
+| WARNING | Intervention 1 (score 50–69) | status light yellow (Tokyo: buzzer) |
+| INTERVENTION | Intervention 2 (score < 50) or the drowsy alert | buzzer + motors, status light red |
 
 ## Glasses: leaning on the nose axis
 

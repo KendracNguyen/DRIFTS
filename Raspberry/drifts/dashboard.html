@@ -202,7 +202,7 @@ body.dev .bbar{display:block}
     <div class="bar">PERCLOS<i><u id="b-per"></u></i><em id="v-per">--</em></div>
    </div>
   </div>
-  <div class="lcd" id="lcdrow" style="display:none"><pre id="lcd"></pre><span id="lcdlabel">LCD on the ESP32</span></div>
+  <div class="lcd" id="lcdrow" style="display:none"><pre id="lcd"></pre><span id="lcdlabel">LCD on the Pi 5</span></div>
  </div>
 
  <div class="sec">Driver camera</div>
@@ -318,7 +318,7 @@ body.dev .bbar{display:block}
   <span>Firmware</span><b id="d-fw">--</b>
   <span>OBD dongle</span><b id="d-obd">--</b>
   <span>Camera</span><b id="d-cam">--</b>
-  <span>LCD</span><b id="d-lcd">--</b>
+  <span>Driver screen</span><b id="d-lcd">--</b>
   <span>Eye scores sent</span><b id="d-sent">--</b>
  </div>
  <div class="btns" style="grid-template-columns:1fr;margin-top:10px"><button onclick="beepEsp()">Beep ESP32 buzzer (BEEP, firmware v15+)</button></div>
@@ -411,7 +411,7 @@ body.dev .bbar{display:block}
   <div class="fsm"><span class="node n0" id="n0">NONE</span><span class="arrow">→</span><span class="node n1" id="n1">WARNING</span><span class="arrow">→</span><span class="node n2" id="n2">INTERVENTION</span></div>
   <div class="sub" id="tiernote">--</div></div>
  <div class="outs">
-  <div class="out" id="o-motor"><i></i>Motors</div><div class="out" id="o-buzz"><i></i>Buzzer</div><div class="out" id="o-led"><i id="o-ledi"></i>LEDs</div>
+  <div class="out" id="o-motor"><i></i>Motors</div><div class="out" id="o-buzz"><i></i>Buzzer</div><div class="out" id="o-led"><i id="o-ledi"></i>Status</div>
  </div>
 </div></div>
 
@@ -442,7 +442,7 @@ function tone(ms){const a=audio();if(!a)return;const o=a.createOscillator(),g=a.
 function buzz(ms){if(navigator.vibrate)navigator.vibrate(ms)}
 function testLocal(){tone(1000);buzz(1000)}
 async function beepEsp(){try{await fetch("/beep",{method:"POST"})}catch(e){}}
-// Spoken alerts, as the ESP32 (DFPlayer) and Tokyo (Pi 5) speak them. Same
+// Spoken alerts, as the Pi Zero (Whisplay HAT) and Tokyo (Pi 5) speak them. Same
 // words as Voice/phrases.json (tests/test_dashboard_voice.py checks they match).
 const SAY={LEVEL1:"You seem tired. Consider taking a break soon.",
  LEVEL2:"Warning. Signs of drowsiness detected. Please pull over when safe.",
@@ -565,7 +565,7 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  $("obd").textContent=p.obd||"--";$("hz").textContent=fx(p.hz,1);
  // devices + training
  $("d-link").textContent=p.link;$("d-fw").textContent=p.fw||"--";$("d-obd").textContent=(p.obd||"--")+" · "+fx(p.hz,1)+" Hz";
- $("d-cam").textContent=`${names[e.state]} · ${fx(e.fps,1)} fps`;$("d-lcd").textContent=p.lcd1!=null?"on":"not reported";
+ $("d-cam").textContent=`${names[e.state]} · ${fx(e.fps,1)} fps`;$("d-lcd").textContent=p.lcd1!=null?"Tokyo LCD":"Whisplay HAT on the Pi";
  $("d-sent").textContent=s.eyes_sent;$("log").textContent=s.log.length?s.log.join("\n"):"(nothing yet)";
  const c=s.capture.counts;$("n-open").textContent=c.open;$("n-closed").textContent=c.closed;$("n-drowsy").textContent=c.drowsy;
  $("capdir").textContent=(s.capture.pending?`saving ${s.capture.pending}… · `:"")+"Saved to "+s.capture.dir;

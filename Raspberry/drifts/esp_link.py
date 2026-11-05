@@ -3,7 +3,7 @@
 Three transports, one interface (start / stop / snapshot / send_eye):
 
   SerialLink  USB cable, laptop or Pi. Sends STATUS once a second and parses
-              the [STATUS] / [SCORE] / [LCD] lines the firmware prints.
+              the [STATUS] / [SCORE] lines the firmware prints.
               Works with any firmware from v10 on; no reflash needed.
   BleLink     The phone telemetry characteristic (DF720002, 1 Hz JSON) plus
               EYE: and PING writes on the Pi result characteristic. Used on
@@ -37,7 +37,8 @@ EMPTY = {
     "link": "disconnected", "fw": None,
     "obd": None, "hz": None, "rpm": None, "spd": None, "thr": None,
     "score": None, "lvl": None, "part": None, "eye": None,
-    "alert": None, "lcd1": None, "lcd2": None, "updated": None,
+    "alert": None, "updated": None,
+    "lcd1": None, "lcd2": None,   # screen text: only Tokyo's own LCD sets these (esp_override)
     "drv_score": None,   # ESP32 driving score 0-100 (steering, brakes, OBD variation)
 }
 
@@ -47,7 +48,6 @@ _STATUS_RE = re.compile(
 _SCORE_RE = re.compile(
     r"\[SCORE\] alert (?P<score>[\d.]+) \((?P<lvl>\w+)\) = eye (?P<eye>[\d.]+)"
     r"(?:.*?driving (?P<drv>[\d.]+))?")
-_LCD_RE = re.compile(r"\[LCD\] \|(?P<l1>.{0,16})\| \|(?P<l2>.{0,16})\|")
 _FW_RE = re.compile(r"\[STATUS\] firmware (?P<fw>\S+)")
 
 
@@ -64,11 +64,7 @@ def parse_serial_line(line: str) -> dict:
                "part": "PARTIAL" in line}
         if m["drv"] is not None:
             out["drv_score"] = float(m["drv"])
-        if " LCD absent" in line:
-            out.update(lcd1=None, lcd2=None)
         return out
-    if m := _LCD_RE.search(line):
-        return {"lcd1": m["l1"], "lcd2": m["l2"]}
     if "-> ALERTING" in line:
         return {"alert": True}
     if "-> IDLE" in line:
@@ -188,7 +184,7 @@ class SerialLink(_Base):
                     while b"\n" in buf:
                         raw, buf = buf.split(b"\n", 1)
                         line = raw.decode("utf-8", "replace").rstrip("\r")
-                        if line and not line.startswith(("[STATUS]", "[SCORE]", "[LCD]")):
+                        if line and not line.startswith(("[STATUS]", "[SCORE]")):
                             self.log_lines.append(line)
                         self._merge(parse_serial_line(line))
             except Exception as exc:
@@ -295,14 +291,11 @@ class SimLink(_Base):
             t = time.time() - t0
             score = 0.7 * self._eye + 0.3 * 100
             lvl = "OK" if score >= 70 else "CAUTION" if score >= 50 else "LOW"
-            right = f"{score:.0f}/100"
-            lcd1 = {"OK": "ALERT".ljust(16 - len(right)) + right, "CAUTION": " INTERVENTION 1 ",
-                    "LOW": " INTERVENTION 2 "}[lvl]
             self._merge({"fw": "sim", "obd": "polling", "hz": 4.6,
                          "rpm": 780 + 40 * math.sin(t / 3), "spd": 0.0, "thr": 14.9,
                          "score": score, "lvl": lvl, "eye": self._eye, "part": False,
                          "drv_score": 92 + 6 * math.sin(t / 11),        # calm driving, small drift
-                         "alert": lvl == "LOW", "lcd1": lcd1[:16], "lcd2": f"  Score {score:.0f}/100"[:16]})
+                         "alert": lvl == "LOW"})
 
 
 def make_link(kind: str, port: str = "", ble_name: str = "DRIFTS-ESP32", ble_address: str = "",

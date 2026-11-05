@@ -10,8 +10,8 @@ stays as it is (`Esp32/`, `Raspberry/`).
 | Camera | Pi camera / AI Camera | **Camera Module 3 NoIR** (+ IR illuminator) |
 | Face signals | 2-4 of 8 (Zero) | **8 of 8** (MediaPipe, via dms-face) |
 | Alert outputs | ESP32 GPIO | **Pi 5 GPIO**: buzzer, 4 vibration motor modules |
-| Status light | 3 LEDs + 14-LED WS2812B strip (v17) | **14-LED WS2812B strip** above the LCD, same frames |
-| Voice | DFPlayer Mini on the ESP32 (v17) | **Small USB speaker**, same phrases |
+| Status light | 3 LEDs on the ESP32 + RGB LED on the Whisplay HAT | **14-LED WS2812B strip** above the LCD |
+| Voice | Whisplay HAT speaker on the Pi Zero | **Small USB speaker**, same phrases |
 | Night | — | **940 nm IR LEDs**, on automatically at night |
 | LCD | ESP32 I2C | **Pi 5 I2C**, same screens |
 | OBD | ESP32 BLE central | **Pi 5 Bluetooth** directly |
@@ -116,8 +116,8 @@ audio device, level bands) are in `tokyo/config.py`; override any of them in `to
 tokyo/config.py         pin map + settings, tokyo.toml overrides
 tokyo/outputs.py        buzzer (active / passive), motors + IR LEDs (kernel hardware PWM, gpiozero fallback)
 tokyo/ledstrip.py       14-LED status pixel + score bar (same frames as the ESP32), SPI (pi5neo) / PIO backends
-tokyo/voice.py          spoken alerts: Voice/phrases.json clips, same rules as the ESP32's DFPlayer
-tokyo/lcd.py            HD44780 + PCF8574 over smbus2; screens identical to the first model
+tokyo/voice.py          spoken alerts: Voice/phrases.json clips, same rules as the first model's Whisplay HAT
+tokyo/lcd.py            HD44780 + PCF8574 over smbus2: welcome, score, Intervention 1/2 screens
 tokyo/interventions.py  score -> level (hysteresis, hold) -> buzzer / motor patterns
 tokyo/score.py          alert score: 0.7 eye + 0.3 driving, with explicit fallbacks
 tokyo/app.py            python -m tokyo run: face pipeline + score + outputs + dashboard
@@ -125,5 +125,5 @@ tokyo/__main__.py       test / demo / run
 tests/                  37 tests, no hardware
 ```
 
-The LCD screens were checked against the first model's C++ (`lcd_screen.h`):
-3,240 combinations of time, score, level and alarm give identical text.
+The LCD screens: welcome, alert score, Intervention 1/2, with line 2 rotating
+every 2 s (tested in `tests/test_tokyo.py`).

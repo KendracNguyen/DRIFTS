@@ -1,10 +1,8 @@
-// Host tests for the alert score (alertness.h) and the LED decisions
-// (status_leds.h). No Arduino, no hardware.
+// Host tests for the alert score (alertness.h). No Arduino, no hardware.
 #include <math.h>
 #include <stdio.h>
 
 #include "../drifts_esp32/alertness.h"
-#include "../drifts_esp32/status_leds.h"
 
 static int failures = 0;
 static int checks = 0;
@@ -132,59 +130,6 @@ int main() {
         CHECK(!parseDrv("DRV:1:150:0", &d), "DRV throttle over 100 % rejected");
         CHECK(!parseDrv("DRV:1:2", &d) && !parseDrv("DRV:a:1:1", &d), "malformed DRV rejected");
         CHECK(sizeof("DRV:-450.0:100.0:100.0") <= 24, "worst-case DRV fits the 24-byte BLE result buffer");
-    }
-
-    // ---------------- LED decisions ----------------
-    {
-        LedInputs in;
-        in.dongleOk = in.piOk = true;
-        LedState s = decideLeds(in);
-        CHECK(s.green == LedPattern::Solid && s.yellow == LedPattern::Off && s.red == LedPattern::Off,
-              "all well: green solid, yellow and red off");
-
-        in.piOk = false;
-        CHECK(decideLeds(in).green == LedPattern::SlowBlink, "Pi missing: green slow blink");
-        in.piOk = true; in.dongleOk = false;
-        CHECK(decideLeds(in).green == LedPattern::SlowBlink, "dongle missing: green slow blink");
-        in.dongleOk = true;
-
-        in.level = AlertLevel::Caution;
-        s = decideLeds(in);
-        CHECK(s.yellow == LedPattern::Solid && s.red == LedPattern::Off, "CAUTION (50-69): yellow solid");
-
-        in.level = AlertLevel::Low;
-        s = decideLeds(in);
-        CHECK(s.red == LedPattern::FastBlink && s.yellow == LedPattern::Off, "LOW (<50): red fast blink");
-
-        in.level = AlertLevel::Ok; in.alertActive = true;
-        CHECK(decideLeds(in).red == LedPattern::FastBlink, "alert active: red fast blink even at a good score");
-        in.alertActive = false;
-
-        in.systemIssue = true;
-        CHECK(decideLeds(in).yellow == LedPattern::SlowBlink, "system issue: yellow slow blink");
-        in.level = AlertLevel::Caution;
-        CHECK(decideLeds(in).yellow == LedPattern::Solid, "caution wins yellow over a system issue");
-        in.level = AlertLevel::Low;
-        s = decideLeds(in);
-        CHECK(s.red == LedPattern::FastBlink && s.yellow == LedPattern::SlowBlink,
-              "drowsy + system issue: red fast, yellow still shows the system issue");
-    }
-
-    // ---------------- blink timing ----------------
-    {
-        int slowOn = 0, fastOn = 0, fastEdges = 0;
-        bool prev = false;
-        for (uint32_t t = 0; t < 10000; t++) {
-            slowOn += ledPatternOn(LedPattern::SlowBlink, t);
-            const bool f = ledPatternOn(LedPattern::FastBlink, t);
-            fastOn += f;
-            if (f && !prev) fastEdges++;
-            prev = f;
-        }
-        CHECK(slowOn == 5000, "slow blink: 50 % duty");
-        CHECK(fastOn == 5000, "fast blink: 50 % duty");
-        CHECK(fastEdges == 40, "fast blink is 4 Hz (40 flashes in 10 s), nothing faster");
-        CHECK(ledPatternOn(LedPattern::Solid, 123) && !ledPatternOn(LedPattern::Off, 123), "solid on, off off");
     }
 
     printf("\n%d checks, %d failures\n", checks, failures);

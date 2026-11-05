@@ -16,7 +16,7 @@
 
 // Printed at boot and by STATUS, so the flashed image can be identified.
 // Matches the drifts_c6_8M_uartchip_<version>.bin file name.
-#define DRIFTS_FW_VERSION "v18"
+#define DRIFTS_FW_VERSION "v20"
 
 // ---------------------------------------------------------------
 // Pin assignments  --  TARGET: ESP32-C6-WROOM-1
@@ -33,8 +33,7 @@
 //
 // Avoid entirely: 5, 8, 9 (strapping), 12, 13 (USB Serial/JTAG),
 // 15 (strapping), 16, 17 (UART0 console), 14 and 24-30 (absent),
-// 6, 7 (pad JTAG). 4 (strapping) is used for the red LED only -- see
-// LED_RED_PIN below.
+// 6, 7 (pad JTAG), 4 (strapping).
 // GPIO0-6 are also ADC1_CH0-6; leave them free if analog is ever needed.
 constexpr int MOTOR_PIN  = 10;   // PWM -> motor module IN via R1 100 R
 
@@ -46,49 +45,15 @@ constexpr int PIEZO_B_PIN = 18;   // leg B, inverted
 constexpr int PIEZO_FREQ_HZ  = 5000;   // alert tone, 50 % duty
 constexpr int PIEZO_LEDC_RES = 8;
 // Explicit channel, highest of the C6's six. ledcAttach() hands out the
-// lowest free channel, and only four pins use it (motor + three LEDs:
-// channels 0-3), so 5 is never taken. The 5 kHz piezo must also not share
-// a timer with anything: the core reuses a timer for any channel with the
-// same frequency and resolution, which is why the LEDs run at 1 kHz.
+// lowest free channel, and only the motor uses it (channel 0), so 5 is
+// never taken. The 5 kHz piezo must also not share a timer with anything:
+// the core reuses a timer for any channel with the same frequency and
+// resolution (the motor runs at 20 kHz).
 constexpr int PIEZO_LEDC_CH  = 5;
 // 1 = sweep 4-6 kHz once at boot (piezo.h). The SWEEP serial command does
 // the same at any time.
 #define PIEZO_SWEEP_TEST 0
 
-// Three external status LEDs, each GPIO -> resistor -> LED -> GND. Meanings
-// in status_leds.h and Docs/status-leds.md. (The board's on-board LED is an
-// addressable RGB on GPIO 8, which digitalWrite() cannot drive.)
-//
-// GPIO 4 is a strapping pin, but only for SDIO boot, which this board never
-// uses. An LED to GND does not pull it either way at reset, so it is safe for
-// this LED and NOTHING else -- never put a pull-up or other circuit on it.
-// It also gives up pad JTAG, which this project does not use.
-constexpr int LED_GREEN_PIN  = 2;   // connections
-constexpr int LED_YELLOW_PIN = 3;   // caution / system status
-constexpr int LED_RED_PIN    = 4;   // drowsiness
-
-// 0-255. 255 = full. Full brightness can glare at night: lower it, or mount
-// the LEDs where a passenger sees them rather than the driver.
-constexpr int LED_BRIGHTNESS = 255;
-constexpr uint32_t LED_LAMP_TEST_MS = 1000;   // all on at power-up
-
-// WS2812B strip, 14 LEDs above the LCD (led_strip.h, Docs/led-strip.md).
-// GPIO 23 -> 74AHCT125 (3.3 V -> 5 V) -> 330 R -> strip DIN. The strip runs
-// from the 5 V rail with 1000 uF across it at the strip end; GND common.
-// Never feed DIN straight from the C6: WS2812B needs >= 3.5 V for a 1.
-constexpr bool STRIP_ENABLED = true;
-constexpr int STRIP_PIN = 23;
-// 0-255 on top of the frame colours. 64 = 25 %: 14 LEDs then draw < 0.25 A
-// and do not dazzle at night.
-constexpr int STRIP_BRIGHTNESS = 64;
-
-// DFPlayer Mini for spoken alerts (voice.h, Docs/voice.md). UART1, 9600 baud.
-// GPIO 19 -> 1 k -> DFPlayer RX (the 1 k stops the 5 V module's input
-// clamping the C6 pin and removes a hiss); DFPlayer TX -> GPIO 20.
-constexpr bool VOICE_ENABLED = true;
-constexpr int VOICE_TX_PIN = 19;
-constexpr int VOICE_RX_PIN = 20;
-constexpr int VOICE_VOLUME = 25;   // 0-30
 
 // MPU-6050 on the I2C bus. See "Longitudinal acceleration" below for why
 // the IMU lives on the ESP32 rather than on the Pi.
@@ -99,17 +64,11 @@ constexpr int VOICE_VOLUME = 25;   // 0-30
 constexpr int IMU_SDA_PIN = 21;
 constexpr int IMU_SCL_PIN = 22;
 
-// The I2C bus is shared by the MPU-6050 and the LCD backpack. The PCF8574 on
-// the backpack is rated to 100 kHz, so the whole bus runs at 100 kHz. The
-// IMU's 14-byte read then takes ~1.6 ms every 20 ms -- still under 10 % of
-// the bus.
+// The I2C bus carries only the MPU-6050 (a 3.3 V part: no level shifter).
+// 100 kHz is kept for long, unshielded car wiring; the IMU's 14-byte read
+// takes ~1.6 ms every 20 ms, under 10 % of the bus.
 constexpr uint32_t I2C_CLOCK_HZ = 100000;
 
-// 16x2 LCD (HD44780 + PCF8574 backpack, address 0x27 or 0x3F, auto-detected).
-// See lcd_screen.h for what it shows and Docs/lcd-display.md for wiring.
-constexpr bool     LCD_BACKLIGHT      = true;
-constexpr uint32_t LCD_REFRESH_MS     = 250;   // recompose the screen 4x a second
-constexpr int      LCD_CHARS_PER_LOOP = 4;     // ~2 ms of I2C per loop at most
 constexpr uint8_t IMU_I2C_ADDR = 0x68;
 
 // ---------------------------------------------------------------

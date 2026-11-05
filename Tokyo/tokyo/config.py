@@ -71,7 +71,7 @@ class IrConfig:
 @dataclass
 class VoiceConfig:
     enabled: bool = True
-    # Clips generated from Voice/phrases.json (same ids as the ESP32's DFPlayer).
+    # Clips generated from Voice/phrases.json (same ids as the first model's Whisplay HAT).
     clips_dir: str = ""          # default: <repo>/Voice/clips
     player: str = "aplay"        # aplay -q <clip.wav>; set device below if needed
     # "auto": the first USB sound card in `aplay -l` (the USB speaker), else the default.

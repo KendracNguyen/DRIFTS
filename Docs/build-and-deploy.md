@@ -71,7 +71,7 @@ nothing, because the host cannot exceed the controller.
 
 ```bash
 python3 Hardware/check_pins.py        # must print: OK: 11 pins agree
-cd Esp32/test && make                 # every host test (alert score, LEDs, strip, voice, LCD...), on the laptop
+cd Esp32/test && make                 # every host test (alert score, trigger, BLE...), on the laptop
 cd Tools && python -m pytest obd_sim/tests obd_link/tests -q
 ```
 
@@ -182,16 +182,16 @@ and that the Pi is on a commit with the `DF71...` UUIDs.
 fail-safe stops the alert if the Pi is silent longer than `FAILSAFE_MS`, and
 `heartbeat_s = 1.0` in `config.toml` is what keeps it satisfied.
 
-### Status LEDs and alert score
+### Alert score
 
-Three LEDs (green 2 / yellow 3 / red 4) and the 0-100 alert score — key,
-wiring and bench test in [`status-leds.md`](status-leds.md). Serial: `LEDS`, `SCORE <n>`.
+The 0-100 alert score, its levels and a bench test: [`alert-score.md`](alert-score.md).
+Serial: `SCORE <n>`, `SCORE OFF`, `STATUS`.
 
-### LCD display
+### Driver screen and voice
 
-16x2 I2C LCD: welcome screens, alert score, Intervention 1 / 2 — wiring (level
-shifter!), screens and bench test in [`lcd-display.md`](lcd-display.md).
-Serial: `LCD`, `I2C SCAN`.
+The driver screen, RGB LED, voice and button are on the Pi Zero's **Whisplay
+HAT**, not on the ESP32. Install and test: [`../Hardware/whisplay-hat.md`](../Hardware/whisplay-hat.md).
+The ESP32 sends its score to the Pi over Bluetooth once a second (firmware v20+).
 
 ### Buzzer alerts and Bluetooth ping
 
@@ -214,7 +214,7 @@ attention on the dashboard (`--pose imx500`), lighting for low light:
 
 ### Live dashboard (camera + OBD)
 
-Live camera with eye tracking, OBD values, alert level and LCD text in a
+Live camera with eye tracking, OBD values and alert level in a
 browser; also collects labelled frames for training. Laptop or Pi:
 [`live-dashboard.md`](live-dashboard.md).
 `python -m drifts.live --esp serial --port COM5`.

@@ -1,17 +1,10 @@
 # PiSugar Whisplay HAT on the Pi Zero 2 W (first model)
 
-**Status: ordered, not yet wired or coded (Nov 2026).** It replaces five parts
-of the first model with one board that plugs onto the Pi Zero:
+**Status: the first model's driver display (Nov 2026).** One board on the
+Pi Zero gives the driver a 1.69" colour screen, an RGB LED, a speaker and a
+button. The software is `Raspberry/drifts/whisplay_ui.py`.
 
-| Replaced | By |
-| --- | --- |
-| 16×2 I2C LCD + PCF8574 backpack | 1.69" colour LCD (240 × 280) |
-| BSS138 level shifter (LCD) | not needed: everything is 3.3 V Pi logic |
-| WS2812B strip (14 LEDs) | 1 RGB LED + a score bar drawn on the LCD |
-| 74AHCT125 buffer (strip) | not needed |
-| DFPlayer Mini + speaker | WM8960 codec + onboard or external speaker |
-
-The ESP32 keeps the **buzzer, vibration motors and 3 status LEDs**, so the
+The ESP32 keeps the **buzzer and vibration motors**, so the
 alert still fires if the Pi is down (see [Architecture](#architecture)).
 
 Sources: the PiSugar product page and wiki, and the pin definitions in
@@ -80,39 +73,32 @@ Tokyo would need pin changes first.
 
 ---
 
-## LCD: what DRIFTS will show (240 × 280, portrait)
+## Screen (240 × 280, portrait)
 
-The 16×2 screens map onto the colour display, with the score bar that the
-14-LED strip used to show:
+![Whisplay screens: OK, Intervention 1, Intervention 2, recovered](drawings/whisplay_screens.png)
 
-```
- ┌────────────────────┐   ┌────────────────────┐   ┌────────────────────┐
- │ DRIFTS        ●BLE │   │ DRIFTS        ●BLE │   │ ⚠ INTERVENTION 2  │  ← maroon / red
- │                    │   │                    │   │                    │
- │        87          │   │        62          │   │        38          │
- │   ALERT · /100     │   │  INTERVENTION 1    │   │  PULL OVER SAFELY  │
- │ ████████████████░░ │   │ ███████████░░░░░░░ │   │ ██████░░░░░░░░░░░░ │  ← score bar
- │   green 75-100 %   │   │  yellow            │   │  red, flashing     │
- │                    │   │ Signs of fatigue   │   │ Worsening signs    │
- │ Eyes 92  Drive 78  │   │ Eyes 55  Drive 80  │   │ Eyes 20  Drive 75  │
- │ OBD ● Pi ● 12:41   │   │ OBD ● Pi ● 12:44   │   │ Press to confirm ⏎ │
- └────────────────────┘   └────────────────────┘   └────────────────────┘
-      OK (≥ 70)              Level 1 (50-69)            Level 2 (< 50)
-```
-- **Boot:** "Welcome to DRIFTS", then "Drive safe", as on the 16×2.
-- **Score bar:** same bands as the strip ([`Docs/led-strip.md`](../Docs/led-strip.md)):
-  green from 70, yellow 40–69, red 10–39, below 10 the whole bar flashes.
-- **Status row:** OBD dongle and Pi links. A lost link shows a red dot and
-  "connection lost".
-- **Readability:** high contrast, digits at least 48 px tall. The backlight is
-  dimmed at night (from the camera's night detection), so it doesn't dazzle
-  the driver.
-- The data comes from the ESP32's 1 Hz BLE telemetry: score, level, partial
-  flag and driving score (firmware v16+).
+*Rendered by `python -m drifts.whisplay_ui --demo --sim`. The Level 2 bar is
+caught mid-flash.*
+
+- **Boot:** "Welcome to DRIFTS", then "Drive safe".
+- **Score page** (default):
+  - The header shows the level: DRIFTS / INTERVENTION 1 / INTERVENTION 2.
+  - The alert score is in big digits, with a short message.
+  - The coloured **score bar**: each band owns a quarter of the bar (green
+    from 70, yellow 40–69, red 10–39). Below 10, or during the drowsy alert,
+    the bar flashes. Half brightness means a partial score (no eye data).
+  - The driving score, and the OBD and ESP32 links. A lost link turns red and
+    shows "connection lost".
+- **Details page:** alert score, driving score, RPM, speed, eye data.
+- **Links page:** ESP32 and OBD state, firmware version, button help.
+- **During an alert,** the screen always returns to the score page.
+- **The data** comes from the ESP32's 1 Hz BLE status (firmware v20 sends it
+  to every subscriber): score, level, alert, partial flag, driving score, OBD
+  state.
 
 ## RGB LED
 
-It plays the role of the strip's status pixel:
+The only status light in the first model:
 
 | Colour | Meaning |
 | --- | --- |
@@ -122,47 +108,47 @@ It plays the role of the strip's status pixel:
 | Red, slow blink | Connection lost |
 | Blue, breathing | Booting / screen locked |
 
-## Button: proposed actions
+## Button
 
-| Press | Action | Why |
-| --- | --- | --- |
-| **Short press during an alert** | **"I'm awake":** ends the Level 3 check-in ("Are you okay? Press the button to confirm", clip 9) and is logged | Gives the driver a physical answer. It does **not** silence the buzzer or motors while the score stays low |
-| **Short press, no alert** | Cycle the screen: score → details (eyes, driving, PERCLOS) → links | |
-| **Long press (2 s)** | Recalibrate the road pose (look ahead, eyes open) | Same as the dashboard's Calibrate |
-| **Double press** | Replay the last voice message | |
+| Press | Action |
+| --- | --- |
+| **Short press, no alert** | Next page: score → details → links |
+| **Short press during an alert** | **Acknowledge** ("I'm awake"): logged, the screen shows "Acknowledged", and the Level 2 voice repeat pauses for 60 s |
+| **Long press (≥ 1.5 s)** | Repeat the last voice message |
 
-**Safety rule:** no button press may stop an alert while the driver is still
-scored as drowsy. A press can only acknowledge the alert.
-
----
+**Safety rule:** no button press stops an alert while the driver is still
+scored as drowsy. The ESP32's buzzer and motors keep running; only the
+Pi's voice repeat pauses. The Level 3 check-in (clip 9, "Are you okay? Press
+the button to confirm") will use the same press.
 
 ## Architecture
 
 ```
             BLE telemetry (score, level, links) ──►┐
- OBD ─BLE─► ESP32-C6 ──► buzzer, motors, 3 LEDs   │   (alert still works if the Pi is down)
+ OBD ─BLE─► ESP32-C6 ──► buzzer, motors          │   (alert still works if the Pi is down)
                 ▲                                  ▼
                 └── EYE score ◄── Pi Zero 2 W + Whisplay HAT ──► colour LCD, RGB LED, speaker, button
                                     └── Arducam (CSI)
 ```
 - **The Pi now drives the screen and voice.** If the Pi is booting or has
-  crashed, they stop. The ESP32's buzzer, motors and LEDs still fire, so keep
+  crashed, they stop. The ESP32's buzzer and motors still fire, so keep
   them wired.
-- **ESP32 firmware v18 is unchanged.** Its 16×2 LCD, strip and DFPlayer code
-  simply finds nothing connected.
-- **Voice clips:** the same files, played by `aplay -D plughw:CARD=whisplaysound`
-  (the WAVs in `Voice/clips/`), with the same rules as on the ESP32
-  ([`Docs/voice.md`](../Docs/voice.md)). The button answers the check-in clip.
+- **ESP32 firmware v20** has no display code. It sends its status JSON to every
+  BLE subscriber, so the Pi's existing link also carries the screen's data.
+- **Voice clips:** the WAVs in `Voice/clips/`, played by
+  `aplay -D plughw:CARD=whisplaysound`, with the rules in
+  [`Docs/voice.md`](../Docs/voice.md).
 - **Pi Zero load:** the screen updates about once a second and audio is
   occasional, so it should add only tens of MB and a little CPU. Measure it,
   since it competes with the future goal of running the 478-point face mesh on
   the Zero.
 
-## Install and first test (when it arrives)
+## Install and first test
 
 1. Power off. Press the HAT firmly onto the Pi Zero's header (all 40 pins).
    Set the speaker switch to **onboard** for the first test.
-2. Install PiSugar's driver on the Pi:
+2. Install PiSugar's driver on the Pi. `cd ~/drifts/Raspberry && WHISPLAY=1 bash deploy/install.sh`
+   does it all, or by hand:
    ```bash
    git clone https://github.com/PiSugar/Whisplay.git --depth 1 ~/Whisplay
    cd ~/Whisplay && sudo bash install_driver.sh      # auto-detects the Pi (or script/install_raspberry_pi.sh)
@@ -172,11 +158,19 @@ scored as drowsy. A press can only acknowledge the alert.
    - **Audio card:** `aplay -l` lists **whisplaysound**.
    - **Speaker:** `aplay -D plughw:CARD=whisplaysound ~/drifts/Voice/clips/10_TEST.wav` plays "This is a DRIFTS voice test".
    - **LCD, LED and button:** run PiSugar's `example/test.py`.
-4. Measure and note here: height with the HAT on, speaker loudness in the car,
+4. **DRIFTS demo, no ESP32 needed:**
+   `cd ~/drifts/Raspberry && .venv/bin/python -m drifts.whisplay_ui --demo`.
+   It runs OK → Level 1 → Level 2 → OK in 36 s: screens, LED colours and voice.
+5. **In the car program:** set `enabled = true` under `[whisplay]` in
+   `Raspberry/config.toml`, then `sudo systemctl restart drifts`. With
+   firmware v20 on the ESP32, the score appears within a few seconds of the
+   Bluetooth link.
+6. Measure and note here: height with the HAT on, speaker loudness in the car,
    and the current draw (USB meter) when idle and while speaking.
 
 ## Open items
 - [ ] Which version arrived: plain or **Joy**, V1 or V2, WM8960 or ES8389? PiSugar warns that V1's button circuit carries 5 V. That only matters on two non-Pi boards (Orange Pi Zero 3W, Radxa Cubie A7Z), not on the Raspberry Pi.
 - [ ] Onboard speaker loud enough over road noise, or an external 8 Ω speaker on the PH2.0 socket?
-- [ ] Enclosure cut-out for the 30 × 37 mm screen; mount it in the passenger's view, like the 16×2.
-- [ ] Software: Pi-side BLE telemetry reader → LCD screens, RGB LED, voice, button (new module, `drifts/whisplay_ui.py`).
+- [ ] Enclosure cut-out for the 30 × 37 mm screen, mounted where the driver can glance at it.
+- [ ] Backlight dimming at night (fixed `brightness` for now).
+- [ ] First run on the real HAT: check the screen orientation, the LED colours and the button.

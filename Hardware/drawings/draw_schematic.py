@@ -16,8 +16,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Polygon, Rectangle
 
-REV = 5
-W, H = 240, 264
+REV = 6
+W, H = 240, 214
 
 WIRE = "#1a6b1a"
 EDGE = "#7a1010"
@@ -115,8 +115,8 @@ def no_connect(x, y):
 
 # ---------------------------------------------------------------- title
 text(W / 2, 3, f"DRIFTS — Schematic (NewBrain architecture) · rev {REV}", size=16, ha="center", weight="bold")
-text(W / 2, 6.2, "Team 1 · ESP32-C6 dev kit + Raspberry Pi Zero 2 W · rev 5: WS2812B strip ×14 (GPIO23 + 74AHCT125), "
-     "DFPlayer Mini voice (GPIO19/20) · rev 4: differential piezo · rev 3: status LEDs, I2C LCD + level shifter · "
+text(W / 2, 6.2, "Team 1 · ESP32-C6 dev kit + Raspberry Pi Zero 2 W · rev 6: driver screen, RGB LED, voice and button "
+     "on the PiSugar Whisplay HAT (Pi Zero) · ESP32 keeps buzzer, motors, MPU-6050 · "
      "generated drawing (not a KiCad file)",
      size=8.5, ha="center", style="italic")
 
@@ -168,9 +168,8 @@ text(207, 31.5, "Veepeak (BLE, not Classic)", size=6.5, ha="center", style="ital
 
 # ---------------------------------------------------------------- ESP32-C6
 u1 = box(92, 48, 18, 56, "U1 ESP32-C6\nWROOM-1 N8 dev kit",
-         left=[("5V", 54), ("3V3", 62), ("GND", 70), ("GPIO22", 80), ("GPIO21", 88), ("GPIO23", 96)],
-         right=[("GPIO10 PWM", 56), ("GPIO11 tone", 64), ("GPIO18 tone inv", 68), ("GPIO2", 72), ("GPIO3", 78),
-                ("GPIO4", 84), ("GPIO19 TX", 92), ("GPIO20 RX", 98)],
+         left=[("5V", 54), ("3V3", 62), ("GND", 70), ("GPIO22", 80), ("GPIO21", 88)],
+         right=[("GPIO10 PWM", 56), ("GPIO11 tone", 64), ("GPIO18 tone inv", 68)],
          title_lines=2)
 wire(u1["5V"], (88.5, 54))
 flag(88.5, 54, "+5V")
@@ -181,7 +180,7 @@ text(128, 41.5, "BLE", size=8, color=BLE, weight="bold")
 text(160, 41.5, "BLE", size=8, color=BLE, weight="bold")
 
 # ---------------------------------------------------------------- I2C bus: sensors + display
-frame(2, 44, 84, 104, "I2C bus · sensors and display (100 kHz)")
+frame(2, 44, 84, 60, "I2C bus · MPU-6050 (100 kHz)")
 u4 = box(24, 56, 16, 38, "U4 GY-521\nMPU-6050",
          left=[("AD0", 62), ("XDA", 70), ("XCL", 80), ("INT", 88)],
          right=[("VCC", 62), ("GND", 70), ("SCL", 80), ("SDA", 88)], title_lines=2)
@@ -201,36 +200,6 @@ wire(u4["SDA"], u1["GPIO21"])
 text(62, 78.6, "SCL", size=7)
 text(62, 86.6, "SDA", size=7)
 text(26, 97, "XDA / XCL / INT unused (NC) · AD0 to GND = 0x68", size=6.5, style="italic")
-
-# U7 level shifter: HV side left (toward the LCD), LV side right (toward U1)
-u7 = box(50, 104, 18, 26, "U7 level shifter\nBSS138 2-ch",
-         left=[("HV", 109), ("HV1", 115), ("HV2", 121), ("GND ", 127)],
-         right=[("LV", 109), ("LV1", 115), ("LV2", 121), ("GND", 127)], title_lines=2)
-dot(78, 88)
-wire((78, 88), (78, 115), u7["LV1"])
-dot(82, 80)
-wire((82, 80), (82, 121), u7["LV2"])
-wire(u7["LV"], (73, 109))
-flag(73, 109, "+3V3")
-wire(u7["GND"], (73, 127))
-gnd(73, 127)
-
-# U8 LCD + backpack
-u8 = box(6, 102, 24, 32, "U8 LCD 1602 HD44780\n+ PCF8574 backpack\n0x27 / 0x3F",
-         right=[("VCC", 109), ("SDA", 115), ("SCL", 121), ("GND", 127)], title_lines=3)
-wire(u8["VCC"], u7["HV"])
-dot(40, 109)
-flag(40, 109, "+5V")
-wire(u8["SDA"], u7["HV1"])
-wire(u8["SCL"], u7["HV2"])
-wire(u8["GND"], u7["GND "])
-dot(40, 127)
-gnd(40, 127)
-text(8, 132, "contrast pot + backlight jumper on backpack", size=6.5, style="italic")
-text(33, 100.5, "5 V side", size=7, color="#555", ha="center")
-text(64, 100.5, "3.3 V side", size=7, color="#555", ha="center")
-text(4, 140, "⚠ U8 pulls SDA/SCL up to 5 V: never wire it straight to GPIO21/22.", size=7.5, color="#b00020", weight="bold")
-text(4, 143.5, "MPU-6050 stays on the 3.3 V side. One pull-up pair per side; add none.", size=7.5, color="#b00020")
 
 # ---------------------------------------------------------------- motors
 frame(124, 44, 76, 40, "Vibration motor modules ×4 (onboard driver)")
@@ -274,25 +243,6 @@ text(158, 117.4, "Neither leg to GND. No flyback diode.", size=7.5)
 text(126, 126.5, "Off = both pins LOW (0 V across LS1), never duty 0. Q2/R3/R4 of rev 2 removed.",
      size=6.8, style="italic")
 
-# ---------------------------------------------------------------- status LEDs
-frame(124, 134, 76, 26, "Status LEDs ×3")
-rows = [
-    ("GPIO2", 119, 142, "R5  100Ω", "#3ccf5a", "D3 green", "connections"),
-    ("GPIO3", 117, 148, "R8  330Ω", "#ffd60a", "D4 yellow", "caution 50–69 / system"),
-    ("GPIO4", 115, 154, "R9  330Ω", "#ff4d4d", "D5 red", "drowsy (LED only)"),
-]
-for pin, xv, yr, rl, col, dl, meaning in rows:
-    wire(u1[pin], (xv, u1[pin][1]), (xv, yr), (130, yr))
-    res_h(130, yr, rl, below=False)
-    wire((136, yr), (144, yr))
-    led_h(144, yr, col, "")
-    wire((147, yr), (156, yr))
-    if yr != 154:
-        dot(156, yr)
-    text(158.5, yr - 0.3, f"{dl} — {meaning}", size=7.5)
-wire((156, 142), (156, 154), (156, 155.5))
-gnd(156, 155.5, drop=0.6)
-
 # ---------------------------------------------------------------- decoupling
 frame(204, 44, 34, 40, "Decoupling")
 for x, lab, val, pol in ((210, "+3V3", "C3\n0.1µF\n(104)", False),
@@ -308,65 +258,27 @@ cap_v(210, 75, "C2  220µF (bulk)", polar=True)
 wire((210, 75.6), (210, 77), color=EDGE, lw=1.4)
 gnd(210, 77, drop=1)
 
-# ---------------------------------------------------------------- rev 5: LED strip
-frame(2, 166, 116, 46, "LED strip · WS2812B ×14 above the LCD (data 3.3 V → 5 V)")
-# GPIO23 leaves U1 on the left, runs down beside it to the buffer
-wire(u1["GPIO23"], (89, 96), (89, 178), (80, 178))
-u9 = box(58, 172, 22, 36, "U9 74AHCT125\nquad buffer (DIP-14)",
-         left=[("1Y  3", 178), ("1OE  1", 184), ("GND  7", 190), ("2A 3A 4A", 196), ("2Y 3Y 4Y", 202)],
-         right=[("2  1A", 178), ("14  VCC", 184), ("2OE 3OE 4OE", 190)], title_lines=2)
-wire(u9["14  VCC"], (85, 184))
-dot(85, 184)
-flag(85, 184, "+5V")
-wire(u9["2OE 3OE 4OE"], (85, 190), (85, 184))
-wire(u9["1OE  1"], (52, 184))
-gnd(52, 184, drop=1.2)
-wire(u9["GND  7"], (48, 190))
-gnd(48, 190, drop=1.2)
-wire(u9["2A 3A 4A"], (54, 196))
-gnd(54, 196, drop=1.2)
-wire(u9["2Y 3Y 4Y"], (55, 202))
-no_connect(55, 202)
-wire(u9["1Y  3"], (36, 178))
-res_h(30, 178, "R10  330Ω")
-st = box(4, 172, 18, 30, "STRIP1\nWS2812B ×14", right=[("DIN", 178), ("5V", 186), ("GND", 194)], title_lines=2)
-wire((30, 178), st["DIN"])
-wire(st["5V"], (40, 186), (40, 189.4), color=WIRE)
-dot(31, 186)
-flag(31, 186, "+5V")
-cap_v(40, 190, "C5\n1000µF", polar=True)
-wire((40, 190.6), (40, 194), st["GND"])
-dot(31, 194)
-gnd(31, 194, drop=1.4)
-text(5, 206, "DIN = the end the arrows point away from · 25 % brightness: < 0.25 A", size=6.5, style="italic")
-
-# ---------------------------------------------------------------- rev 5: DFPlayer voice
-frame(124, 166, 114, 46, "Voice · DFPlayer Mini (UART1, 9600 baud)")
-wire(u1["GPIO19 TX"], (114, 92), (114, 184), (130, 184))
-res_h(130, 184, "R11  1kΩ")
-u10 = box(150, 172, 22, 32, "U10 DFPlayer\nMini", left=[("1 VCC", 178), ("2 RX", 184), ("3 TX", 190), ("7 GND", 196)],
-          right=[("SPK_1  6", 180), ("SPK_2  8", 190)], title_lines=2)
-wire((136, 184), u10["2 RX"])
-wire(u1["GPIO20 RX"], (111, 98), (111, 190), u10["3 TX"])
-wire(u10["1 VCC"], (144, 178))
-flag(144, 178, "+5V")
-wire(u10["7 GND"], (144, 196))
-gnd(144, 196, drop=1.4)
-# LS2 speaker: magnet block + cone
-ax.add_patch(Rectangle((184, 181), 4, 8, fc=FILL, ec=EDGE, lw=1.4, zorder=3))
-ax.add_patch(Polygon([(188, 181), (194, 176.5), (194, 193.5), (188, 189)], closed=True, fc=FILL, ec=EDGE, lw=1.4, zorder=3))
-wire(u10["SPK_1  6"], (180, 180), (180, 183), (184, 183))
-wire(u10["SPK_2  8"], (180, 190), (180, 187), (184, 187))
-text(197, 180, "LS2 speaker", size=7.5, weight="bold", color=EDGE)
-text(197, 183.4, "4–8 Ω, ≤ 3 W", size=7.5)
-text(197, 186.8, "neither wire to GND", size=7.5)
-text(197, 190.2, "(3 W amp built in)", size=7.5)
-text(126, 205, "microSD (FAT32): /mp3/0001.mp3 … from Voice/sd_card · TX→RX crossed: GPIO19→RX, TX→GPIO20 · "
-     "DAC_R/L, IO, ADKEY, USB, BUSY unused", size=6.5, style="italic")
+# ---------------------------------------------------------------- rev 6: Whisplay HAT on the Pi Zero
+frame(2, 112, 116, 48, "Driver screen · PiSugar Whisplay HAT on U2 (40-pin header, no wires)")
+u12 = box(8, 118, 52, 36, "U12 PiSugar Whisplay HAT\nstacked on U2 Pi Zero 2 W",
+          left=[("LCD 1.69in 240x280 · SPI0", 128), ("RGB LED · GPIO 25/24/23", 134), ("Button · GPIO 17", 140),
+                ("WM8960 audio · I2S + I2C1", 146)], title_lines=2)
+text(64, 122, "ST7789P3 · SPI0 MOSI 10, SCLK 11, CE0 8", size=7)
+text(64, 125.6, "DC 27 · RST 4 · backlight 22 (LOW = on)", size=7)
+text(64, 129.2, "RGB LED LOW = lit · button HIGH = pressed", size=7)
+text(64, 132.8, "I2S 18/19/20/21 · I2C1 2/3 · 5V/GND from U2", size=7)
+text(64, 136.4, "Speaker: onboard, or PH2.0 external (switch)", size=7)
+text(64, 141, "Shows U1's 1 Hz BLE status: score, level,", size=7, weight="bold", color=EDGE)
+text(64, 144.4, "links. Voice clips: Voice/clips via aplay.", size=7, weight="bold", color=EDGE)
+text(64, 148.6, "Software: Raspberry/drifts/whisplay_ui.py", size=7, style="italic")
+text(64, 152, "Details: Hardware/whisplay-hat.md", size=7, style="italic")
+# BLE status from the ESP32 to the HAT's Pi
+wire((92, 100), (60, 118), color=BLE, lw=2, ls=(0, (5, 3)))
+text(72, 106, "BLE status", size=7.5, color=BLE, weight="bold")
 
 # ---------------------------------------------------------------- notes
-ax.plot([2, W - 2], [216, 216], color="#aaa", lw=1)
-text(2, 219, "NOTES", size=10, weight="bold")
+ax.plot([2, W - 2], [166, 166], color="#aaa", lw=1)
+text(2, 169, "NOTES", size=10, weight="bold")
 notes = [
     [
         "1. U6 = HW-319A-V7.0.1 LM2596 module. Trim the output to 5.0 V with the",
@@ -379,13 +291,10 @@ notes = [
         "4. U4 GY-521: AD0→GND = 0x68. Wire.begin(21, 22). Breakout has pull-ups.",
     ],
     [
-        "5. I2C runs at 100 kHz (PCF8574 limit), shared by U4 and U8.",
-        "   U7 BSS138 shifter: LV = +3V3, HV = +5V. U8 backpack is a 5 V part",
-        "   and pulls SDA/SCL to 5 V: never connect it directly to the C6.",
-        "   U8 address 0x27 (PCF8574) or 0x3F (PCF8574A), auto-detected.",
-        "6. LEDs: D3 green GPIO2 R5 (100Ω true green, 330Ω yellow-green), D4",
-        "   yellow GPIO3 R8, D5 red GPIO4 R9. GPIO4 is a strapping pin: an LED",
-        "   to GND only, nothing else. Mount LEDs and LCD in the passenger's view.",
+        "5. I2C runs at 100 kHz and carries only U4 (3.3 V: no level shifter).",
+        "   I2C SCAN lists 0x68. Free C6 pins: 2, 3, 19, 20, 23.",
+        "6. Status light: the Whisplay HAT's RGB LED (U12). U1 has no LEDs;",
+        "   GPIO 2, 3, 19, 20, 23 are free.",
         "7. LS1 passive piezo, differential: GPIO11→R6→LS1←R7←GPIO18, one LEDC",
         "   channel, GPIO18 inverted; 5 kHz 50 %, 6.6 Vpp. Off = both pins LOW.",
     ],
@@ -393,20 +302,19 @@ notes = [
         "8. C3/C4: 0.1µF ceramic at +3V3 and +5V near U1; one per module VCC.",
         "9. Wireless (dashed purple): Pi↔C6 and OBD dongle↔C6 over BLE. U3",
         "   must be BLE, not Classic. Camera U5 connects to the Pi only.",
-        "10. Do not use: 5, 8, 9, 15 (strapping); 6, 7 (JTAG); 12, 13 (USB);",
-        "   16, 17 (UART0 to CH343); 14, 24–30 (flash). GPIO4 = red LED only.",
+        "10. Do not use: 4, 5, 8, 9, 15 (strapping); 6, 7 (JTAG); 12, 13 (USB);",
+        "   16, 17 (UART0 to CH343); 14, 24–30 (flash).",
         "11. Same-named flags (+5V, +3V3, GND) are one net, as in KiCad.",
-        "12. Firmware v18: LCD INTERVENTION 1/2 (score 50–69 / <50). LEDSTRIP,",
-        "   RAINBOW, SAY:n, VOICE test the rev 5 parts. See Hardware/pinout.md.",
-        "13. U9 74AHCT125 (VCC 5 V): the strip needs ≥ 3.5 V for a 1; the BSS138",
-        "   (U7) is too slow for 800 kHz. Tie unused 2A–4A to GND, 2OE–4OE to 5 V.",
-        "14. U10 DFPlayer: 1k (R11) in series with its RX. Strip + DFPlayer share",
-        "   the 5 V rail: from the buck (U6) in the car; USB is fine on the bench.",
+        "12. Firmware v20: no display or LEDs on the C6; its 1 Hz status JSON goes to",
+        "   every BLE subscriber (phone and U2). See Hardware/pinout.md.",
+        "13. U12 Whisplay HAT: screen, RGB LED, speaker, button, driven by U2.",
+        "   The alert (buzzer, motors) stays on U1 and works without U2.",
+        "14. U2 + U12 power: 5 V 2.5 A on the bench; the U6 buck in the car.",
     ],
 ]
 for col, lines in enumerate(notes):
     for i, line in enumerate(lines):
-        text(2 + col * 80, 223 + i * 3.1, line, size=7.5)
+        text(2 + col * 80, 173 + i * 3.1, line, size=7.5)
 
 out = Path(__file__).resolve().parent / f"DRIFTS_Schematic_rev{REV}"
 fig.savefig(out.with_suffix(".pdf"))

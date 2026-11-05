@@ -12,7 +12,7 @@ echo "==> System packages"
 sudo apt-get update -qq
 # opencv-data holds the Haar cascades the live dashboard's eye tracker needs
 # (python3-opencv alone does not ship them).
-sudo apt-get install -y -qq python3-venv python3-picamera2 python3-opencv opencv-data python3-numpy bluez
+sudo apt-get install -y -qq python3-venv python3-picamera2 python3-opencv opencv-data python3-numpy python3-pil fonts-dejavu-core alsa-utils bluez
 
 # Raspberry Pi AI Camera (Sony IMX500): firmware, model zoo and tools.
 # Opt in with:  AI_CAMERA=1 bash deploy/install.sh   (takes 10-15 min on a Zero 2 W)
@@ -64,6 +64,17 @@ if [ "${MESH:-0}" = "1" ] || [ "${PI5:-0}" = "1" ]; then
   .venv/bin/pip install -q --no-cache-dir absl-py flatbuffers certifi
   .venv/bin/python -c "from drifts.facemesh import ensure_model; print('    model:', ensure_model())"
   echo "    Run:  .venv/bin/python -m drifts.live --face mesh --esp ble    (dev view: 'Switch to dev view')"
+fi
+
+# Whisplay HAT (driver screen, RGB LED, voice, button): PiSugar's driver.
+# Opt in with:  WHISPLAY=1 bash deploy/install.sh   then set [whisplay] enabled = true
+if [ "${WHISPLAY:-0}" = "1" ]; then
+  echo "==> PiSugar Whisplay HAT driver"
+  sudo apt-get install -y -qq git
+  [ -d "$HOME/Whisplay/.git" ] || git clone -q --depth 1 https://github.com/PiSugar/Whisplay.git "$HOME/Whisplay"
+  (cd "$HOME/Whisplay" && sudo bash install_driver.sh)
+  .venv/bin/pip install -q spidev gpiod
+  echo "    Reboot, then:  .venv/bin/python -m drifts.whisplay_ui --demo"
 fi
 
 echo "==> systemd service"

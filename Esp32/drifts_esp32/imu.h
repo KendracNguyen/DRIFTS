@@ -39,6 +39,8 @@ class Imu {
 public:
     bool begin();
     bool isPresent() const { return _present; }
+    // I2C SCAN command: list every device on the bus (the MPU-6050 is 0x68).
+    void i2cScan();
 
     // Non-blocking; call every loop(). Returns true when a new harsh
     // deceleration event has just been confirmed.
