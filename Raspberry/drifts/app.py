@@ -7,7 +7,7 @@ import logging
 import signal
 from typing import Optional
 
-from drifts.ble_client import BleClient
+from drifts.uart_client import make_client
 from drifts.camera import Camera
 from drifts.config import Config
 from drifts.detector import DrowsinessDetector
@@ -29,7 +29,8 @@ class Application:
         self.sim = sim
         self.no_ble = no_ble
 
-        self.ble = BleClient(self.cfg.ble)
+        # The ESP32 link: wired UART (default) or BLE, the same interface ([link] in config.toml).
+        self.ble = make_client(self.cfg)
         self.camera = Camera(self.cfg.camera)
         self.detector = DrowsinessDetector(self.cfg.detector)
         self._running = True
@@ -47,7 +48,7 @@ class Application:
 
         if not self.no_ble:
             tasks.append(asyncio.create_task(self.ble.run()))
-            # Required: the ESP32 fail-safe cuts alerts without it.
+            # Required: the ESP32 fail-safe cuts alerts without it (PING over either link).
             tasks.append(asyncio.create_task(self.ble.heartbeat()))
 
         if self.sim:

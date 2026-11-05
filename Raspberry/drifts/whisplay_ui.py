@@ -12,7 +12,7 @@ alert still works if the Pi is down.
 
 In the car it runs inside `python -m drifts` (drifts/app.py) when
 [whisplay] enabled = true in config.toml: ESP32 data only. With the camera
-pipeline, `python -m drifts.live --face mesh --esp ble --whisplay` adds the
+pipeline, `python -m drifts.live --face mesh --esp uart --whisplay` adds the
 eye, blink and head-pose readings.
 
 What it does:
@@ -1092,7 +1092,7 @@ def demo_state(score: Optional[float], **kw) -> UiState:
     """Example data for the demo and gallery: always labelled DEMO on screen."""
     lvl = "OK" if score is None or score >= 70 else "CAUTION" if score >= 50 else "LOW"
     base = dict(score=score, lvl=lvl, alert=score is not None and score < 50, obd="polling", drv_score=85,
-                rpm=2340, spd=65, thr=18, fw="v20")
+                rpm=2340, spd=65, thr=18, fw="v21")
     vis = dict(vision=True, camera_ok=True, face_found=True, eyes="open", perclos=0.047, blink_rate=16,
                yaw=2, pitch=1, calibrated=True, calib_progress=1.0, demo=True)
     if score is not None and score < 70:

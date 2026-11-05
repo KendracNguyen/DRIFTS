@@ -298,12 +298,79 @@ class SimLink(_Base):
                          "alert": lvl == "LOW"})
 
 
+class UartLink(_Base):
+    """The wired Pi link (firmware v21+, Pi GPIO 14/15 <-> ESP32 GPIO 20/19):
+    STATUS {json} lines in, EYE:<n> / commands / PING out. See uart_client.py."""
+
+    def __init__(self, port: str = "/dev/serial0", baud: int = 115200, heartbeat_s: float = 1.0):
+        super().__init__()
+        self.port_name, self.baud, self.heartbeat_s = port or "/dev/serial0", baud, heartbeat_s
+        self._ser = None
+        self._wlock = threading.Lock()
+
+    def start(self) -> None:
+        threading.Thread(target=self._run, name="esp-uart", daemon=True).start()
+
+    def _write(self, text: str) -> None:
+        with self._wlock:
+            if self._ser is not None:
+                try:
+                    self._ser.write((text + "\n").encode())
+                except Exception as exc:
+                    log.debug("uart write failed: %s", exc)
+
+    def send_eye(self, score: int) -> None:
+        self._write(f"EYE:{int(score)}")
+        self.eyes_sent += 1
+
+    def send_command(self, text: str) -> None:
+        self._write(text.strip())
+
+    def handle_line(self, line: str) -> None:
+        if line.startswith("STATUS "):
+            self._merge(parse_phone_json(line[7:]))
+        elif line.startswith("HELLO "):
+            self._merge({"fw": line[6:].strip()})
+        elif line not in ("WAKE", "IDLE"):
+            self.log_lines.append(line)
+
+    def _run(self) -> None:
+        from drifts.uart_client import LineParser
+        parser, last_ping = LineParser(), 0.0
+        while not self._stop.is_set():
+            if self._ser is None:
+                try:
+                    import serial
+                    ser = serial.Serial(self.port_name, self.baud, timeout=0.2)
+                    with self._wlock:
+                        self._ser = ser
+                    self._set_link(f"wired {self.port_name}")
+                except Exception as exc:
+                    self._set_link(f"{self.port_name}: {exc}")
+                    time.sleep(2.0)
+                    continue
+            try:
+                data = self._ser.read(256)
+            except Exception as exc:
+                self._set_link(f"wire error: {exc}")
+                with self._wlock:
+                    self._ser = None
+                continue
+            for line in parser.feed(data or b""):
+                self.handle_line(line)
+            if time.time() - last_ping >= self.heartbeat_s:    # the ESP32's fail-safe input
+                last_ping = time.time()
+                self._write("PING")
+
+
 def make_link(kind: str, port: str = "", ble_name: str = "DRIFTS-ESP32", ble_address: str = "",
               listen_only: bool = False):
     if kind == "serial":
         return SerialLink(port)
+    if kind == "uart":
+        return UartLink(port if port.startswith("/dev/serial") or port.startswith("/dev/tty") else "/dev/serial0")
     if kind == "ble":
         return BleLink(ble_name, ble_address, listen_only=listen_only)
     if kind == "sim":
         return SimLink()
-    raise ValueError(f"unknown ESP32 link '{kind}' (serial, ble, sim)")
+    raise ValueError(f"unknown ESP32 link '{kind}' (serial, uart, ble, sim)")

@@ -31,7 +31,12 @@ def main() -> int:
     parser.add_argument(
         "--no-ble",
         action="store_true",
-        help="Disable BLE connection (run standalone)",
+        help="No link to the ESP32 at all (run standalone)",
+    )
+    parser.add_argument(
+        "--link",
+        choices=["uart", "ble"],
+        help="ESP32 link for this run, overriding [link] kind in config.toml",
     )
     parser.add_argument(
         "--debug",
@@ -66,6 +71,9 @@ def main() -> int:
         log.error("Failed to load configuration: %s", exc)
         return 1
 
+    if args.link:
+        cfg.link.kind = args.link
+    log.info("ESP32 link: %s", cfg.link.kind)
     app = Application(cfg, sim=args.sim, no_ble=args.no_ble)
 
     try:

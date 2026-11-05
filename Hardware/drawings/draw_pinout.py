@@ -1,4 +1,4 @@
-"""Draw Hardware/pinout.svg: every wire to the ESP32-C6 (firmware v20).
+"""Draw Hardware/pinout.svg: every wire to the ESP32-C6 (firmware v21).
 
     python Hardware/drawings/draw_pinout.py
 
@@ -9,7 +9,7 @@ re-run; check that config.h agrees with `python3 Hardware/check_pins.py`.
 from pathlib import Path
 from xml.sax.saxutils import escape
 
-FW = "v20"
+FW = "v21"
 
 # (board label, wire colour, goes to, through, group)
 PINS = [
@@ -21,6 +21,8 @@ PINS = [
     ("GPIO 18", "#00838f", "Piezo LS1 leg 2 (same tone, inverted)", "R7 100 Ω", "out"),
     ("GPIO 21", "#1565c0", "MPU-6050 SDA (I2C)", "direct (3.3 V part)", "i2c"),
     ("GPIO 22", "#1565c0", "MPU-6050 SCL (I2C)", "direct (3.3 V part)", "i2c"),
+    ("GPIO 19", "#2e7d32", "Pi Zero GPIO 15 RX (pin 10): UART TX", "R10 1 kΩ", "uart"),
+    ("GPIO 20", "#2e7d32", "Pi Zero GPIO 14 TX (pin 8): UART RX", "R11 1 kΩ", "uart"),
 ]
 
 ROW = 46
@@ -38,7 +40,7 @@ def main() -> None:
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
            'font-family="Helvetica, Arial, sans-serif">',
            f'<rect width="{W}" height="{H}" fill="#ffffff"/>',
-           t(W / 2, 36, f"DRIFTS — ESP32-C6 pinout (firmware {FW}, schematic rev 6)", 22, anchor="middle", weight="bold"),
+           t(W / 2, 36, f"DRIFTS — ESP32-C6 pinout (firmware {FW}, schematic rev 7)", 22, anchor="middle", weight="bold"),
            t(W / 2, 60, "Find pins by the label printed on the board, not by position. "
                         "Same-named power tags are the same wire.", 13, "#555", anchor="middle")]
     bx, bw = 40, 190
@@ -61,8 +63,8 @@ def main() -> None:
     notes = [
         "Do not use: 4, 5, 8, 9, 15 (strapping) · 6, 7 (JTAG) · 12, 13 (USB) · 16, 17 (UART0 serial monitor) · "
         "14, 24–30 (flash: corrupts it silently).",
-        "Free: GPIO 2, 3, 19, 20, 23. The driver screen, status LED, voice and button are on the Pi Zero's Whisplay HAT.",
-        "Full wiring: Hardware/pinout.md · drawing: Hardware/drawings/DRIFTS_Schematic_rev6.pdf",
+        "Free: GPIO 2, 3, 23. The Pi Zero is wired on 19/20 (UART1, 115200) plus GND. Screen, LED, voice, button: the Whisplay HAT.",
+        "Full wiring: Hardware/pinout.md · drawing: Hardware/drawings/DRIFTS_Schematic_rev7.pdf",
     ]
     for k, n in enumerate(notes):
         out.append(t(40, y + 22 * k, ("⚠ " if k < 1 else "") + n, 13, "#7a1010" if k < 1 else "#444"))

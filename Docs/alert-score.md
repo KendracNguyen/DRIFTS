@@ -42,7 +42,7 @@ All weights and bands are in `Esp32/drifts_esp32/alertness.h` (`AlertConfig`).
 
 ## Bench test (ESP32 only, ~5 minutes)
 
-Flash **v20**, then open the serial monitor
+Flash **v21** (or later), then open the serial monitor
 (`python -m serial.tools.miniterm --dtr 0 --rts 0 <port> 115200`). The
 `[SCORE]` line from `STATUS` shows the score and level. With the Pi and its
 Whisplay HAT running, the screen follows within a second.

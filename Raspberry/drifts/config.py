@@ -25,6 +25,15 @@ class BleConfig:
 
 
 @dataclass
+class LinkConfig:
+    """How the Pi reaches the ESP32: "uart" (wired, firmware v21+) or "ble"."""
+    kind: str = "uart"
+    uart_port: str = "/dev/serial0"            # GPIO 14/15 (pins 8/10)
+    uart_baud: int = 115200
+    link_s: float = 5.0                        # ESP32 silent this long = link lost
+
+
+@dataclass
 class CameraConfig:
     width: int = 640
     height: int = 480
@@ -72,6 +81,7 @@ class WhisplayConfig:
 
 @dataclass
 class Config:
+    link: LinkConfig = field(default_factory=LinkConfig)
     ble: BleConfig = field(default_factory=BleConfig)
     camera: CameraConfig = field(default_factory=CameraConfig)
     detector: DetectorConfig = field(default_factory=DetectorConfig)

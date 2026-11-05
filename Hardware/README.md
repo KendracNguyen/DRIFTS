@@ -16,7 +16,7 @@ flowchart LR
   IMU[MPU-6050] --I2C--> C6
   C6 --PWM--> MOTOR[ERM motors]
   C6 --tone--> BUZZ[Piezo buzzer]
-  C6 -.BLE.-> PI[Raspberry Pi Zero 2 W]
+  C6 <--UART, 3 wires--> PI[Raspberry Pi Zero 2 W]
   C6 -.BLE.-> PHONE[Phone app]
   PI --CSI--> CAM[OV5647 camera]
 ```
@@ -36,8 +36,10 @@ SN65HVD230 transceiver, the J1962 pigtail and all bus-tapping risk.
 | **18** | Out (LEDC, inverted) | Piezo LS1 leg B | via R7 100 Ω | Same channel as 11, inverted: 6.6 Vpp across LS1 |
 | **21** | Bidir (I2C) | MPU-6050 | SDA | `Wire.begin(21, 22)`, must be explicit |
 | **22** | Out (I2C) | MPU-6050 | SCL | 100 kHz |
+| **19** | Out (UART1 TX) | Pi Zero GPIO 15 RX (pin 10) | via R10 1 kΩ | 115200 8N1, firmware v21 |
+| **20** | In (UART1 RX) | Pi Zero GPIO 14 TX (pin 8) | via R11 1 kΩ | Common GND with the Pi |
 | 5V | Power | Motor modules (if 5 V parts) | | |
-| 3V3 | Power | MPU-6050, shifter LV, motor modules | VCC | 3.3 V only |
+| 3V3 | Power | MPU-6050, motor modules | VCC | 3.3 V only |
 | GND | Power | All | Common | See grounding, §5.4 |
 
 Full pin-by-pin wiring, and the Pi Zero's Whisplay HAT (driver screen, RGB LED, voice, button): [`pinout.md`](pinout.md).
@@ -197,8 +199,9 @@ reads or tight timing loops.
 
 Three concurrent BLE connections (dongle + Pi + phone) is also a **hard
 ceiling** — the prebuilt Arduino controller is compiled with
-`CONFIG_BT_LE_MAX_CONNECTIONS=3`. There is no fourth link available for a
-future addition.
+`CONFIG_BT_LE_MAX_CONNECTIONS=3`. Since firmware v21 the Pi is **wired**
+(UART on GPIO 19/20), which frees one of the three for the dongle and the
+phone. BLE to the Pi still works as a fallback (`[link] kind = "ble"`).
 
 ### 5.7 IMU mounting — decide the axis before you glue anything
 
@@ -245,7 +248,7 @@ pedals and airbag deployment paths.
 | `README.md` | This document |
 | `schematic.md` | Driver circuits, power tree, connector detail |
 | `BOM.csv` | Bill of materials |
-| `drawings/DRIFTS_Schematic_rev6.pdf` | **Full system schematic, rev 6** (Whisplay HAT on the Pi Zero). Regenerate with `python Hardware/drawings/draw_schematic.py` |
+| `drawings/DRIFTS_Schematic_rev7.pdf` | **Full system schematic, rev 7** (Pi wired to the ESP32 over UART; Whisplay HAT on the Pi Zero). Regenerate with `python Hardware/drawings/draw_schematic.py` |
 | `whisplay-hat.md` | **PiSugar Whisplay HAT** (Pi Zero): the driver screen, RGB LED, voice and button. Datasheet, pinout, screens, button actions |
 | `pinout.md` / `pinout.svg` | **Wiring diagram** and pin-by-pin table (ESP32 + Pi Zero HAT). Regenerate the SVG with `python Hardware/drawings/draw_pinout.py` |
 | `pinout.csv` | Pin map as data, for diffing against `config.h` |

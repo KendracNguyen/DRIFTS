@@ -1,15 +1,15 @@
 # Pinout (first model)
 
-Every wire, as of **ESP32 firmware v20** and **schematic rev 6**:
+Every wire, as of **ESP32 firmware v21** and **schematic rev 7**:
 
 | Board | Drives |
 | --- | --- |
 | **ESP32-C6** | OBD (BLE), MPU-6050, piezo buzzer, vibration motors: the alert, which works on its own |
-| **Pi Zero 2 W + Whisplay HAT** | camera, driver screen, RGB LED, voice, button |
+| **Pi Zero 2 W + Whisplay HAT** | camera, driver screen, RGB LED, voice, button. Wired to the ESP32 by 3 UART wires |
 
 ![DRIFTS ESP32-C6 pinout](pinout.svg)
 
-Whole-system drawing: [`drawings/DRIFTS_Schematic_rev6.pdf`](drawings/DRIFTS_Schematic_rev6.pdf)
+Whole-system drawing: [`drawings/DRIFTS_Schematic_rev7.pdf`](drawings/DRIFTS_Schematic_rev7.pdf)
 (PNG alongside). Both drawings are generated:
 `python Hardware/drawings/draw_schematic.py` and `python Hardware/drawings/draw_pinout.py`.
 
@@ -18,7 +18,7 @@ Whole-system drawing: [`drawings/DRIFTS_Schematic_rev6.pdf`](drawings/DRIFTS_Sch
 ## ESP32-C6
 
 Find pins by the **label printed on the board** (`5V`, `3V3`, `G`/`GND`,
-`10`, `11`, `18`, `21`, `22`), not by position. Clone boards with the
+`10`, `11`, `18`, `19`, `20`, `21`, `22`), not by position. Clone boards with the
 CH343 USB chip place pins differently from the Espressif DevKitC.
 
 | ESP32-C6 pin | Goes to | Through | Firmware constant |
@@ -31,9 +31,11 @@ CH343 USB chip place pins differently from the Espressif DevKitC.
 | **GPIO 18** | Piezo LS1 pin 2 (neither leg to GND) | R7 100 Ω | `PIEZO_B_PIN`: the same signal as 11, inverted |
 | **GPIO 21** | MPU-6050 SDA | — | `IMU_SDA_PIN` |
 | **GPIO 22** | MPU-6050 SCL | — | `IMU_SCL_PIN` |
+| **GPIO 19** | Pi Zero **GPIO 15 RX** (pin 10) | R10 1 kΩ | `PI_UART_TX_PIN`: UART1 TX, 115200 |
+| **GPIO 20** | Pi Zero **GPIO 14 TX** (pin 8) | R11 1 kΩ | `PI_UART_RX_PIN`: UART1 RX |
 
 `python3 Hardware/check_pins.py` checks this table (from `pinout.csv`) against
-`config.h` and the reserved-pin list. It must print `OK: 5 pins agree`.
+`config.h` and the reserved-pin list. It must print `OK: 7 pins agree`.
 
 ### Parts on the ESP32
 
@@ -42,8 +44,9 @@ CH343 USB chip place pins differently from the Espressif DevKitC.
 | **MPU-6050 (GY-521)** | VCC → 3V3, GND → GND, SDA → GPIO 21, SCL → GPIO 22, AD0 → GND (address 0x68). It's a 3.3 V part: no level shifter. Test: `I2C SCAN` lists `0x68` |
 | **4 motor modules** (GND, VCC, IN) | IN of all four ← R1 100 Ω ← GPIO 10, with R2 10 kΩ from IN to GND (holds them off during reset). VCC → 3V3 (or 5V if the modules are 5 V parts), GND → GND |
 | **Piezo LS1** (passive) | GPIO 11 → R6 100 Ω → LS1 pin 1. LS1 pin 2 → R7 100 Ω → GPIO 18. Neither leg to GND, no flyback diode |
+| **Pi Zero link** (UART, firmware v21) | GPIO 19 → R10 1 kΩ → Pi pin 10 (GPIO 15 RX). Pi pin 8 (GPIO 14 TX) → R11 1 kΩ → GPIO 20. ESP32 GND ↔ Pi pin 6. Both 3.3 V: no level shifter. **TX to RX**, twisted together, away from the motor wires. Test: `STATUS` on the ESP32 console shows `wire=1` once the Pi runs |
 
-**Free ESP32 pins:** 2, 3, 19, 20, 23 (and 0, 1, which are the 32 kHz crystal
+**Free ESP32 pins:** 2, 3, 23 (and 0, 1, which are the 32 kHz crystal
 pads on some boards; check before using them).
 
 ### Do not use
@@ -77,6 +80,13 @@ behaviour: [`whisplay-hat.md`](whisplay-hat.md).
 | 12 / 35 / 38 / 40 | 18 / 19 / 20 / 21 | Audio I2S |
 | 3 / 5 | 2 / 3 | Audio codec I2C1 |
 | 2, 4 / 6 | 5V / GND | Power from the Pi |
+| **8 / 10** | **14 / 15** | **Not the HAT: the UART to the ESP32** (TX → ESP32 GPIO 20, RX ← ESP32 GPIO 19, each via 1 kΩ). The HAT leaves these pins free |
+
+**UART setup on the Pi** (`deploy/install.sh` does it): `enable_uart=1` and
+`dtoverlay=disable-bt` in `/boot/firmware/config.txt` (the Pi no longer needs
+Bluetooth; this puts the full UART on pins 8/10 as `/dev/serial0`), and the
+serial login console turned off. The car program reads `[link] kind = "uart"`
+in `config.toml`.
 
 **Power for the Pi Zero + HAT:**
 - On the bench, the Pi's own USB supply is enough: 5 V 2.5 A.

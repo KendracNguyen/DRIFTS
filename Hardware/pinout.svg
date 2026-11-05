@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 694" width="1180" height="694" font-family="Helvetica, Arial, sans-serif">
-<rect width="1180" height="694" fill="#ffffff"/>
-<text x="590.0" y="36" font-size="22" fill="#222" text-anchor="middle" font-weight="bold">DRIFTS — ESP32-C6 pinout (firmware v20, schematic rev 6)</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 786" width="1180" height="786" font-family="Helvetica, Arial, sans-serif">
+<rect width="1180" height="786" fill="#ffffff"/>
+<text x="590.0" y="36" font-size="22" fill="#222" text-anchor="middle" font-weight="bold">DRIFTS — ESP32-C6 pinout (firmware v21, schematic rev 7)</text>
 <text x="590.0" y="60" font-size="13" fill="#555" text-anchor="middle" font-weight="normal">Find pins by the label printed on the board, not by position. Same-named power tags are the same wire.</text>
-<rect x="40" y="70" width="190" height="444" rx="12" fill="#1f3b5c" stroke="#0f2236" stroke-width="2"/>
-<text x="135.0" y="474" font-size="18" fill="#fff" text-anchor="middle" font-weight="bold">ESP32-C6</text>
-<text x="135.0" y="494" font-size="13" fill="#cfe0f2" text-anchor="middle" font-weight="normal">WROOM-1 N8 dev kit</text>
+<rect x="40" y="70" width="190" height="536" rx="12" fill="#1f3b5c" stroke="#0f2236" stroke-width="2"/>
+<text x="135.0" y="566" font-size="18" fill="#fff" text-anchor="middle" font-weight="bold">ESP32-C6</text>
+<text x="135.0" y="586" font-size="13" fill="#cfe0f2" text-anchor="middle" font-weight="normal">WROOM-1 N8 dev kit</text>
 <text x="216" y="101" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">5V</text>
 <circle cx="230" cy="96" r="6" fill="#f2c94c" stroke="#8a6d1f"/>
 <line x1="236" y1="96" x2="380" y2="96" stroke="#d32f2f" stroke-width="4" stroke-linecap="round"/>
@@ -58,7 +58,21 @@
 <text x="515" y="423" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">direct (3.3 V part)</text>
 <line x1="640" y1="418" x2="670" y2="418" stroke="#1565c0" stroke-width="4" stroke-linecap="round"/>
 <text x="680" y="423" font-size="14" fill="#222" text-anchor="start" font-weight="normal">MPU-6050 SCL (I2C)</text>
-<text x="40" y="540" font-size="13" fill="#7a1010" text-anchor="start" font-weight="normal">⚠ Do not use: 4, 5, 8, 9, 15 (strapping) · 6, 7 (JTAG) · 12, 13 (USB) · 16, 17 (UART0 serial monitor) · 14, 24–30 (flash: corrupts it silently).</text>
-<text x="40" y="562" font-size="13" fill="#444" text-anchor="start" font-weight="normal">Free: GPIO 2, 3, 19, 20, 23. The driver screen, status LED, voice and button are on the Pi Zero's Whisplay HAT.</text>
-<text x="40" y="584" font-size="13" fill="#444" text-anchor="start" font-weight="normal">Full wiring: Hardware/pinout.md · drawing: Hardware/drawings/DRIFTS_Schematic_rev6.pdf</text>
+<text x="216" y="469" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 19</text>
+<circle cx="230" cy="464" r="6" fill="#f2c94c" stroke="#8a6d1f"/>
+<line x1="236" y1="464" x2="380" y2="464" stroke="#2e7d32" stroke-width="4" stroke-linecap="round"/>
+<rect x="390" y="451" width="250" height="26" rx="6" fill="#fff7e0" stroke="#c9a227"/>
+<text x="515" y="469" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">R10 1 kΩ</text>
+<line x1="640" y1="464" x2="670" y2="464" stroke="#2e7d32" stroke-width="4" stroke-linecap="round"/>
+<text x="680" y="469" font-size="14" fill="#222" text-anchor="start" font-weight="normal">Pi Zero GPIO 15 RX (pin 10): UART TX</text>
+<text x="216" y="515" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 20</text>
+<circle cx="230" cy="510" r="6" fill="#f2c94c" stroke="#8a6d1f"/>
+<line x1="236" y1="510" x2="380" y2="510" stroke="#2e7d32" stroke-width="4" stroke-linecap="round"/>
+<rect x="390" y="497" width="250" height="26" rx="6" fill="#fff7e0" stroke="#c9a227"/>
+<text x="515" y="515" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">R11 1 kΩ</text>
+<line x1="640" y1="510" x2="670" y2="510" stroke="#2e7d32" stroke-width="4" stroke-linecap="round"/>
+<text x="680" y="515" font-size="14" fill="#222" text-anchor="start" font-weight="normal">Pi Zero GPIO 14 TX (pin 8): UART RX</text>
+<text x="40" y="632" font-size="13" fill="#7a1010" text-anchor="start" font-weight="normal">⚠ Do not use: 4, 5, 8, 9, 15 (strapping) · 6, 7 (JTAG) · 12, 13 (USB) · 16, 17 (UART0 serial monitor) · 14, 24–30 (flash: corrupts it silently).</text>
+<text x="40" y="654" font-size="13" fill="#444" text-anchor="start" font-weight="normal">Free: GPIO 2, 3, 23. The Pi Zero is wired on 19/20 (UART1, 115200) plus GND. Screen, LED, voice, button: the Whisplay HAT.</text>
+<text x="40" y="676" font-size="13" fill="#444" text-anchor="start" font-weight="normal">Full wiring: Hardware/pinout.md · drawing: Hardware/drawings/DRIFTS_Schematic_rev7.pdf</text>
 </svg>
