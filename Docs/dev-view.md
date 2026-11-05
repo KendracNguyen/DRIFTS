@@ -54,14 +54,14 @@ Open http://localhost:8080/dev in Chrome or Edge, full screen (F11), then:
 | Area | Shows |
 | --- | --- |
 | Menu bar | **Launch** (calibration, accuracy test), **File** (download report, drowsiness history, status), **Edit** (copy status, copy the selected landmark), **View** (layers, mirror, reset zoom), **Verify**, **Connectivity** (ESP32 link, stream fps, lag), **Options** (glasses Auto / On / Off), **Tools** (beep the ESP32, re-take the road pose), **Window**, **Help** |
-| Face analysis | camera + mesh; landmark count and jawOpen; inference time and delegate; nose-tip X / Y and its motion. Layer toggles: Wireframe, Eyes, Head pose, Mouth, Nose anchor, Glasses box |
+| Face analysis | camera + mesh, each landmark group in its legend colour: wireframe light blue, eyes / brows / irises blue, head pose (face oval, nose axis, crosshair) red, mouth magenta, nose anchor and glasses box yellow. Landmark count and jawOpen; inference time and delegate; nose-tip X / Y and its motion |
 | Calibration | the nine pose cards, the live EAR / MAR / yaw / pitch / roll, the current prompt |
-| Eyes | EAR formula worked through live, blink rate, PERCLOS, mean blink, long closures |
+| Eyes | EAR formula worked through live, blink rate, PERCLOS, mean blink, long closures; **close-ups of both eyes with P1–P6 labelled** (P1 / P4 corners white, P2–P3 / P5–P6 blue) |
 | Gaze target | where the driver is looking, against the dashed ROAD box; ON ROAD / OFF ROAD / EYES CLOSED |
 | Head pose | yaw / pitch box and bars relative to the road pose, nods, droop |
-| Mouth | MAR and the yawn count |
+| Mouth | MAR and the yawn count; **close-up with P1–P8 labelled** (P1 / P5 corners, P2–P8, P3–P7, P4–P6 openings), magenta |
 | Face landmarker | the four strongest of the 52 blendshapes |
-| Bottom bar | composite drowsiness and its 8-signal stack; drowsiness over the session (bars coloured by score, warning line at 45); NONE → WARNING → INTERVENTION; motors, buzzer, LED |
+| Bottom bar | the **alert score** from the ESP32 (0.7 × eye + 0.3 × driving), coloured by level, with its eye / driving split and the drowsiness behind the eye part; the alert score over the session (bars green ≥ 70, yellow 50–69, red < 50, dashed lines at 70 and 50); NONE → WARNING → INTERVENTION; motors, buzzer, LED |
 | Status bar | the alert score, and the selected landmark's index and normalised X / Y |
 
 **Mouse:**

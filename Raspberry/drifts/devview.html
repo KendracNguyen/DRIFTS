@@ -37,7 +37,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 /* grid */
 .grid{display:grid;grid-template-columns:minmax(0,1.11fr) minmax(0,.89fr);gap:28px;padding:14px 14px 0}
 .panel{border:1px solid var(--line);background:var(--panel)}
-.ph{display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--line)}
+.ph{display:flex;align-items:center;gap:12px;padding:7px 14px;border-bottom:1px solid var(--line)}
 .ph .t{letter-spacing:.22em;color:#fff;font-weight:500}
 .ph .s{color:var(--muted);font-size:11.5px}
 .ph .r{margin-left:auto}
@@ -79,21 +79,27 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .prompt{margin-top:6px;color:var(--cyan);min-height:16px}
 .foot{padding:8px 14px 10px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
 /* right column */
-.rcol{display:flex;flex-direction:column;gap:14px}
-.pb{padding:10px 14px 12px}
+.rcol{display:flex;flex-direction:column;gap:9px}
+.pb{padding:7px 14px 8px}
 .formula{color:var(--cyan);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.formula b{color:var(--yellow)}
-.srow{display:grid;grid-template-columns:130px 1fr 90px;gap:14px;align-items:center;margin-top:8px}
+.srow{display:grid;grid-template-columns:130px 1fr 90px;gap:14px;align-items:center;margin-top:5px}
 .srow .n{color:#fff}.srow .n small{display:block;color:var(--muted);font-size:11px}
 .srow .v{text-align:right;font-size:18px;font-weight:700}.srow .v small{font-size:11px;color:var(--muted);font-weight:400}
 .track{position:relative;height:7px;background:#0b1214}
 .track u{position:absolute;left:0;top:0;bottom:0}
 .track s{position:absolute;top:-4px;bottom:-4px;width:2px;background:#cfd8db}
-.sub{color:var(--muted);font-size:12px;margin-top:8px}
+.sub{color:var(--muted);font-size:12px;margin-top:5px}
 .two{display:grid;grid-template-columns:190px 1fr;gap:16px;align-items:center}
 .pill{display:inline-block;padding:2px 10px;border:1px solid;font-size:12px;letter-spacing:.12em}
 .pill.on{color:var(--green);border-color:var(--green2)}.pill.off{color:var(--red);border-color:#8a1f1f}.pill.mid{color:var(--muted);border-color:var(--line2)}
-.bs{display:grid;grid-template-columns:180px 1fr 50px;gap:14px;align-items:center;margin:5px 0}
+.bs{display:grid;grid-template-columns:180px 1fr 50px;gap:14px;align-items:center;margin:2px 0}
 .bs .n{color:var(--blue2)}.bs .v{text-align:right}
+/* close-ups */
+.zooms{display:flex;gap:10px;margin-top:6px}
+.zoom{position:relative;flex:1;min-width:0;border:1px solid var(--line2);background:#000;height:96px;max-width:300px}
+.zoom canvas{position:absolute;inset:0;width:100%;height:100%}
+.zoom span{position:absolute;left:8px;top:5px;font-size:11px;letter-spacing:.15em;color:#fff;text-shadow:0 0 3px #000;pointer-events:none}
+.mgrid{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px;align-items:center}
 /* bottom bar */
 .bottom{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.1fr) minmax(0,.9fr);gap:28px;align-items:center;padding:10px 20px 6px;border-top:1px solid #0e1517;margin-top:12px}
 .dz{display:flex;align-items:center;gap:18px}
@@ -184,16 +190,17 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
   <div class="pb"><div class="formula" id="formula">right eye: (|P2-P6| + |P3-P5|) / 2|P1-P4|</div>
    <div class="srow"><div class="n">Blinking<small>rate · PERCLOS</small></div><div class="track"><u id="b-blink" style="background:var(--blue)"></u><s id="k-blink" style="left:62%"></s></div>
     <div class="v" id="v-blink">--<small>/min</small></div></div>
-   <div class="sub" id="s-blink">--</div></div>
+   <div class="sub" id="s-blink">--</div>
+   <div class="zooms"><div class="zoom"><canvas id="z-re"></canvas><span>RIGHT EYE</span></div><div class="zoom"><canvas id="z-le"></canvas><span>LEFT EYE</span></div></div></div>
  </section>
  <section class="panel">
   <div class="ph"><span class="ic" data-ic="bars-g"></span><span class="t">GAZE TARGET</span><span class="s">on / off road</span><span class="r chip y" id="pt-gaze">+0.0 pts</span></div>
-  <div class="pb two"><svg id="gazebox" viewBox="0 0 170 80" width="170" height="80"></svg>
+  <div class="pb two"><svg id="gazebox" viewBox="0 0 170 80" width="150" height="66"></svg>
    <div><span class="pill mid" id="gazepill">--</span> <span class="sub" id="s-gaze" style="margin-left:14px">--</span></div></div>
  </section>
  <section class="panel">
   <div class="ph"><span class="ic" data-ic="head"></span><span class="t">HEAD POSE</span><span class="s">from the nose axis · relative to road pose</span><span class="r chip y" id="pt-head">+0.0 pts</span></div>
-  <div class="pb"><div class="two"><svg id="xybox" viewBox="0 0 180 112" width="180" height="112"></svg>
+  <div class="pb"><div class="two"><svg id="xybox" viewBox="0 0 180 112" width="160" height="96"></svg>
    <div>
     <div class="srow" style="grid-template-columns:130px 1fr 70px;margin-top:0"><div class="n">Yaw<small id="d-yaw">--</small></div><div class="track"><u id="b-yaw" style="background:var(--red)"></u></div><div class="v" id="v-yaw">--°</div></div>
     <div class="srow" style="grid-template-columns:130px 1fr 70px"><div class="n">Pitch<small id="d-pitch">--</small></div><div class="track"><u id="b-pitch" style="background:var(--red)"></u></div><div class="v" id="v-pitch">--°</div></div>
@@ -203,9 +210,10 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
  </section>
  <section class="panel">
   <div class="ph"><span class="ic" data-ic="mouth"></span><span class="t">MOUTH</span><span class="s">MAR · yawn</span><span class="r chip m" id="pt-mouth">+0.0 pts</span></div>
-  <div class="pb">
+  <div class="pb mgrid"><div>
    <div class="srow" style="margin-top:0"><div class="n">Mouth<small id="d-mar">MAR</small></div><div class="track"><u id="b-mar" style="background:var(--magenta)"></u><s id="k-mar" style="left:62%"></s></div><div class="v" id="v-mar">--<small>MAR</small></div></div>
    <div class="srow"><div class="n">Yawn<small>last 10 min</small></div><div class="track"><u id="b-yawn" style="background:var(--magenta)"></u></div><div class="v" id="v-yawn">--</div></div></div>
+   <div class="zoom" style="height:84px"><canvas id="z-mo"></canvas><span>MOUTH</span></div></div>
  </section>
  <section class="panel">
   <div class="ph"><span class="ic" data-ic="sq"></span><span class="t">FACE LANDMARKER</span><span class="s">52 expression blendshapes</span></div>
@@ -216,10 +224,10 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 
 <!-- ============================== bottom bar ============================== -->
 <div class="bottom">
- <div class="dz"><span class="lbl">DROWSINESS</span><span class="big" id="dz">--</span>
-  <div class="w"><div class="t">WEIGHTED SUM OF THE 8 SIGNALS <small id="wset">· eyes 55% · head 25% · mouth 20%</small></div>
+ <div class="dz"><span class="lbl">ALERT SCORE</span><span class="big" id="dz">--</span>
+  <div class="w"><div class="t">0.7 × EYE + 0.3 × DRIVING <small id="wset">· from the ESP32</small></div>
    <div class="stack" id="stack"></div><div class="sub" style="margin:0" id="dzsub">--</div></div></div>
- <div class="chart"><div class="t">DROWSINESS · <span id="chtitle">LAST -- MIN</span> <small>· color by score · warning at 45</small></div>
+ <div class="chart"><div class="t">ALERT SCORE · <span id="chtitle">LAST -- MIN</span> <small>· color by level · Intervention 1 below 70 · 2 below 50</small></div>
   <svg id="chart" viewBox="0 0 680 118" preserveAspectRatio="none"></svg></div>
  <div class="tiers"><div class="fsm"><span class="node n0" id="n0">NONE</span><span class="arrow">→</span><span class="node n1" id="n1">WARNING</span><span class="arrow">→</span><span class="node n2" id="n2">INTERVENTION</span></div>
   <div class="outs"><div class="out" id="o-motor"><i></i>Motors</div><div class="out" id="o-buzz"><i></i>Buzzer</div><div class="out" id="o-led"><i></i>LED</div></div></div>
@@ -280,11 +288,12 @@ function frame(){const g=geom();ctx.fillStyle="#000";ctx.fillRect(0,0,g.W,g.H);
   else ctx.drawImage(img,g.ox,g.oy,g.iw*g.k,g.ih*g.k);ctx.restore()}
  if(pkt&&pkt.found&&pkt.lm.length>=956){
   const nose=P(g,1);
-  if(layers.has("head")){dashLine(0,nose[1],g.W,nose[1],"rgba(47,123,255,.55)",g);dashLine(nose[0],0,nose[0],g.H,"rgba(47,123,255,.55)",g)}
-  if(layers.has("mesh"))path(g,mesh.mesh,"#ffffff",.6,.55);
-  if(layers.has("head"))path(g,mesh.oval,C.blue,2.2);
+  if(layers.has("head")){dashLine(0,nose[1],g.W,nose[1],"rgba(255,59,59,.45)",g);dashLine(nose[0],0,nose[0],g.H,"rgba(255,59,59,.45)",g)}
+  // each layer in its legend colour (the toggle icons below the camera)
+  if(layers.has("mesh"))path(g,mesh.mesh,C.blue2,.6,.55);
+  if(layers.has("head"))path(g,mesh.oval,C.red,2.2);
   if(layers.has("eyes")){path(g,mesh.eyes,C.blue,2);path(g,mesh.brows,C.blue,2);path(g,mesh.irises,C.blue,1.6)}
-  if(layers.has("mouth"))path(g,mesh.lips,"#22c55e",2.6);
+  if(layers.has("mouth"))path(g,mesh.lips,C.magenta,2.4);
   if(layers.has("head")&&face.yaw!=null){const L=60*g.d*view.s,y=(face.yaw||0)*Math.PI/180,p=(face.pitch||0)*Math.PI/180;
    const sx=mir()?-1:1;ctx.strokeStyle=C.red;ctx.lineWidth=2.2*g.d;ctx.beginPath();ctx.moveTo(nose[0],nose[1]);
    ctx.lineTo(nose[0]+sx*Math.sin(y)*L,nose[1]+Math.sin(p)*L);ctx.stroke()}
@@ -294,7 +303,31 @@ function frame(){const g=geom();ctx.fillStyle="#000";ctx.fillRect(0,0,g.W,g.H);
   if(layers.has("glasses")){const a=P(g,133),b=P(g,362),iod=Math.hypot(a[0]-b[0],a[1]-b[1]),c=P(g,168);
    ctx.strokeStyle=face.glasses?C.yellow:"rgba(255,212,0,.45)";ctx.lineWidth=1.2*g.d;ctx.strokeRect(c[0]-.2*iod,c[1]-.12*iod,.4*iod,.46*iod)}
   const s=sel!=null?sel:hover;if(s!=null){const q=P(g,s);ctx.strokeStyle=C.cyan;ctx.lineWidth=1.5*g.d;ctx.beginPath();ctx.arc(q[0],q[1],6*g.d,0,7);ctx.stroke()}}
+ drawZooms();
  requestAnimationFrame(frame)}
+// Close-ups with the EAR / MAR points labelled, cropped from the camera frame (camera view, not mirrored).
+const EAR_R=[33,160,158,133,153,144],EAR_L=[362,385,387,263,373,380],MOUTH=[78,82,13,312,308,317,14,87];
+function zoomDraw(id,idx,col,kind){const c=$(id);if(!c)return;const r=c.getBoundingClientRect(),d=window.devicePixelRatio||1;
+ if(c.width!==Math.round(r.width*d)){c.width=Math.round(r.width*d);c.height=Math.round(r.height*d)}
+ const z=c.getContext("2d"),W=c.width,H=c.height;z.fillStyle="#000";z.fillRect(0,0,W,H);
+ if(!pkt||!pkt.found||!img.naturalWidth)return;const L=pkt.lm,pt=i=>[L[2*i],L[2*i+1]];
+ const ps=idx.map(pt),xs=ps.map(p=>p[0]),ys=ps.map(p=>p[1]);
+ const cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2;
+ const hw=Math.max(8,(Math.max(...xs)-Math.min(...xs))*0.85),hh=hw*H/W;
+ const sx=W/(2*hw),ox=cx-hw,oy=cy-hh,P=p=>[(p[0]-ox)*sx,(p[1]-oy)*sx];
+ const kx=img.naturalWidth/(pkt.w||img.naturalWidth),ky=img.naturalHeight/(pkt.h||img.naturalHeight);
+ z.drawImage(img,ox*kx,oy*ky,2*hw*kx,2*hh*ky,0,0,W,H);
+ const q=ps.map(P),line=(a,b,w,cc)=>{z.strokeStyle=cc||col;z.lineWidth=w*d;z.beginPath();z.moveTo(q[a][0],q[a][1]);z.lineTo(q[b][0],q[b][1]);z.stroke()};
+ if(kind==="eye"){line(0,3,1.4,"#e8eef0");line(1,5,2.6);line(2,4,2.6)}
+ else{z.strokeStyle=col;z.lineWidth=1.2*d;z.beginPath();q.forEach((p,i)=>i?z.lineTo(p[0],p[1]):z.moveTo(p[0],p[1]));z.closePath();z.stroke();
+  line(0,4,1.4);line(1,7,2.4);line(2,6,2.4);line(3,5,2.4)}
+ z.font=`${11*d}px "JetBrains Mono",monospace`;z.textBaseline="middle";
+ q.forEach((p,i)=>{const corner=kind==="eye"?(i===0||i===3):(i===0||i===4);
+  z.fillStyle=corner&&kind==="eye"?"#e8eef0":col;z.beginPath();z.arc(p[0],p[1],(corner?4:4.5)*d,0,7);z.fill();
+  const up=kind==="eye"?(i===1||i===2):(i>=1&&i<=3),down=kind==="eye"?(i===4||i===5):(i>=5);
+  const lx=p[0]+(corner?(p[0]<W/2?-24:9):-8)*d,ly=p[1]+(up?-14:down?15:0)*d;
+  z.lineWidth=3*d;z.strokeStyle="#000";z.strokeText("P"+(i+1),lx,ly);z.fillStyle=corner&&kind==="eye"?"#e8eef0":col;z.fillText("P"+(i+1),lx,ly)})}
+function drawZooms(){zoomDraw("z-re",EAR_R,C.blue,"eye");zoomDraw("z-le",EAR_L,C.blue,"eye");zoomDraw("z-mo",MOUTH,C.magenta,"mouth")}
 requestAnimationFrame(frame);
 // mouse: L select a landmark, M (or Shift) drag pan, R drag or wheel zoom, double-click reset
 let drag=null;
@@ -376,17 +409,18 @@ function xyBox(p,f){const W=180,H=112,cx=90,cy=58,y=p.yaw,pi=p.pitch,ok=f.found&
   <text x="${cx}" y="8" fill="${C.muted||"#7f8d92"}" font-size="8" text-anchor="middle">pitch up</text><text x="${cx}" y="${H-1}" fill="#7f8d92" font-size="8" text-anchor="middle">down</text>
   <text x="4" y="${cy-3}" fill="#7f8d92" font-size="8">←L</text><text x="${W-4}" y="${cy-3}" fill="#7f8d92" font-size="8" text-anchor="end">yaw R→</text>
   ${ok?`<line x1="${x-14*Math.cos(a)}" y1="${yy-14*Math.sin(a)}" x2="${x+14*Math.cos(a)}" y2="${yy+14*Math.sin(a)}" stroke="${C.red}" stroke-width="2"/><circle cx="${x}" cy="${yy}" r="4.5" fill="${C.red}"/>`:""}`}
-function colorFor(v){return v>=45?C.red:v>=38?C.orange:v>=30?C.yellow:v>=18?C.cyan:"#0e5f6e"}
-function drawChart(hist){const svg=$("chart"),W=680,H=118,L=26,B=16,T=6,max=60,vals=hist.map(h=>h[1]);
+function colorFor(v){return v>=70?C.green:v>=50?C.yellow:C.red}
+function drawChart(vals){const svg=$("chart"),W=680,H=118,L=26,B=16,T=6,max=100;
  const n=Math.min(40,Math.max(1,vals.length)),per=Math.max(1,Math.ceil(vals.length/n)),bars=[];
  for(let i=0;i<vals.length;i+=per){const c=vals.slice(i,i+per).filter(v=>v!=null);bars.push(c.length?c.reduce((a,b)=>a+b,0)/c.length:null)}
  const y=v=>T+(1-Math.min(max,v)/max)*(H-T-B),bw=(W-L-4)/Math.max(bars.length,1);let s="";
- [0,30,60].forEach(g=>s+=`<text x="${L-6}" y="${y(g)+3}" fill="#4d5a5e" font-size="8" text-anchor="end">${g}</text>`);
- s+=`<line x1="${L}" x2="${W}" y1="${y(45)}" y2="${y(45)}" stroke="${C.red}" stroke-dasharray="4 3" opacity=".7"/>`;
+ [0,50,100].forEach(g=>s+=`<text x="${L-6}" y="${y(g)+3}" fill="#4d5a5e" font-size="8" text-anchor="end">${g}</text>`);
+ s+=`<line x1="${L}" x2="${W}" y1="${y(70)}" y2="${y(70)}" stroke="${C.yellow}" stroke-dasharray="4 3" opacity=".7"/>`;
+ s+=`<line x1="${L}" x2="${W}" y1="${y(50)}" y2="${y(50)}" stroke="${C.red}" stroke-dasharray="4 3" opacity=".7"/>`;
  bars.forEach((v,i)=>{if(v==null)return;s+=`<rect x="${L+i*bw+1.5}" y="${y(v)}" width="${Math.max(1,bw-3)}" height="${H-B-y(v)}" fill="${colorFor(v)}"/>`});
  const mins=vals.length/60;for(let k=0;k<4;k++){const x=L+k/3*(W-L-8);s+=`<text x="${x}" y="${H-3}" fill="#4d5a5e" font-size="8" text-anchor="${k===0?"start":k===3?"end":"middle"}">${Math.round(k/3*mins)}m</text>`}
  svg.innerHTML=s;$("chtitle").textContent=`LAST ${Math.max(1,Math.round(mins))} MIN`}
-async function loadChart(){try{drawChart(await (await fetch("/drowsy.json")).json())}catch(e){}}
+async function loadChart(){try{drawChart((await (await fetch("/history.json")).json()).score||[])}catch(e){}}
 setInterval(loadChart,5000);loadChart();
 
 async function tick(){try{status=await (await fetch("/status.json",{cache:"no-store"})).json()}catch(e){$("link").textContent="● dashboard offline";$("link").className="lk off";return}
@@ -433,10 +467,15 @@ async function tick(){try{status=await (await fetch("/status.json",{cache:"no-st
  const bs=Object.entries(f.blend||{}).filter(([k])=>k!=="_neutral").sort((a,b)=>b[1]-a[1]).slice(0,4);
  $("blend").innerHTML=bs.length?bs.map(([k,v])=>`<div class="bs"><span class="n">${k}</span><div class="track"><u style="width:${v*100}%;background:${C.blue2}"></u></div><span class="v">${Math.round(v*100)}%</span></div>`).join(""):'<div class="sub">no face</div>';
  // composite
- $("dz").textContent=f.drowsiness==null?"--":Math.round(f.drowsiness);
- $("stack").innerHTML=Object.keys(SIGCL).map(k=>{const q=P_[k],w=q&&q.points?q.points:0;return `<span title="${k} +${w.toFixed(1)}" style="width:${w}%;background:${SCOL[k]}"></span>`}).join("");
- $("wset").textContent=f.glasses?"· eyes 25% · head 50% · mouth 25%":"· eyes 55% · head 25% · mouth 20%";
- $("dzsub").textContent=`Glasses ${f.glasses?"ON":"OFF"} · ${({auto:"Auto",on:"On",off:"Off"})[f.glasses_mode]||"--"} · → ESP32 EYE ${f.face_score==null?"--":Math.round(f.face_score)} (100 − drowsiness)`;
+ // alert score: the ESP32's own number (0.7 x eye + 0.3 x driving), coloured by its level
+ const asc=live?e.score:null,band=(s.ui||{}).band;
+ $("dz").textContent=asc==null?"--":Math.round(asc);
+ $("dz").style.color=band==="normal"?C.green:band==="caution"?C.yellow:band==="high"?C.red:C.dim;
+ const eyeS=e.eye!=null?e.eye:f.face_score,drv=e.drv_score;
+ const eyePart=eyeS==null?0:0.7*eyeS,drvPart=drv==null?0:0.3*drv;
+ $("stack").innerHTML=`<span title="eye 0.7 x ${fx(eyeS)}" style="width:${eyePart}%;background:${C.cyan}"></span><span title="driving 0.3 x ${fx(drv)}" style="width:${drvPart}%;background:${C.blue}"></span>`;
+ $("wset").textContent=`· eye ${fx(eyeS)} · driving ${fx(drv)}${e.part?" · partial: driving only":""}`;
+ $("dzsub").textContent=`eye = 100 − drowsiness ${fx(f.drowsiness)} (8 signals, ${f.glasses?"glasses weights":"eyes 55% · head 25% · mouth 20%"}) · Glasses ${({auto:"Auto",on:"On",off:"Off"})[f.glasses_mode]||"--"}`;
  // tiers + outputs
  const out=s.outputs;let tier=0;if(out)tier=Math.min(2,out.level||0);else if(e.alert||e.lvl==="LOW")tier=2;else if(e.lvl==="CAUTION")tier=1;
  ["n0","n1","n2"].forEach((id,i)=>$(id).classList.toggle("on",i===tier));
