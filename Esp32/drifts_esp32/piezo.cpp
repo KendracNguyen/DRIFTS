@@ -18,11 +18,22 @@ static bool _sweeping = false;
 static uint32_t _sweepHz = 0;
 static uint32_t _sweepStepStart = 0;
 
-static void pinsLow() {
+// An active buzzer module just needs its signal held at the "on" level; it
+// makes its own tone. The idle level is the opposite one.
+static constexpr bool ACTIVE = BUZZER_KIND != BUZZER_PIEZO_DIFF;
+static constexpr int ON_LEVEL = BUZZER_KIND == BUZZER_ACTIVE_LOW ? LOW : HIGH;
+static constexpr int IDLE_LEVEL = BUZZER_KIND == BUZZER_ACTIVE_LOW ? HIGH : LOW;
+
+static void pinsLow() {   // "off": 0 V across a piezo, or the module's idle level
     pinMode(PIEZO_A_PIN, OUTPUT);
     pinMode(PIEZO_B_PIN, OUTPUT);
-    digitalWrite(PIEZO_A_PIN, LOW);
+    digitalWrite(PIEZO_A_PIN, ACTIVE ? IDLE_LEVEL : LOW);
     digitalWrite(PIEZO_B_PIN, LOW);
+}
+
+static void moduleOn() {
+    digitalWrite(PIEZO_A_PIN, ON_LEVEL);
+    _attached = true;
 }
 
 static void detachBoth() {
@@ -35,11 +46,21 @@ static void detachBoth() {
 
 void piezoBegin() {
     pinsLow();
+    if (ACTIVE) {
+        Serial.printf("[PIEZO] Active buzzer module on GPIO %d, sounds while %s\n", PIEZO_A_PIN,
+                      ON_LEVEL == LOW ? "LOW" : "HIGH");
+    }
 }
 
 void piezoOn(uint32_t freqHz) {
     if (freqHz == 0) {
         piezoOff();
+        return;
+    }
+    if (ACTIVE) {          // the module makes its own tone: just switch it on
+        _dc = false;
+        if (!_attached) moduleOn();
+        _freq = freqHz;
         return;
     }
     if (_dc) {
@@ -74,7 +95,12 @@ void piezoOff() {
     _beeping = false;
     _sweeping = false;
     _dc = false;
-    detachBoth();
+    if (ACTIVE) {
+        _attached = false;
+        _freq = 0;
+    } else {
+        detachBoth();
+    }
     pinsLow();
 }
 
@@ -91,7 +117,8 @@ bool piezoIsOn() {
 void piezoDc(bool on) {
     piezoOff();
     if (on) {
-        digitalWrite(PIEZO_A_PIN, HIGH);   // B stays LOW
+        // Piezo: a steady 3.3 V (silent). Module: its on level (it beeps).
+        digitalWrite(PIEZO_A_PIN, ACTIVE ? ON_LEVEL : HIGH);   // B stays LOW
         _dc = true;
     }
 }
