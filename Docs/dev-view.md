@@ -69,7 +69,7 @@ Then open http://localhost:8080 and turn on **Settings → Developer Mode**.
 ```bash
 cd ~/drifts/Raspberry && MESH=1 bash deploy/install.sh    # MediaPipe + model (64-bit Pi OS)
 sudo systemctl stop drifts
-.venv/bin/python -m drifts.live --face mesh --esp ble
+.venv/bin/python -m drifts.live --face mesh --esp uart    # wired to the ESP32 (--esp ble without the wires)
 ```
 Open `http://<pi-address>:8080/#dev` from a laptop on the same network.
 

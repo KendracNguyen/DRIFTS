@@ -4,3 +4,5 @@ gpio,direction,component,signal,firmware_constant,notes
 18,output_pwm,Piezo buzzer leg B,LS1 pin 2 via R7 100R,PIEZO_B_PIN,Same LEDC channel as 11 output-inverted; off = both LOW
 21,bidirectional,MPU-6050,I2C SDA,IMU_SDA_PIN,Wire.begin(21_22) must be explicit; C6 default SDA is 23
 22,output,MPU-6050,I2C SCL,IMU_SCL_PIN,100 kHz
+19,output,Pi Zero UART (wired link),TX -> 1k -> Pi GPIO 15 RX (pin 10),PI_UART_TX_PIN,UART1 115200 8N1; firmware v21; 3.3 V both sides
+20,input,Pi Zero UART (wired link),RX <- 1k <- Pi GPIO 14 TX (pin 8),PI_UART_RX_PIN,Common GND with the Pi (pin 6) required

@@ -7,8 +7,8 @@ and [`BOM.csv`](BOM.csv).
 
 > ⚠ **Do not wire the motor or buzzer to the Raspberry Pi.** They belong on the
 > ESP32 (GPIO 10 motor, GPIO 11 buzzer). The Pi has no alert outputs; it talks
-> to the ESP32 over Bluetooth. The Pi's only wires are 5 V, GND and the camera
-> ribbon.
+> to the ESP32 over three UART wires (firmware v21). The Pi's other wires are
+> 5 V, GND and the camera ribbon.
 
 ---
 
@@ -26,6 +26,7 @@ your board**, not from a DevKitC-1 pinout image.
 | Piezo leg A | 11 | via R6 100 Ω to LS1 pin 1 |
 | Piezo leg B | 18 | via R7 100 Ω to LS1 pin 2 (neither leg to GND) |
 | MPU-6050 SDA / SCL | 21 / 22 | 3.3 V only |
+| Pi UART: ESP32 TX / RX | 19 / 20 | To Pi GPIO 15 RX (pin 10) / GPIO 14 TX (pin 8), each via 1 kΩ (R10, R11) |
 | **Never use** | **24 – 30** | SPI flash lines. Writing them corrupts flash, often silently |
 
 `python3 Hardware/check_pins.py` checks the docs against `config.h`; it cannot
@@ -48,6 +49,8 @@ Do every one of these **with all power disconnected**.
 | ☐ | Q1 source to GND | ≈ 0 Ω | Source must be on ground, not drain |
 | ☐ | ESP32 GND to Pi GND to motor-supply GND | ≈ 0 Ω | **Common ground.** Without it the gate drive has no reference |
 | ☐ | Nothing on GPIO 24 – 30 | Open | Flash corruption |
+| ☐ | ESP32 GPIO 19 to Pi pin 10, ESP32 GPIO 20 to Pi pin 8 | ≈ 1 kΩ each | R10, R11 in line. **TX goes to RX**: 19 to pin 8 would be two outputs fighting |
+| ☐ | ESP32 GPIO 19 to GPIO 20 | Open | The two UART lines are not shorted |
 | ☐ | MPU-6050 VCC on **3V3**, not 5V | | 5 V logic on C6 I2C pins can damage them |
 
 ### MOSFET pinout — check the package, not memory

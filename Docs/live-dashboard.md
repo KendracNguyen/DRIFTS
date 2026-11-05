@@ -78,7 +78,7 @@ No Pi needed. The laptop camera is the driver camera, and the ESP32 is on USB.
 | Need | Notes |
 | --- | --- |
 | Laptop with webcam | Windows is fine |
-| ESP32 on **v20**, USB to the laptop | Buzzer and motors wired as now |
+| ESP32 on **v21**, USB to the laptop | Buzzer and motors wired as now |
 | Veepeak in the car's OBD port, ignition ON or engine idling | ESP32 within ~2 m of the dongle |
 | Phone apps closed | Torque, Car Scanner, nRF Connect: the dongle takes one link |
 
@@ -150,7 +150,7 @@ Then on the Pi (`ssh drifts@drifts.local`):
 ```bash
 sudo systemctl stop drifts          # frees the camera and the ESP32 link
 cd ~/drifts
-.venv/bin/python -m drifts.live --esp ble                # Pi camera + ESP32
+.venv/bin/python -m drifts.live --esp uart               # Pi camera + ESP32 (wired; --esp ble over Bluetooth)
 .venv/bin/python -m drifts.live --esp sim --video sim_images   # no camera, no ESP32
 ```
 

@@ -21,10 +21,34 @@ if [ "${AI_CAMERA:-0}" = "1" ]; then
   sudo apt-get install -y -qq imx500-all
 fi
 
-echo "==> Enable Bluetooth and add user permissions"
-sudo systemctl enable --now bluetooth
-sudo rfkill unblock bluetooth || true
-sudo usermod -aG bluetooth,video,gpio "$USER_NAME"
+# Link to the ESP32: the UART wire (default, firmware v21+) or BLE.
+#   LINK=ble bash deploy/install.sh   keeps the Pi's Bluetooth for the old BLE link
+LINK="${LINK:-uart}"
+sudo usermod -aG video,gpio,dialout "$USER_NAME"
+if [ "$LINK" = "uart" ]; then
+  echo "==> Wired ESP32 link: UART on GPIO 14/15 (pins 8/10)"
+  BOOT_CFG=/boot/firmware/config.txt; [ -f "$BOOT_CFG" ] || BOOT_CFG=/boot/config.txt
+  CMDLINE=/boot/firmware/cmdline.txt; [ -f "$CMDLINE" ] || CMDLINE=/boot/cmdline.txt
+  # The full UART (ttyAMA0) on pins 8/10, and the Pi's Bluetooth off: it is
+  # no longer needed and it shares the radio with Wi-Fi.
+  for line in "enable_uart=1" "dtoverlay=disable-bt"; do
+    grep -qxF "$line" "$BOOT_CFG" || echo "$line" | sudo tee -a "$BOOT_CFG" >/dev/null
+  done
+  # No login console on the serial port: the ESP32 talks there.
+  if command -v raspi-config >/dev/null; then
+    sudo raspi-config nonint do_serial_cons 1 || true
+  fi
+  sudo sed -i -E 's/ ?console=(serial0|ttyAMA0|ttyS0),[0-9]+//g' "$CMDLINE"
+  sudo systemctl disable --now hciuart 2>/dev/null || true
+  sudo systemctl disable --now serial-getty@ttyAMA0.service serial-getty@ttyS0.service 2>/dev/null || true
+  echo "    Reboot once for the UART change. Check: ls -l /dev/serial0  (-> ttyAMA0)"
+else
+  echo "==> BLE ESP32 link: enable Bluetooth"
+  sudo systemctl enable --now bluetooth
+  sudo rfkill unblock bluetooth || true
+  sudo usermod -aG bluetooth "$USER_NAME"
+  sed -i 's/^kind = "uart"/kind = "ble"/' config.toml
+fi
 
 echo "==> Python virtual environment"
 # --system-site-packages lets the venv see apt's picamera2, opencv, and numpy.

@@ -3,8 +3,9 @@
   ============================
   Data path:
     BLE ELM327 dongle  --(BLE central)-->  ESP32
-    ESP32  --(BLE peripheral)-->  Raspberry Pi Zero 2 W  (WAKE / result)
-    ESP32  --(BLE peripheral)-->  phone app + Pi screen  (telemetry)
+    ESP32  --(UART1 wire, v21)-->  Raspberry Pi Zero 2 W  (WAKE / result / status)
+    ESP32  --(BLE peripheral)-->  Raspberry Pi Zero 2 W  (the same, if not wired)
+    ESP32  --(BLE peripheral)-->  phone app  (telemetry)
 
   The ESP32 holds three BLE connections at once. That requires NimBLE
   with MYNEWT_VAL_BLE_MAX_CONNECTIONS >= 4 and the "Huge APP" partition
@@ -30,8 +31,8 @@
     I2C SCAN      list every device on the I2C bus (MPU-6050 at 0x68)
 
   The driver's screen, RGB LED, voice and button are on the Pi Zero's
-  Whisplay HAT (Hardware/whisplay-hat.md), fed by this board's 1 Hz BLE
-  status. This board keeps the buzzer and motors, so the alert
+  Whisplay HAT (Hardware/whisplay-hat.md), fed by this board's 1 Hz
+  status over the wire (pi_uart.h) or BLE. This board keeps the buzzer and motors, so the alert
   still works if the Pi is down.
 */
 
@@ -40,6 +41,7 @@
 #include "piezo.h"
 #include "alertness.h"
 #include "ble_hub.h"
+#include "pi_uart.h"
 #include "obd_ble.h"
 #include "trigger.h"
 #include "imu.h"
@@ -67,6 +69,16 @@ static constexpr uint32_t SCORE_FORCE_MS = 30000;
 static DrvSample lastDrv;
 static uint32_t lastDrvMs = 0;
 static bool drvAnnounced = false;
+
+// The Pi is one peer, reached over the wire (pi_uart.h) or BLE (ble_hub.h).
+static bool piConnected(uint32_t now) { return PiWire.isPiConnected(now) || Hub.isPiConnected(); }
+static uint32_t piSilentForMs(uint32_t now) {
+    uint32_t a = PiWire.isPiConnected(now) ? PiWire.piSilentForMs(now) : UINT32_MAX;
+    uint32_t b = Hub.isPiConnected() ? Hub.piSilentForMs(now) : UINT32_MAX;
+    return a < b ? a : b;
+}
+static void wakePi() { PiWire.wakePi(); Hub.wakePi(); }
+static void setPiIdle() { PiWire.setPiIdle(); Hub.setPiIdle(); }
 
 static void enterIdle(const char *why) {
     if (state == SystemState::Alerting || isPinTestActive() || piezoSweepActive()) stopAll();
@@ -105,6 +117,7 @@ void setup() {
     // NimBLEDevice::init() happens inside the hub; the dongle client
     // reuses the same stack, so the hub must come first.
     Hub.init();
+    PiWire.init();            // the wired Pi link (UART1), alongside BLE
     Obd.begin();
 
     if (GATE_BENCH_MODE) {
@@ -135,7 +148,7 @@ static void printStatus() {
     Serial.println("[STATUS] firmware " DRIFTS_FW_VERSION);
     Serial.printf("[STATUS] obd=%s layout=%s %.1f Hz | rpm %.0f (sd %.0f, n %d) "
                   "spd %.0f (sd %.1f, n %d) thr %.0f (sd %.1f, n %d) | "
-                  "brakes %d accel=%d steer %d yaw %+.1f | gate=%s | pi=%d phone=%d | nodata %lu err %lu ovf %lu\n",
+                  "brakes %d accel=%d steer %d yaw %+.1f | gate=%s | pi=%d phone=%d wire=%d | nodata %lu err %lu ovf %lu\n",
                   Obd.stateName(), Obd.layoutName(), Obd.achievedHz(),
                   s.rpm, s.rpm_stddev, s.rpm_samples,
                   s.speed, s.speed_stddev, s.speed_samples,
@@ -143,7 +156,7 @@ static void printStatus() {
                   s.hard_brake_count, (int)s.accel_available,
                   s.steer_reversal_count, Motion.yawRateDps(),
                   GATE_BENCH_MODE ? "BENCH" : (s.gate_open ? "open" : "closed"),
-                  (int)Hub.isPiConnected(), (int)Hub.isPhoneConnected(),
+                  (int)piConnected(millis()), (int)Hub.isPhoneConnected(), (int)PiWire.isPiConnected(millis()),
                   (unsigned long)Obd.noDataCount(), (unsigned long)Obd.errorCount(),
                   (unsigned long)Obd.rxOverflows());
     Serial.printf("[SCORE] alert %.0f (%s) = eye %.0f%s x0.7 + driving %.0f x0.3%s%s | "
@@ -223,7 +236,7 @@ static void handleSerial() {
     if (cmd.isEmpty()) return;
 
     if (cmd.equalsIgnoreCase("WAKE")) {
-        Hub.wakePi();
+        wakePi();
         state = SystemState::WaitingPi;
         stateStartMs = millis();
         piStatus = "analyzing";
@@ -295,10 +308,33 @@ static void handleSerial() {
     }
 }
 
+// One message from the Pi (or a phone over BLE): a result, or a command.
+static void handlePiMessage(const String &result, const char *link, uint32_t now) {
+    Serial.printf("[MAIN] Pi result (%s): %s\n", link, result.c_str());
+    if (result.equalsIgnoreCase("DROWSY")) {
+        alertScore.onPiResult(true, now);
+        enterAlerting();
+    } else if (result.equalsIgnoreCase("NOT_DROWSY")) {
+        alertScore.onPiResult(false, now);
+        piStatus = "not_drowsy";
+        setPiIdle();
+        enterIdle("Pi reported NOT_DROWSY");
+    } else if (tryBeep(result, link)) {
+        // handled
+    } else if (tryPinTest(result, "Pi")) {
+        // handled
+    } else if (tryScoreMessage(result, "Pi")) {
+        // handled
+    } else {
+        Serial.printf("[MAIN] Ignored unknown Pi message: %s\n", result.c_str());
+    }
+}
+
 void loop() {
     const uint32_t now = millis();
 
     handleSerial();
+    PiWire.service(now);
 
     // 1. Service the dongle link and feed any new reading into the trigger.
     Obd.service();
@@ -330,35 +366,15 @@ void loop() {
     if (fired && state == SystemState::Idle) {
         Serial.printf("[TRIGGER]%s %s -> waking Pi\n",
                       GATE_BENCH_MODE ? " [BENCH]" : "", snap.reason);
-        Hub.wakePi();
+        wakePi();
         state = SystemState::WaitingPi;
         stateStartMs = now;
         piStatus = "analyzing";
     }
 
-    // 4. Results from the Pi.
-    while (Hub.hasResult()) {
-        String result = Hub.popResult();
-        Serial.printf("[MAIN] Pi result: %s\n", result.c_str());
-
-        if (result.equalsIgnoreCase("DROWSY")) {
-            alertScore.onPiResult(true, now);
-            enterAlerting();
-        } else if (result.equalsIgnoreCase("NOT_DROWSY")) {
-            alertScore.onPiResult(false, now);
-            piStatus = "not_drowsy";
-            Hub.setPiIdle();
-            enterIdle("Pi reported NOT_DROWSY");
-        } else if (tryBeep(result, "BLE")) {
-            // handled
-        } else if (tryPinTest(result, "Pi")) {
-            // handled
-        } else if (tryScoreMessage(result, "Pi")) {
-            // handled
-        } else {
-            Serial.printf("[MAIN] Ignored unknown Pi message: %s\n", result.c_str());
-        }
-    }
+    // 4. Results from the Pi, over the wire or BLE.
+    while (PiWire.hasResult()) handlePiMessage(PiWire.popResult(), "wire", now);
+    while (Hub.hasResult()) handlePiMessage(Hub.popResult(), "BLE", now);
 
     // 5. The Pi had its chance and did not answer.
     if (state == SystemState::WaitingPi && now - stateStartMs > PI_RESPONSE_TIMEOUT_MS) {
@@ -374,7 +390,7 @@ void loop() {
     //    seen -- which reads as a dead motor driver, not as a fail-safe.
     //    MAX_ALERT_MS still bounds the alert in that case.
     if (state == SystemState::Alerting) {
-        if (Hub.isPiConnected() && Hub.piSilentForMs(now) > FAILSAFE_MS) {
+        if (piConnected(now) && piSilentForMs(now) > FAILSAFE_MS) {
             enterIdle("fail-safe: Pi silent");
         } else if (now - stateStartMs > MAX_ALERT_MS) {
             // An alert must not latch even if the Pi is alive but never
@@ -433,6 +449,7 @@ void loop() {
                  alertScore.partial() ? "true" : "false",
                  alertScore.driving());       // driving score: read by the Tokyo Pi 5
         Hub.pushPhoneStatus(json);
+        PiWire.pushStatus(json);        // the Pi's Whisplay screen, over the wire
     }
 
     delay(5);

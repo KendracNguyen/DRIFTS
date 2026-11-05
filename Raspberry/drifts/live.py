@@ -4,7 +4,7 @@ training-frame capture, served as a web page.
     # Laptop + webcam + ESP32 on USB (no Pi needed):
     python -m drifts.live --esp serial --port COM5
     # Raspberry Pi in the car (Pi camera, ESP32 over BLE):
-    sudo systemctl stop drifts && python -m drifts.live --esp ble
+    sudo systemctl stop drifts && python -m drifts.live --esp uart
     # No hardware at all:
     python -m drifts.live --esp sim
     # All eight face signals + the dev view (laptop webcam first, then the Pi):
@@ -607,8 +607,9 @@ def make_handler(pipe: Pipeline):
 
 def build_parser(prog: str = "python -m drifts.live") -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog=prog, description="DRIFTS live dashboard")
-    p.add_argument("--esp", choices=["serial", "ble", "sim"], default="sim",
-                   help="ESP32 link: serial (USB), ble (Pi in the car), or sim (no hardware)")
+    p.add_argument("--esp", choices=["serial", "uart", "ble", "sim"], default="sim",
+                   help="ESP32 link: serial (USB console), uart (the wired Pi link, /dev/serial0), "
+                        "ble, or sim (no hardware)")
     p.add_argument("--port", default="COM5", help="serial port for --esp serial (COM5, /dev/ttyACM0)")
     p.add_argument("--camera", type=int, default=0, help="webcam index (laptop)")
     p.add_argument("--camera-fps", type=int, default=None, help="camera frame rate (default: config.toml)")

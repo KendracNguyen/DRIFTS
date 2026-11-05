@@ -191,7 +191,26 @@ Serial: `SCORE <n>`, `SCORE OFF`, `STATUS`.
 
 The driver screen, RGB LED, voice and button are on the Pi Zero's **Whisplay
 HAT**, not on the ESP32. Install and test: [`whisplay-bringup.md`](whisplay-bringup.md) (datasheet: [`../Hardware/whisplay-hat.md`](../Hardware/whisplay-hat.md)).
-The ESP32 sends its score to the Pi over Bluetooth once a second (firmware v20+).
+The ESP32 sends its score to the Pi once a second.
+
+### Wired Pi link (firmware v21)
+
+The Pi Zero and the ESP32 talk over **three UART wires** instead of Bluetooth:
+ESP32 GPIO 19 → 1 kΩ → Pi pin 10, Pi pin 8 → 1 kΩ → ESP32 GPIO 20, and GND.
+Wiring and why: [`../Hardware/schematic.md` §5b](../Hardware/schematic.md).
+
+1. Flash **v21**. The console prints `[UART] Pi link on GPIO 19 (TX) / 20 (RX)`.
+2. On the Pi: `cd ~/drifts/Raspberry && bash deploy/install.sh`, then reboot. It
+   turns on the UART, turns off the Pi's Bluetooth and the serial console, and
+   leaves `[link] kind = "uart"` in `config.toml`.
+3. Start the car program (`sudo systemctl restart drifts`). The Pi logs
+   `[UART] ESP32 heard on /dev/serial0`; the ESP32 console prints
+   `[UART] Pi heard on the wired link`, and `STATUS` shows `wire=1`.
+4. Unplug the wire: within 5 s the Pi logs "ESP32 silent", the Whisplay LED
+   blinks red, and the voice says the ESP32 link was lost.
+
+To use Bluetooth instead (no wires on the bench): `python -m drifts --link ble`,
+or `LINK=ble bash deploy/install.sh` to set it up that way.
 
 ### Buzzer alerts and Bluetooth ping
 

@@ -20,3 +20,4 @@ Raspberry/models/
 
 # trip summaries written by drifts.live
 Raspberry/logs/
+Esp32/test/test_pi_uart

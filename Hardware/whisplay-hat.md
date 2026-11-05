@@ -58,7 +58,7 @@ Values PiSugar doesn't publish are marked *not published*.
 | 1, 17 | 3V3 | power | |
 | *Joy variant:* 32, 33, 31, 29, 37 | GPIO 12, 13, 6, 5, 26 | joystick up, right, down, left, centre (active-low) | in |
 
-**What's left free on the Pi Zero:** GPIO 14/15 (UART), GPIO 0/1 (HAT
+**What's left free on the Pi Zero:** GPIO 14/15 (UART: since firmware v21 the wired link to the ESP32), GPIO 0/1 (HAT
 EEPROM, reserved), GPIO 7, 9, 16. On the plain (non-Joy) version, GPIO 5, 6,
 12, 13 and 26 are free too. The camera is on the separate CSI ribbon, so it
 doesn't conflict.
@@ -114,10 +114,10 @@ No screen shows a made-up reading. Missing values are `--`; demo data
 always carries the DEMO tag.
 
 **Where the data comes from:**
-- **In the car program** (`python -m drifts`): the ESP32's 1 Hz BLE status
-  (firmware v20 sends it to every subscriber): score, level, alert, partial
+- **In the car program** (`python -m drifts`): the ESP32's 1 Hz status over
+  the UART wire (firmware v21; BLE also works): score, level, alert, partial
   flag, driving score, RPM, speed, throttle, OBD state.
-- **With the camera pipeline:** `python -m drifts.live --face mesh --esp ble --whisplay`
+- **With the camera pipeline:** `python -m drifts.live --face mesh --esp uart --whisplay`
   adds eyes, PERCLOS, blink rate, head pose and calibration.
   `--whisplay-sim` runs it without the HAT.
 
@@ -155,17 +155,18 @@ the button to confirm") will use the same press.
 ## Architecture
 
 ```
-            BLE telemetry (score, level, links) ──►┐
+            UART status (score, level, links) ──►┐
  OBD ─BLE─► ESP32-C6 ──► buzzer, motors          │   (alert still works if the Pi is down)
                 ▲                                  ▼
-                └── EYE score ◄── Pi Zero 2 W + Whisplay HAT ──► colour LCD, RGB LED, speaker, button
+                └── EYE score, PING ◄── Pi Zero 2 W + Whisplay HAT ──► colour LCD, RGB LED, speaker, button
                                     └── Arducam (CSI)
 ```
 - **The Pi now drives the screen and voice.** If the Pi is booting or has
   crashed, they stop. The ESP32's buzzer and motors still fire, so keep
   them wired.
-- **ESP32 firmware v20** has no display code. It sends its status JSON to every
-  BLE subscriber, so the Pi's existing link also carries the screen's data.
+- **ESP32 firmware v21** has no display code. It sends its status JSON over the
+  UART to the Pi (and over BLE to a phone), so the Pi's link also carries the
+  screen's data.
 - **Voice clips:** the WAVs in `Voice/clips/`, played by
   `aplay -D plughw:CARD=whisplaysound`, with the rules in
   [`Docs/voice.md`](../Docs/voice.md).

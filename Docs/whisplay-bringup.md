@@ -94,7 +94,7 @@ with DRIFTS installed (`bash deploy/install.sh`), and SSH works.
    .venv/bin/python -m drifts.whisplay_ui --browse     # every press is printed; Ctrl-C to stop
    .venv/bin/python -m drifts.whisplay_ui --demo       # OK -> Level 1 -> Level 2 -> OK, with voice, 36 s
    ```
-6. **With the ESP32 (firmware v20):**
+6. **With the ESP32 (firmware v21, wired: [`../Hardware/schematic.md` §5b](../Hardware/schematic.md)):**
    - Set `enabled = true` under `[whisplay]` in `config.toml`.
    - Run `sudo systemctl restart drifts`.
    - The score appears a few seconds after the Bluetooth link comes up.
@@ -102,7 +102,7 @@ with DRIFTS installed (`bash deploy/install.sh`), and SSH works.
 7. **With the camera** (eyes, blinks, head pose and calibration on the screen):
    ```bash
    sudo systemctl stop drifts
-   .venv/bin/python -m drifts.live --face mesh --esp ble --whisplay
+   .venv/bin/python -m drifts.live --face mesh --esp uart --whisplay
    ```
    - A double press re-takes the road pose: the calibration screen shows.
    - Note the frame rate on the Device and dashboard pages. This is the first measurement for the Pi Zero face-mesh goal.
@@ -161,7 +161,7 @@ the screens, and the centre press counts as a short press.
 | --- | --- | --- | --- |
 | **0: software** ✅ | Screens, LED, voice, programmable button, self-test, installer, docs | — | this PR |
 | **1: bring-up** | Day 1 above. Record the version, orientation, LED order, speaker loudness and mic level | the HAT | `whisplay_check --hw` all PASS, report committed |
-| **2: in the car** | `enabled = true`, ESP32 v20 over BLE. Measure the height with the HAT, loudness over road noise, and the current when idle and speaking (USB meter). Set the brightness for day/night | phase 1, the car | a drive with every level shown and heard; numbers in `whisplay-hat.md` |
+| **2: in the car** | `enabled = true`, ESP32 v21 over the UART wire. Measure the height with the HAT, loudness over road noise, and the current when idle and speaking (USB meter). Set the brightness for day/night | phase 1, the car | a drive with every level shown and heard; numbers in `whisplay-hat.md` |
 | **3: camera on the Zero** | `drifts.live --face mesh --whisplay` on the Pi Zero. Measure fps and CPU with the screen running; the screen only redraws on change, ~10 ms a frame on a laptop | phase 1, Arducam | fps noted; decide whether the Zero runs the mesh or keeps the Haar tracker |
 | **4: Driver AI (push to talk)** | Long press (or `button_long = "ai"`) records from the HAT's mics: listening → thinking → answer screens, which are already drawn. **Fixed intents first**, answered from DRIFTS data with Piper speech, no internet needed: "what's my score", "why did it drop" (the measured signals that changed), "is my camera connected". Then optional speech-to-text and a language model | phase 1; a speech-to-text choice (below) | 4 intents work parked, answers use only measured values |
 | **5: phone app** | ✅ 4 tabs (Home, History, Devices, Settings) in the mockup's design, band colours from `ui_model.py`, real trip history. Next: the AI tab | — | AI tab with phase 4 |

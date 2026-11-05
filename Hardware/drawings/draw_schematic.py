@@ -16,7 +16,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Polygon, Rectangle
 
-REV = 6
+REV = 7
 W, H = 240, 214
 
 WIRE = "#1a6b1a"
@@ -108,6 +108,14 @@ def led_h(x, y, color, label):
     text(x + 1.5, y + 2.6, label, size=7.5, ha="center")
 
 
+def netlabel(x, y, label, ha="left"):
+    """A named net: every tag with the same name is the same wire (as in KiCad)."""
+    w = len(label) * 0.62 + 1.6
+    x0 = x if ha == "left" else x - w
+    ax.add_patch(Rectangle((x0, y - 1.3), w, 2.6, fc="#e8f3e8", ec=WIRE, lw=1.2, zorder=3))
+    text(x0 + w / 2, y, label, size=6.8, color=WIRE, ha="center", weight="bold")
+
+
 def no_connect(x, y):
     ax.plot([x - 0.9, x + 0.9], [y - 0.9, y + 0.9], color=EDGE, lw=1.6, zorder=4)
     ax.plot([x - 0.9, x + 0.9], [y + 0.9, y - 0.9], color=EDGE, lw=1.6, zorder=4)
@@ -115,8 +123,8 @@ def no_connect(x, y):
 
 # ---------------------------------------------------------------- title
 text(W / 2, 3, f"DRIFTS — Schematic (NewBrain architecture) · rev {REV}", size=16, ha="center", weight="bold")
-text(W / 2, 6.2, "Team 1 · ESP32-C6 dev kit + Raspberry Pi Zero 2 W · rev 6: driver screen, RGB LED, voice and button "
-     "on the PiSugar Whisplay HAT (Pi Zero) · ESP32 keeps buzzer, motors, MPU-6050 · "
+text(W / 2, 6.2, "Team 1 · ESP32-C6 dev kit + Raspberry Pi Zero 2 W · rev 7: the Pi is wired to the ESP32 "
+     "(UART, 3 wires) instead of BLE · driver screen, LED, voice and button on the Whisplay HAT · "
      "generated drawing (not a KiCad file)",
      size=8.5, ha="center", style="italic")
 
@@ -154,9 +162,19 @@ wire(u6["OUT-"], (98, 30))
 gnd(98, 30)
 
 # ---------------------------------------------------------------- vision + BLE
-frame(106, 10, 132, 30, "Vision and wireless (off-board modules)")
+frame(106, 10, 132, 30, "Vision, wired Pi link and wireless (off-board modules)")
 u5 = box(110, 16, 18, 20, "U5\nOV5647", right=[("CSI", 30)], title_lines=2)
-u2 = box(146, 13, 30, 24, "U2 Pi Zero 2 W", left=[("5V", 18), ("GND", 24), ("CSI", 30)])
+u2 = box(146, 13, 30, 24, "U2 Pi Zero 2 W", left=[("5V", 18), ("GND", 24), ("CSI", 30)],
+         right=[("GPIO15 RX · p10", 20), ("GPIO14 TX · p8", 26)])
+# rev 7: wired link to U1 (UART). R10 / R11 limit current if only one board has power.
+wire(u2["GPIO15 RX · p10"], (178, 20))
+res_h(178, 20, "R10 1k")
+wire((184, 20), (186, 20))
+netlabel(186, 20, "C6_TX")
+wire(u2["GPIO14 TX · p8"], (178, 26))
+res_h(178, 26, "R11 1k", below=True)
+wire((184, 26), (186, 26))
+netlabel(186, 26, "PI_TX")
 wire(u5["CSI"], u2["CSI"])
 text(137, 28.6, "CSI-2 ribbon", size=7, ha="center")
 wire(u2["5V"], (140, 18))
@@ -169,14 +187,17 @@ text(207, 31.5, "Veepeak (BLE, not Classic)", size=6.5, ha="center", style="ital
 # ---------------------------------------------------------------- ESP32-C6
 u1 = box(92, 48, 18, 56, "U1 ESP32-C6\nWROOM-1 N8 dev kit",
          left=[("5V", 54), ("3V3", 62), ("GND", 70), ("GPIO22", 80), ("GPIO21", 88)],
-         right=[("GPIO10 PWM", 56), ("GPIO11 tone", 64), ("GPIO18 tone inv", 68)],
+         right=[("GPIO10 PWM", 56), ("GPIO11 tone", 64), ("GPIO18 tone inv", 68),
+                ("GPIO19 TX", 78), ("GPIO20 RX", 84)],
          title_lines=2)
+wire(u1["GPIO19 TX"], (113, 78))
+netlabel(113, 78, "C6_TX")
+wire(u1["GPIO20 RX"], (113, 84))
+netlabel(113, 84, "PI_TX")
 wire(u1["5V"], (88.5, 54))
 flag(88.5, 54, "+5V")
-# BLE links
-wire((101, 48), (161, 37), color=BLE, lw=2, ls=(0, (5, 3)))
+# BLE link to the OBD dongle (the Pi is wired since rev 7)
 wire((106, 48), (207, 34), color=BLE, lw=2, ls=(0, (5, 3)))
-text(128, 41.5, "BLE", size=8, color=BLE, weight="bold")
 text(160, 41.5, "BLE", size=8, color=BLE, weight="bold")
 
 # ---------------------------------------------------------------- I2C bus: sensors + display
@@ -268,13 +289,10 @@ text(64, 125.6, "DC 27 · RST 4 · backlight 22 (LOW = on)", size=7)
 text(64, 129.2, "RGB LED LOW = lit · button HIGH = pressed", size=7)
 text(64, 132.8, "I2S 18/19/20/21 · I2C1 2/3 · 5V/GND from U2", size=7)
 text(64, 136.4, "Speaker: onboard, or PH2.0 external (switch)", size=7)
-text(64, 141, "Shows U1's 1 Hz BLE status: score, level,", size=7, weight="bold", color=EDGE)
-text(64, 144.4, "links. Voice clips: Voice/clips via aplay.", size=7, weight="bold", color=EDGE)
+text(64, 141, "Shows U1's 1 Hz status (UART to U2): score,", size=7, weight="bold", color=EDGE)
+text(64, 144.4, "level, links. Voice: Voice/clips via aplay.", size=7, weight="bold", color=EDGE)
 text(64, 148.6, "Software: Raspberry/drifts/whisplay_ui.py", size=7, style="italic")
 text(64, 152, "Details: Hardware/whisplay-hat.md", size=7, style="italic")
-# BLE status from the ESP32 to the HAT's Pi
-wire((92, 100), (60, 118), color=BLE, lw=2, ls=(0, (5, 3)))
-text(72, 106, "BLE status", size=7.5, color=BLE, weight="bold")
 
 # ---------------------------------------------------------------- notes
 ax.plot([2, W - 2], [166, 166], color="#aaa", lw=1)
@@ -292,21 +310,25 @@ notes = [
     ],
     [
         "5. I2C runs at 100 kHz and carries only U4 (3.3 V: no level shifter).",
-        "   I2C SCAN lists 0x68. Free C6 pins: 2, 3, 19, 20, 23.",
+        "   I2C SCAN lists 0x68. Free C6 pins: 2, 3, 23.",
         "6. Status light: the Whisplay HAT's RGB LED (U12). U1 has no LEDs;",
-        "   GPIO 2, 3, 19, 20, 23 are free.",
+        "   GPIO 2, 3, 23 are free.",
         "7. LS1 passive piezo, differential: GPIO11→R6→LS1←R7←GPIO18, one LEDC",
         "   channel, GPIO18 inverted; 5 kHz 50 %, 6.6 Vpp. Off = both pins LOW.",
+        "15. Pi link (rev 7): UART1 115200 8N1, firmware v21. C6 GPIO19 TX →",
+        "   R10 1k → Pi GPIO15 RX (pin 10); Pi GPIO14 TX (pin 8) → R11 1k → C6",
+        "   GPIO20 RX; GND to Pi pin 6. Both 3.3 V: no level shifter. Twist the",
+        "   3 wires together, away from the motor and piezo wires.",
     ],
     [
         "8. C3/C4: 0.1µF ceramic at +3V3 and +5V near U1; one per module VCC.",
-        "9. Wireless (dashed purple): Pi↔C6 and OBD dongle↔C6 over BLE. U3",
-        "   must be BLE, not Classic. Camera U5 connects to the Pi only.",
+        "9. Wireless (dashed purple): OBD dongle↔C6 (and the phone) over BLE. U3",
+        "   must be BLE, not Classic. The Pi is wired: note 15. Camera U5 → Pi only.",
         "10. Do not use: 4, 5, 8, 9, 15 (strapping); 6, 7 (JTAG); 12, 13 (USB);",
         "   16, 17 (UART0 to CH343); 14, 24–30 (flash).",
-        "11. Same-named flags (+5V, +3V3, GND) are one net, as in KiCad.",
-        "12. Firmware v20: no display or LEDs on the C6; its 1 Hz status JSON goes to",
-        "   every BLE subscriber (phone and U2). See Hardware/pinout.md.",
+        "11. Same-named flags and tags (+5V, GND, C6_TX, PI_TX) are one net.",
+        "12. Firmware v21: the 1 Hz status JSON goes to U2 over the UART and to",
+        "   a phone over BLE. See Hardware/pinout.md.",
         "13. U12 Whisplay HAT: screen, RGB LED, speaker, button, driven by U2.",
         "   The alert (buzzer, motors) stays on U1 and works without U2.",
         "14. U2 + U12 power: 5 V 2.5 A on the bench; the U6 buck in the car.",

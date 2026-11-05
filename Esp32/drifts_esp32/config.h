@@ -16,7 +16,7 @@
 
 // Printed at boot and by STATUS, so the flashed image can be identified.
 // Matches the drifts_c6_8M_uartchip_<version>.bin file name.
-#define DRIFTS_FW_VERSION "v20"
+#define DRIFTS_FW_VERSION "v21"
 
 // ---------------------------------------------------------------
 // Pin assignments  --  TARGET: ESP32-C6-WROOM-1
@@ -68,6 +68,20 @@ constexpr int IMU_SCL_PIN = 22;
 // 100 kHz is kept for long, unshielded car wiring; the IMU's 14-byte read
 // takes ~1.6 ms every 20 ms, under 10 % of the bus.
 constexpr uint32_t I2C_CLOCK_HZ = 100000;
+
+// Wired link to the Pi Zero (pi_uart.h): UART1 through the GPIO matrix.
+// 3.3 V on both sides, so the Pi's GPIO 14/15 connect directly, through a
+// 1 k series resistor in each line (limits current if only one board is on).
+//   ESP32 GPIO 19 (TX) -> 1k -> Pi GPIO 15 RX (pin 10)
+//   ESP32 GPIO 20 (RX) <- 1k <- Pi GPIO 14 TX (pin 8)
+//   GND -- Pi GND (pin 6)
+// UART0 (GPIO 16/17) stays the USB serial console.
+constexpr int PI_UART_TX_PIN = 19;
+constexpr int PI_UART_RX_PIN = 20;
+constexpr uint32_t PI_UART_BAUD = 115200;
+// The Pi counts as connected on the wire if heard within this long. It
+// PINGs every second, so this rides over a missed line or two.
+constexpr uint32_t PI_UART_LINK_MS = 5000;
 
 constexpr uint8_t IMU_I2C_ADDR = 0x68;
 

@@ -6,7 +6,7 @@ runs on a laptop webcam (test here first), on the Pi Zero 2 W (64-bit OS,
 fewer frames per second) and on the Pi 5.
 
     python -m drifts.live --face mesh --camera 0 --esp sim       # laptop
-    python -m drifts.live --face mesh --esp ble                  # Pi in the car
+    python -m drifts.live --face mesh --esp uart                 # Pi in the car (wired)
 
 Camera-like interface for drifts.live, like face_mediapipe.Pi5FaceSource:
 grab() returns the BGR frame and sets

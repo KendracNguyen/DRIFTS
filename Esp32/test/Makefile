@@ -13,12 +13,13 @@ CXXFLAGS := -std=c++17 -Wall -Wextra -Wno-unused-parameter -I.
 SRC      := ../drifts_esp32
 
 .PHONY: all clean
-all: test_trigger test_stream test_pin_test test_weave test_alertness
+all: test_trigger test_stream test_pin_test test_weave test_alertness test_pi_uart
 	./test_trigger
 	./test_stream
 	./test_pin_test
 	./test_weave
 	./test_alertness
+	./test_pi_uart
 
 test_trigger: test_trigger.cpp $(SRC)/trigger.cpp $(SRC)/trigger.h $(SRC)/config.h
 	$(CXX) $(CXXFLAGS) -o $@ test_trigger.cpp $(SRC)/trigger.cpp
@@ -36,4 +37,7 @@ test_alertness: test_alertness.cpp $(SRC)/alertness.h
 	$(CXX) $(CXXFLAGS) -o $@ test_alertness.cpp
 
 clean:
-	rm -f test_trigger test_stream test_pin_test test_weave test_alertness
+	rm -f test_trigger test_stream test_pin_test test_weave test_alertness test_pi_uart
+
+test_pi_uart: test_pi_uart.cpp $(SRC)/line_buffer.h
+	$(CXX) $(CXXFLAGS) -o $@ test_pi_uart.cpp

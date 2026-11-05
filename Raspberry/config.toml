@@ -1,3 +1,12 @@
+[link]
+# How the Pi reaches the ESP32 (firmware v21+):
+#   "uart" = three wires, Pi GPIO 14/15 <-> ESP32 GPIO 20/19 (Hardware/pinout.md)
+#   "ble"  = Bluetooth, the [ble] settings below
+kind = "uart"
+uart_port = "/dev/serial0"
+uart_baud = 115200
+link_s = 5.0                         # ESP32 silent this long = link lost
+
 # DRIFTS v2 — Raspberry Pi configuration
 
 [ble]
