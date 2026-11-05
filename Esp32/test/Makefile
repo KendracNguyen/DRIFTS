@@ -32,7 +32,7 @@ test_pin_test: test_pin_test.cpp $(SRC)/pin_test.h
 test_weave: test_weave.cpp $(SRC)/weave.h
 	$(CXX) $(CXXFLAGS) -o $@ test_weave.cpp
 
-test_alertness: test_alertness.cpp $(SRC)/alertness.h $(SRC)/status_leds.h
+test_alertness: test_alertness.cpp $(SRC)/alertness.h
 	$(CXX) $(CXXFLAGS) -o $@ test_alertness.cpp
 
 clean:

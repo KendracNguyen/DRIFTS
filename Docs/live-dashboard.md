@@ -9,14 +9,14 @@ A web page that shows, side by side and live:
 - **training capture** buttons that save labelled frames for the eye model.
 
 The eye score is sent to the ESP32 as `EYE:<n>` every 2 s, so closing your
-eyes in front of the camera moves the real alert score, LEDs and alert outputs.
+eyes in front of the camera moves the real alert score and alert outputs.
 
 **Dev view (all eight face signals).** Start with `--face mesh` and click
 **Switch to dev view** in the header: landmarks, EAR P1–P6, the nose axis,
 glasses detection and every signal charted live. See [dev-view.md](dev-view.md).
 
 ```
-camera ──► eye tracker ──► PERCLOS ──► EYE:<n> ──► ESP32 ──► score, LEDs, buzzer, motors
+camera ──► eye tracker ──► PERCLOS ──► EYE:<n> ──► ESP32 ──► score, buzzer, motors
                                                      │
 car ──OBD──► Veepeak ──BLE──► ESP32 ──USB or BLE──► dashboard (browser)
 ```
@@ -66,7 +66,7 @@ No Pi needed. The laptop camera is the driver camera, and the ESP32 is on USB.
 | Need | Notes |
 | --- | --- |
 | Laptop with webcam | Windows is fine |
-| ESP32 on **v19**, USB to the laptop | LEDs, buzzer and motors wired as now |
+| ESP32 on **v20**, USB to the laptop | Buzzer and motors wired as now |
 | Veepeak in the car's OBD port, ignition ON or engine idling | ESP32 within ~2 m of the dongle |
 | Phone apps closed | Torque, Car Scanner, nRF Connect: the dongle takes one link |
 
@@ -97,8 +97,8 @@ Open **http://localhost:8080** in a browser. Ctrl+C stops it.
 | 1 | Engine idling, page open | RPM ~700–900 updating every second, dongle `polling`, ~4–5 Hz |
 | 2 | Blip the throttle (parked) | RPM and throttle jump live |
 | 3 | Look at the camera normally | Green face box, **EYES OPEN**, PERCLOS low, eye score ~90–100, **Drive Safe** |
-| 4 | Close your eyes for ~5 s, open them | PERCLOS climbs; eye score drops; alert score falls to **INTERVENTION 1**: yellow LED text changes |
-| 5 | Keep eyes mostly closed ~8 s | **INTERVENTION 2**: red LED, buzzer and motors |
+| 4 | Close your eyes for ~5 s, open them | PERCLOS climbs; eye score drops; alert score falls to **INTERVENTION 1** text changes |
+| 5 | Keep eyes mostly closed ~8 s | **INTERVENTION 2**: buzzer and motors |
 | 6 | Eyes open again ~15 s | Recovers to Drive Safe (5-point hysteresis) |
 | 7 | Eyes closed, press **C** (Save CLOSED); eyes open, press **O** | Counter goes up: frames are being collected to train the real model |
 

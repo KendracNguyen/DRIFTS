@@ -18,8 +18,8 @@
 //
 // LEDC use: channel PIEZO_LEDC_CH, PIEZO_FREQ_HZ at PIEZO_LEDC_RES bits. The
 // core shares a timer between channels with the same frequency and
-// resolution, so nothing else may run at 5 kHz / 8-bit (the status LEDs use
-// 1 kHz for that reason). Everything here runs from loop(); nothing blocks.
+// resolution, so nothing else may run at 5 kHz / 8-bit (the motor uses
+// 20 kHz). Everything here runs from loop(); nothing blocks.
 
 #include <stdint.h>
 

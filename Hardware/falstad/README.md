@@ -36,7 +36,6 @@ reviewable.
 | `01_motor_driver.txt` | Q1 + motor array + D1 flyback, PWM duty 63 % | §2 |
 | `02_motor_driver_series_resistors.txt` | Four motors with 27 Ω series resistors, full duty | README §5.2 option A |
 | `03_buzzer_driver.txt` | **Superseded (rev 2 design).** Q2 + passive piezo, 2.7 kHz. The buzzer is now driven differentially from GPIO 11/18 with no transistor — `schematic.md` §3 | — |
-| `04_status_led.txt` | GPIO 2 + 330 Ω + LED | §4 |
 | `05_motor_driver_no_flyback.txt` | **Failure case.** D1 removed | §2, the warning |
 | `06_power_front_end.txt` | 12 V fuse + TVS clamp + bulk cap, with a load-dump pulse | §1 |
 
@@ -90,17 +89,6 @@ A piezo element is a capacitor, so current flows only on the switching edges.
 That is why no flyback diode is needed, and why average current is nothing like
 the peak. The 33 mA peak is what README §5.3 means by "near the GPIO's limit" —
 it is the reason the buzzer goes through Q2 rather than straight off the pin.
-
-### 04 — status LED
-
-| Measure | Expect |
-| --- | --- |
-| LED current | ≈ 3.6 mA |
-| LED forward drop | ≈ 2.1 V |
-
-README §4 calculates 4 mA. The simulation gives slightly less because the diode
-model is exponential rather than a fixed drop. Both are fine; if the LED looks
-dim on the bench, drop the resistor to 220 Ω for ~5.5 mA.
 
 ### 05 — the failure case ⚠
 

@@ -25,7 +25,6 @@ your board**, not from a DevKitC-1 pinout image.
 | Motor gate | 10 | via 100 Ω to Q1 gate |
 | Piezo leg A | 11 | via R6 100 Ω to LS1 pin 1 |
 | Piezo leg B | 18 | via R7 100 Ω to LS1 pin 2 (neither leg to GND) |
-| Status LED | 2 | via 330 Ω |
 | MPU-6050 SDA / SCL | 21 / 22 | 3.3 V only |
 | **Never use** | **24 – 30** | SPI flash lines. Writing them corrupts flash, often silently |
 
@@ -49,8 +48,6 @@ Do every one of these **with all power disconnected**.
 | ☐ | Q1 source to GND | ≈ 0 Ω | Source must be on ground, not drain |
 | ☐ | ESP32 GND to Pi GND to motor-supply GND | ≈ 0 Ω | **Common ground.** Without it the gate drive has no reference |
 | ☐ | Nothing on GPIO 24 – 30 | Open | Flash corruption |
-| ☐ | GPIO 4 has only the red LED + resistor to GND | No pull-up, nothing else on it | Strapping pin; only an LED is safe there |
-| ☐ | Each status LED's long leg (anode) toward its resistor, short leg to GND | Diode test lights it faintly | A reversed LED never lights; the lamp test at power-up shows it |
 | ☐ | MPU-6050 VCC on **3V3**, not 5V | | 5 V logic on C6 I2C pins can damage them |
 
 ### MOSFET pinout — check the package, not memory

@@ -116,7 +116,7 @@ def no_connect(x, y):
 # ---------------------------------------------------------------- title
 text(W / 2, 3, f"DRIFTS — Schematic (NewBrain architecture) · rev {REV}", size=16, ha="center", weight="bold")
 text(W / 2, 6.2, "Team 1 · ESP32-C6 dev kit + Raspberry Pi Zero 2 W · rev 6: driver screen, RGB LED, voice and button "
-     "on the PiSugar Whisplay HAT (Pi Zero) · ESP32 keeps buzzer, motors, 3 LEDs, MPU-6050 · "
+     "on the PiSugar Whisplay HAT (Pi Zero) · ESP32 keeps buzzer, motors, MPU-6050 · "
      "generated drawing (not a KiCad file)",
      size=8.5, ha="center", style="italic")
 
@@ -169,8 +169,7 @@ text(207, 31.5, "Veepeak (BLE, not Classic)", size=6.5, ha="center", style="ital
 # ---------------------------------------------------------------- ESP32-C6
 u1 = box(92, 48, 18, 56, "U1 ESP32-C6\nWROOM-1 N8 dev kit",
          left=[("5V", 54), ("3V3", 62), ("GND", 70), ("GPIO22", 80), ("GPIO21", 88)],
-         right=[("GPIO10 PWM", 56), ("GPIO11 tone", 64), ("GPIO18 tone inv", 68), ("GPIO2", 72), ("GPIO3", 78),
-                ("GPIO4", 84)],
+         right=[("GPIO10 PWM", 56), ("GPIO11 tone", 64), ("GPIO18 tone inv", 68)],
          title_lines=2)
 wire(u1["5V"], (88.5, 54))
 flag(88.5, 54, "+5V")
@@ -244,25 +243,6 @@ text(158, 117.4, "Neither leg to GND. No flyback diode.", size=7.5)
 text(126, 126.5, "Off = both pins LOW (0 V across LS1), never duty 0. Q2/R3/R4 of rev 2 removed.",
      size=6.8, style="italic")
 
-# ---------------------------------------------------------------- status LEDs
-frame(124, 134, 76, 26, "Status LEDs ×3")
-rows = [
-    ("GPIO2", 119, 142, "R5  100Ω", "#3ccf5a", "D3 green", "connections"),
-    ("GPIO3", 117, 148, "R8  330Ω", "#ffd60a", "D4 yellow", "caution 50–69 / system"),
-    ("GPIO4", 115, 154, "R9  330Ω", "#ff4d4d", "D5 red", "drowsy (LED only)"),
-]
-for pin, xv, yr, rl, col, dl, meaning in rows:
-    wire(u1[pin], (xv, u1[pin][1]), (xv, yr), (130, yr))
-    res_h(130, yr, rl, below=False)
-    wire((136, yr), (144, yr))
-    led_h(144, yr, col, "")
-    wire((147, yr), (156, yr))
-    if yr != 154:
-        dot(156, yr)
-    text(158.5, yr - 0.3, f"{dl} — {meaning}", size=7.5)
-wire((156, 142), (156, 154), (156, 155.5))
-gnd(156, 155.5, drop=0.6)
-
 # ---------------------------------------------------------------- decoupling
 frame(204, 44, 34, 40, "Decoupling")
 for x, lab, val, pol in ((210, "+3V3", "C3\n0.1µF\n(104)", False),
@@ -312,10 +292,9 @@ notes = [
     ],
     [
         "5. I2C runs at 100 kHz and carries only U4 (3.3 V: no level shifter).",
-        "   I2C SCAN lists 0x68. Free C6 pins: 19, 20, 23.",
-        "6. LEDs: D3 green GPIO2 R5 (100Ω true green, 330Ω yellow-green), D4",
-        "   yellow GPIO3 R8, D5 red GPIO4 R9. GPIO4 is a strapping pin: an LED",
-        "   to GND only, nothing else. Mount the LEDs in the passenger's view.",
+        "   I2C SCAN lists 0x68. Free C6 pins: 2, 3, 19, 20, 23.",
+        "6. Status light: the Whisplay HAT's RGB LED (U12). U1 has no LEDs;",
+        "   GPIO 2, 3, 19, 20, 23 are free.",
         "7. LS1 passive piezo, differential: GPIO11→R6→LS1←R7←GPIO18, one LEDC",
         "   channel, GPIO18 inverted; 5 kHz 50 %, 6.6 Vpp. Off = both pins LOW.",
     ],
@@ -323,13 +302,13 @@ notes = [
         "8. C3/C4: 0.1µF ceramic at +3V3 and +5V near U1; one per module VCC.",
         "9. Wireless (dashed purple): Pi↔C6 and OBD dongle↔C6 over BLE. U3",
         "   must be BLE, not Classic. Camera U5 connects to the Pi only.",
-        "10. Do not use: 5, 8, 9, 15 (strapping); 6, 7 (JTAG); 12, 13 (USB);",
-        "   16, 17 (UART0 to CH343); 14, 24–30 (flash). GPIO4 = red LED only.",
+        "10. Do not use: 4, 5, 8, 9, 15 (strapping); 6, 7 (JTAG); 12, 13 (USB);",
+        "   16, 17 (UART0 to CH343); 14, 24–30 (flash); 4 (strapping).",
         "11. Same-named flags (+5V, +3V3, GND) are one net, as in KiCad.",
-        "12. Firmware v19: no display on the C6; its 1 Hz status JSON goes to",
+        "12. Firmware v20: no display or LEDs on the C6; its 1 Hz status JSON goes to",
         "   every BLE subscriber (phone and U2). See Hardware/pinout.md.",
         "13. U12 Whisplay HAT: screen, RGB LED, speaker, button, driven by U2.",
-        "   The alert (buzzer, motors, LEDs) stays on U1 and works without U2.",
+        "   The alert (buzzer, motors) stays on U1 and works without U2.",
         "14. U2 + U12 power: 5 V 2.5 A on the bench; the U6 buck in the car.",
     ],
 ]

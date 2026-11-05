@@ -24,7 +24,6 @@
     OBD MTU ON|OFF, OBD PHY 1M|ANY, OBD OPTIONS   dongle link options
     BRAKE         inject one harsh-brake event
     STATUS        print the current state
-    LEDS          cycle every LED pattern (wiring check)
     SCORE <n>     force the alert score to n (0-100) for 30 s; SCORE OFF ends it
     EYE:<n>       eye score 0-100, as the Pi will send it (also accepted over BLE)
     DRV:s:t:b     simulator driving sample (reserved for the Logitech G29; stored only)
@@ -32,7 +31,7 @@
 
   The driver's screen, RGB LED, voice and button are on the Pi Zero's
   Whisplay HAT (Hardware/whisplay-hat.md), fed by this board's 1 Hz BLE
-  status. This board keeps the buzzer, motors and 3 LEDs, so the alert
+  status. This board keeps the buzzer and motors, so the alert
   still works if the Pi is down.
 */
 
@@ -40,7 +39,6 @@
 #include "actuators.h"
 #include "piezo.h"
 #include "alertness.h"
-#include "status_leds.h"
 #include "ble_hub.h"
 #include "obd_ble.h"
 #include "trigger.h"
@@ -93,7 +91,6 @@ void setup() {
     Serial.println("  DRIFTS firmware " DRIFTS_FW_VERSION " - ESP32-C6");
     Serial.println("==================================");
 
-    Leds.begin();   // lamp test: all three LEDs on for LED_LAMP_TEST_MS
 
     initActuators();
     Serial.println("[MAIN] Actuators ready");
@@ -125,7 +122,7 @@ void setup() {
                       MIN_SPEED_KPH, GATE_COVERAGE * 100.0f);
     }
 
-    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / LEDS / SCORE n / I2C SCAN / SWEEP / BEEP");
+    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / SCORE n / I2C SCAN / SWEEP / BEEP");
 #if PIEZO_SWEEP_TEST
     piezoSweepStart();
 #endif
@@ -149,15 +146,13 @@ static void printStatus() {
                   (int)Hub.isPiConnected(), (int)Hub.isPhoneConnected(),
                   (unsigned long)Obd.noDataCount(), (unsigned long)Obd.errorCount(),
                   (unsigned long)Obd.rxOverflows());
-    const LedState &l = Leds.state();
     Serial.printf("[SCORE] alert %.0f (%s) = eye %.0f%s x0.7 + driving %.0f x0.3%s%s | "
-                  "LEDs G=%s Y=%s R=%s | system issue: %s\n",
+                  " | system issue: %s\n",
                   alertScore.score(), alertLevelName(alertScore.level()),
                   alertScore.eye(), alertScore.eyeEstimated() ? " (est.)" : "",
                   alertScore.driving(),
                   alertScore.partial() ? " | PARTIAL: no eye data, driving only" : "",
                   alertScore.forced() ? " | FORCED by SCORE command" : "",
-                  ledPatternName(l.green), ledPatternName(l.yellow), ledPatternName(l.red),
                   GATE_BENCH_MODE ? "bench mode" : (!imuPresent ? "IMU missing" : "none"));
 }
 
@@ -248,8 +243,6 @@ static void handleSerial() {
         piezoSweepStart();
     } else if (cmd.equalsIgnoreCase("I2C SCAN")) {
         Motion.i2cScan();
-    } else if (cmd.equalsIgnoreCase("LEDS")) {
-        Leds.startSelfTest(millis());
 
     } else if (cmd.equalsIgnoreCase("SCORE OFF")) {
         alertScore.clearForce();
@@ -413,18 +406,11 @@ void loop() {
 
     updateActuators();
 
-    // Alert score, once a second, then the LEDs every loop (non-blocking).
+    // Alert score, once a second.
     if (now - lastScoreMs >= 1000) {
         lastScoreMs = now;
         alertScore.update(drivingRatios(snap), now);
     }
-    LedInputs ledIn;
-    ledIn.dongleOk = Obd.isPolling();
-    ledIn.piOk = Hub.isPiConnected();
-    ledIn.systemIssue = GATE_BENCH_MODE || !imuPresent;
-    ledIn.alertActive = isAlertActive();
-    ledIn.level = alertScore.level();
-    Leds.update(ledIn, now);
 
 
     // 7. Telemetry: the phone and the Pi (Whisplay screen) both read it.

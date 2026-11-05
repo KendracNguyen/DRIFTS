@@ -133,7 +133,7 @@ private:
     static float clamp(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
     // Downward moves happen at the threshold; upward moves need the extra
-    // hysteresis, so a score hovering on a boundary does not flicker the LEDs.
+    // hysteresis, so a score hovering on a boundary does not flicker the alerts.
     void updateLevel() {
         const float h = _cfg.hysteresis;
         switch (_level) {

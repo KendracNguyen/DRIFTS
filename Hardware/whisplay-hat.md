@@ -4,7 +4,7 @@
 Pi Zero gives the driver a 1.69" colour screen, an RGB LED, a speaker and a
 button. The software is `Raspberry/drifts/whisplay_ui.py`.
 
-The ESP32 keeps the **buzzer, vibration motors and 3 status LEDs**, so the
+The ESP32 keeps the **buzzer and vibration motors**, so the
 alert still fires if the Pi is down (see [Architecture](#architecture)).
 
 Sources: the PiSugar product page and wiki, and the pin definitions in
@@ -92,13 +92,13 @@ caught mid-flash.*
 - **Details page:** alert score, driving score, RPM, speed, eye data.
 - **Links page:** ESP32 and OBD state, firmware version, button help.
 - **During an alert,** the screen always returns to the score page.
-- **The data** comes from the ESP32's 1 Hz BLE status (firmware v19 sends it
+- **The data** comes from the ESP32's 1 Hz BLE status (firmware v20 sends it
   to every subscriber): score, level, alert, partial flag, driving score, OBD
   state.
 
 ## RGB LED
 
-It plays the role of the strip's status pixel:
+The only status light in the first model:
 
 | Colour | Meaning |
 | --- | --- |
@@ -117,7 +117,7 @@ It plays the role of the strip's status pixel:
 | **Long press (≥ 1.5 s)** | Repeat the last voice message |
 
 **Safety rule:** no button press stops an alert while the driver is still
-scored as drowsy. The ESP32's buzzer, motors and LEDs keep running; only the
+scored as drowsy. The ESP32's buzzer and motors keep running; only the
 Pi's voice repeat pauses. The Level 3 check-in (clip 9, "Are you okay? Press
 the button to confirm") will use the same press.
 
@@ -125,15 +125,15 @@ the button to confirm") will use the same press.
 
 ```
             BLE telemetry (score, level, links) ──►┐
- OBD ─BLE─► ESP32-C6 ──► buzzer, motors, 3 LEDs   │   (alert still works if the Pi is down)
+ OBD ─BLE─► ESP32-C6 ──► buzzer, motors          │   (alert still works if the Pi is down)
                 ▲                                  ▼
                 └── EYE score ◄── Pi Zero 2 W + Whisplay HAT ──► colour LCD, RGB LED, speaker, button
                                     └── Arducam (CSI)
 ```
 - **The Pi now drives the screen and voice.** If the Pi is booting or has
-  crashed, they stop. The ESP32's buzzer, motors and LEDs still fire, so keep
+  crashed, they stop. The ESP32's buzzer and motors still fire, so keep
   them wired.
-- **ESP32 firmware v19** has no display code. It sends its status JSON to every
+- **ESP32 firmware v20** has no display code. It sends its status JSON to every
   BLE subscriber, so the Pi's existing link also carries the screen's data.
 - **Voice clips:** the WAVs in `Voice/clips/`, played by
   `aplay -D plughw:CARD=whisplaysound`, with the rules in
@@ -163,7 +163,7 @@ the button to confirm") will use the same press.
    It runs OK → Level 1 → Level 2 → OK in 36 s: screens, LED colours and voice.
 5. **In the car program:** set `enabled = true` under `[whisplay]` in
    `Raspberry/config.toml`, then `sudo systemctl restart drifts`. With
-   firmware v19 on the ESP32, the score appears within a few seconds of the
+   firmware v20 on the ESP32, the score appears within a few seconds of the
    Bluetooth link.
 6. Measure and note here: height with the HAT on, speaker loudness in the car,
    and the current draw (USB meter) when idle and while speaking.

@@ -16,7 +16,6 @@ flowchart LR
   IMU[MPU-6050] --I2C--> C6
   C6 --PWM--> MOTOR[ERM motors]
   C6 --tone--> BUZZ[Piezo buzzer]
-  C6 --GPIO--> LED[Status LED]
   C6 -.BLE.-> PI[Raspberry Pi Zero 2 W]
   C6 -.BLE.-> PHONE[Phone app]
   PI --CSI--> CAM[OV5647 camera]
@@ -32,9 +31,6 @@ SN65HVD230 transceiver, the J1962 pigtail and all bus-tapping risk.
 
 | GPIO | Direction | Component | Signal | Notes |
 | --- | --- | --- | --- | --- |
-| **2** | Out | Green status LED | Anode via R5 100 Ω | Connections |
-| **3** | Out | Yellow status LED | Anode via R8 330 Ω | Caution / system |
-| **4** | Out | Red status LED | Anode via R9 330 Ω | Drowsy. **LED only** (strapping pin) |
 | **10** | Out (LEDC PWM) | Vibration motor modules ×4 | IN via R1 100 Ω, R2 10 kΩ to GND | 20 kHz, 8-bit duty |
 | **11** | Out (LEDC) | Piezo LS1 leg A | via R6 100 Ω | 5 kHz, 50 %; differential with GPIO 18 |
 | **18** | Out (LEDC, inverted) | Piezo LS1 leg B | via R7 100 Ω | Same channel as 11, inverted: 6.6 Vpp across LS1 |

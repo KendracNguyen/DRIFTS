@@ -56,7 +56,7 @@ class BleClient:
                     # Subscribe to WAKE characteristic notifications
                     await client.start_notify(self.cfg.wake_char_uuid, self._on_wake_notify)
                     log.info("Subscribed to WAKE characteristic (%s)", self.cfg.wake_char_uuid)
-                    # The 1 Hz status for the Whisplay screen (firmware v19 sends it
+                    # The 1 Hz status for the Whisplay screen (firmware v20 sends it
                     # to every subscriber). Optional: older firmware still works.
                     try:
                         await client.start_notify(self.cfg.status_char_uuid, self._on_status_notify)

@@ -12,7 +12,7 @@ STATUS = ("[STATUS] obd=scanning layout=none 0.0 Hz | rpm 0 (sd 0, n 0) spd 0 (s
           "thr 0 (sd 0.0, n 0) | brakes 0 accel=0 steer 0 yaw +0.0 | gate=BENCH | pi=0 phone=0 | "
           "nodata 0 err 0 ovf 0")
 SCORE = ("[SCORE] alert 100 (OK) = eye 90 (est.) x0.7 + driving 100 x0.3 | PARTIAL: no eye data, "
-         "driving only | LEDs G=slow Y=slow R=off | system issue: bench mode")
+         "driving only | system issue: bench mode")
 
 
 def test_firmware_version():
@@ -111,7 +111,7 @@ def test_serial_link_writes_commands():
 def test_driving_score_from_serial_and_json():
     d = parse_serial_line(SCORE)                       # "... + driving 100 x0.3 ..."
     assert d["drv_score"] == 100.0
-    line = "[SCORE] alert 58 (CAUTION) = eye 40 x0.7 + driving 100 x0.3 | LEDs G=on"
+    line = "[SCORE] alert 58 (CAUTION) = eye 40 x0.7 + driving 100 x0.3 | system issue: none"
     assert parse_serial_line(line)["drv_score"] == 100.0
     assert parse_phone_json('{"score":63,"dscore":71}')["drv_score"] == 71.0
     assert "drv_score" not in parse_phone_json('{"score":63}')      # firmware before v16

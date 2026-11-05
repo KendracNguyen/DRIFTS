@@ -71,7 +71,7 @@ nothing, because the host cannot exceed the controller.
 
 ```bash
 python3 Hardware/check_pins.py        # must print: OK: 11 pins agree
-cd Esp32/test && make                 # every host test (alert score, LEDs, trigger, BLE...), on the laptop
+cd Esp32/test && make                 # every host test (alert score, trigger, BLE...), on the laptop
 cd Tools && python -m pytest obd_sim/tests obd_link/tests -q
 ```
 
@@ -182,16 +182,16 @@ and that the Pi is on a commit with the `DF71...` UUIDs.
 fail-safe stops the alert if the Pi is silent longer than `FAILSAFE_MS`, and
 `heartbeat_s = 1.0` in `config.toml` is what keeps it satisfied.
 
-### Status LEDs and alert score
+### Alert score
 
-Three LEDs (green 2 / yellow 3 / red 4) and the 0-100 alert score — key,
-wiring and bench test in [`status-leds.md`](status-leds.md). Serial: `LEDS`, `SCORE <n>`.
+The 0-100 alert score, its levels and a bench test: [`alert-score.md`](alert-score.md).
+Serial: `SCORE <n>`, `SCORE OFF`, `STATUS`.
 
 ### Driver screen and voice
 
 The driver screen, RGB LED, voice and button are on the Pi Zero's **Whisplay
 HAT**, not on the ESP32. Install and test: [`../Hardware/whisplay-hat.md`](../Hardware/whisplay-hat.md).
-The ESP32 sends its score to the Pi over Bluetooth once a second (firmware v19+).
+The ESP32 sends its score to the Pi over Bluetooth once a second (firmware v20+).
 
 ### Buzzer alerts and Bluetooth ping
 

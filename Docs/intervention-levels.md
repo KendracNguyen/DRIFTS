@@ -51,8 +51,8 @@ So:
 | Level | Text | Alert score | Comparable to | Output |
 | --- | --- | --- | --- | --- |
 | — | Drive safe | 70–100 | KSS ≤ 6 | — |
-| **Intervention 1** | **Signs of Fatigue** | 50–69 | KSS 7 — "may warn" | Yellow LED solid. Planned: buzzer |
-| **Intervention 2** | **Worsening Signs** | 0–49 | KSS 8+ — "must warn" | Red LED; buzzer + motor when the Pi confirms DROWSY |
+| **Intervention 1** | **Signs of Fatigue** | 50–69 | KSS 7 — "may warn" | Screen and RGB LED yellow. Planned: buzzer |
+| **Intervention 2** | **Worsening Signs** | 0–49 | KSS 8+ — "must warn" | Screen and RGB LED red; buzzer + motor when the Pi confirms DROWSY |
 
 > ⚠ The score-to-KSS column is a **design mapping**, not a validated
 > measurement. Until the eye model is trained and checked against KSS
@@ -64,7 +64,7 @@ So:
 
 - The firmware has **two** levels (score bands 50–69 / < 50). The driver
   screen shows them as `INTERVENTION 1` / `INTERVENTION 2`.
-- Outputs are not yet split by level: Level 1 shows on the screen and yellow
+- Outputs are not yet split by level: Level 1 shows on the screen and RGB
   LED but **does not sound the buzzer yet**, and on DROWSY the buzzer and motor
   fire together. Wiring outputs to levels is the next firmware step.
 

@@ -152,7 +152,6 @@ python -m pytest
 4. Verify pin configurations in `config.h` (diagram: `Hardware/pinout.md`):
    - `MOTOR_PIN = 10`
    - `PIEZO_A_PIN = 11`, `PIEZO_B_PIN = 18` (piezo driven differentially)
-   - `LED_GREEN_PIN = 2`, `LED_YELLOW_PIN = 3`, `LED_RED_PIN = 4`
    - `IMU_SDA_PIN = 21`, `IMU_SCL_PIN = 22` (MPU-6050)
 5. Upload the sketch and monitor Serial at `115200` baud.
 6. Serial test commands:

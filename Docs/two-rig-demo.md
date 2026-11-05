@@ -88,7 +88,7 @@ Only **one** rig can be the ESP32's Pi over Bluetooth at a time. Give the
 real ESP32 to one rig, and run the other with `--esp sim`.
 
 ```bash
-# Rig B (Pi 5): drives the real ESP32, LEDs and buzzer
+# Rig B (Pi 5): drives the real ESP32, buzzer and motors
 cd ~/drifts && .venv/bin/python -m drifts.live --face mediapipe --profile kendra \
     --esp ble --rig-name "Pi 5 + OV5647 day/night"
 
@@ -121,7 +121,7 @@ dashboard's yaw should go **positive**. If it goes negative, restart with
 | 5 | Yawn | Rig B: MAR rises, "YAWNING", count +1. Rig A: n/a |
 | 6 | Read the performance tiles | Frame rate, inference ms, CPU %, temperature: Zero offloads to the sensor; Pi 5 does everything on the CPU |
 | 7 | **Lights off** | Arducam switches to IR by itself: Rig B shows *Night (IR)* and keeps tracking. Rig A loses the face (IR-cut filter) unless a dim visible LED is on |
-| 8 | Close your eyes for several seconds on Rig B | PERCLOS rises, eye score falls, the ESP32 alert score drops to INTERVENTION 1/2, LEDs and buzzer pattern follow |
+| 8 | Close your eyes for several seconds on Rig B | PERCLOS rises, eye score falls, the ESP32 alert score drops to INTERVENTION 1/2, the buzzer pattern follows |
 
 ### What to record for the report
 Fill in from the dashboards (or the `/status.json` of each rig):

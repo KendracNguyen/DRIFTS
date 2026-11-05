@@ -120,38 +120,6 @@ from LEDC and drives both LOW.
 
 ---
 
-## 4. Status LEDs (3)
-
-```
-   GPIO 2 ───[ 100 Ω* ]───▶|─── GND     GREEN  connections
-   GPIO 3 ───[ 330 Ω  ]───▶|─── GND     YELLOW caution / system
-   GPIO 4 ───[ 330 Ω  ]───▶|─── GND     RED    drowsiness
-                          LED  (long leg / anode toward the resistor)
-```
-
-\* **Green resistor depends on the LED.** A true green LED drops about 3.0 V,
-leaving 0.3 V across the resistor: 330 Ω gives ~1 mA and barely glows, so use
-**100 Ω** (~3 mA). A yellow-green LED drops ~2.1 V and is fine on 330 Ω.
-
-| LED | Drop | Resistor | Current |
-| --- | --- | --- | --- |
-| Red | ~2.0 V | 330 Ω | ~4 mA |
-| Yellow | ~2.1 V | 330 Ω | ~3.6 mA |
-| Green (true) | ~3.0 V | 100 Ω | ~3 mA |
-
-About 12 mA in total; no transistors needed.
-
-**GPIO 4 is a strapping pin.** It is only sampled for SDIO boot, which this
-board never uses, and an LED to GND does not pull it either way at reset. It
-is safe for this LED and **nothing else** — no pull-ups, no other circuit.
-`check_pins.py` enforces this (`led_only` in `reserved_pins.csv`).
-
-The board's on-board LED is an addressable RGB on GPIO 8 and is not used.
-
-Meanings and the bench test: [`../Docs/status-leds.md`](../Docs/status-leds.md).
-
----
-
 ## 5. MPU-6050
 
 ```
@@ -185,7 +153,7 @@ Meanings and the bench test: [`../Docs/status-leds.md`](../Docs/status-leds.md).
 ```
 - **No wires:** the HAT plugs onto all 40 pins. Its pinout, screens, LED and
   button are in [`whisplay-hat.md`](whisplay-hat.md).
-- **Who drives what:** the ESP32 keeps the buzzer, motors and 3 LEDs, so the
+- **Who drives what:** the ESP32 keeps the buzzer and motors, so the
   alert works without the Pi. The HAT is the driver-facing display and voice.
 - **Software:** `Raspberry/drifts/whisplay_ui.py`, inside `python -m drifts`
   when `[whisplay] enabled = true`. Test without the ESP32:

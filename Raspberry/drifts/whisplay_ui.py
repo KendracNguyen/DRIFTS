@@ -3,8 +3,8 @@
 The Whisplay HAT (Hardware/whisplay-hat.md) is the driver-facing part of
 DRIFTS: a 1.69" 240 x 280 colour LCD, an RGB LED, a speaker and a button.
 What it shows comes from the ESP32's 1 Hz BLE status (alert score, level,
-driving score, OBD state). The ESP32 keeps the buzzer, motors and its 3
-LEDs, so the alert still works if the Pi is down.
+driving score, OBD state). The ESP32 keeps the buzzer and motors, so the
+alert still works if the Pi is down.
 
     python -m drifts.whisplay_ui --demo          # on the Pi: cycle OK -> Level 1 -> Level 2 on the HAT
     python -m drifts.whisplay_ui --demo --sim    # anywhere: writes the screens as PNGs instead
@@ -497,7 +497,7 @@ def demo(sim: bool, out_dir: Path, driver_dir: str) -> int:
             break
         lvl = "OK" if score is None or score >= 70 else "CAUTION" if score >= 50 else "LOW"
         st = state_from_status({"score": score, "lvl": lvl, "alert": score is not None and score < 50,
-                                "obd": "polling", "drv_score": 85, "rpm": 1800, "spd": 72, "fw": "v19"},
+                                "obd": "polling", "drv_score": 85, "rpm": 1800, "spd": 72, "fw": "v20"},
                                linked=True, fresh=score is not None)
         img = ui.tick(st, time.monotonic())
         for at, name in list(shots.items()):

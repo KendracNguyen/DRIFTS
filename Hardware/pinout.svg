@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 832" width="1180" height="832" font-family="Helvetica, Arial, sans-serif">
-<rect width="1180" height="832" fill="#ffffff"/>
-<text x="590.0" y="36" font-size="22" fill="#222" text-anchor="middle" font-weight="bold">DRIFTS — ESP32-C6 pinout (firmware v19, schematic rev 6)</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 694" width="1180" height="694" font-family="Helvetica, Arial, sans-serif">
+<rect width="1180" height="694" fill="#ffffff"/>
+<text x="590.0" y="36" font-size="22" fill="#222" text-anchor="middle" font-weight="bold">DRIFTS — ESP32-C6 pinout (firmware v20, schematic rev 6)</text>
 <text x="590.0" y="60" font-size="13" fill="#555" text-anchor="middle" font-weight="normal">Find pins by the label printed on the board, not by position. Same-named power tags are the same wire.</text>
-<rect x="40" y="70" width="190" height="582" rx="12" fill="#1f3b5c" stroke="#0f2236" stroke-width="2"/>
-<text x="135.0" y="612" font-size="18" fill="#fff" text-anchor="middle" font-weight="bold">ESP32-C6</text>
-<text x="135.0" y="632" font-size="13" fill="#cfe0f2" text-anchor="middle" font-weight="normal">WROOM-1 N8 dev kit</text>
+<rect x="40" y="70" width="190" height="444" rx="12" fill="#1f3b5c" stroke="#0f2236" stroke-width="2"/>
+<text x="135.0" y="474" font-size="18" fill="#fff" text-anchor="middle" font-weight="bold">ESP32-C6</text>
+<text x="135.0" y="494" font-size="13" fill="#cfe0f2" text-anchor="middle" font-weight="normal">WROOM-1 N8 dev kit</text>
 <text x="216" y="101" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">5V</text>
 <circle cx="230" cy="96" r="6" fill="#f2c94c" stroke="#8a6d1f"/>
 <line x1="236" y1="96" x2="380" y2="96" stroke="#d32f2f" stroke-width="4" stroke-linecap="round"/>
@@ -23,64 +23,42 @@
 <circle cx="230" cy="188" r="6" fill="#f2c94c" stroke="#8a6d1f"/>
 <line x1="236" y1="188" x2="380" y2="188" stroke="#212121" stroke-width="4" stroke-linecap="round"/>
 <text x="680" y="193" font-size="14" fill="#222" text-anchor="start" font-weight="normal">every part: one common ground</text>
-<text x="216" y="239" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 2</text>
+<text x="216" y="239" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 10</text>
 <circle cx="230" cy="234" r="6" fill="#f2c94c" stroke="#8a6d1f"/>
-<line x1="236" y1="234" x2="380" y2="234" stroke="#2e7d32" stroke-width="4" stroke-linecap="round"/>
+<line x1="236" y1="234" x2="380" y2="234" stroke="#6a1b9a" stroke-width="4" stroke-linecap="round"/>
 <rect x="390" y="221" width="250" height="26" rx="6" fill="#fff7e0" stroke="#c9a227"/>
-<text x="515" y="239" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">100 Ω → LED → GND</text>
-<line x1="640" y1="234" x2="670" y2="234" stroke="#2e7d32" stroke-width="4" stroke-linecap="round"/>
-<text x="680" y="239" font-size="14" fill="#222" text-anchor="start" font-weight="normal">Green status LED (connections)</text>
-<text x="216" y="285" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 3</text>
+<text x="515" y="239" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">R1 100 Ω · R2 10 kΩ to GND</text>
+<line x1="640" y1="234" x2="670" y2="234" stroke="#6a1b9a" stroke-width="4" stroke-linecap="round"/>
+<text x="680" y="239" font-size="14" fill="#222" text-anchor="start" font-weight="normal">IN of the 4 vibration motor modules</text>
+<text x="216" y="285" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 11</text>
 <circle cx="230" cy="280" r="6" fill="#f2c94c" stroke="#8a6d1f"/>
-<line x1="236" y1="280" x2="380" y2="280" stroke="#f9a825" stroke-width="4" stroke-linecap="round"/>
+<line x1="236" y1="280" x2="380" y2="280" stroke="#00838f" stroke-width="4" stroke-linecap="round"/>
 <rect x="390" y="267" width="250" height="26" rx="6" fill="#fff7e0" stroke="#c9a227"/>
-<text x="515" y="285" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">330 Ω → LED → GND</text>
-<line x1="640" y1="280" x2="670" y2="280" stroke="#f9a825" stroke-width="4" stroke-linecap="round"/>
-<text x="680" y="285" font-size="14" fill="#222" text-anchor="start" font-weight="normal">Yellow status LED (caution / system)</text>
-<text x="216" y="331" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 4</text>
+<text x="515" y="285" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">R6 100 Ω</text>
+<line x1="640" y1="280" x2="670" y2="280" stroke="#00838f" stroke-width="4" stroke-linecap="round"/>
+<text x="680" y="285" font-size="14" fill="#222" text-anchor="start" font-weight="normal">Piezo LS1 leg 1 (5 kHz)</text>
+<text x="216" y="331" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 18</text>
 <circle cx="230" cy="326" r="6" fill="#f2c94c" stroke="#8a6d1f"/>
-<line x1="236" y1="326" x2="380" y2="326" stroke="#c62828" stroke-width="4" stroke-linecap="round"/>
+<line x1="236" y1="326" x2="380" y2="326" stroke="#00838f" stroke-width="4" stroke-linecap="round"/>
 <rect x="390" y="313" width="250" height="26" rx="6" fill="#fff7e0" stroke="#c9a227"/>
-<text x="515" y="331" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">330 Ω → LED → GND</text>
-<line x1="640" y1="326" x2="670" y2="326" stroke="#c62828" stroke-width="4" stroke-linecap="round"/>
-<text x="680" y="331" font-size="14" fill="#222" text-anchor="start" font-weight="normal">Red status LED (drowsy) · LED only, strapping pin</text>
-<text x="216" y="377" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 10</text>
+<text x="515" y="331" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">R7 100 Ω</text>
+<line x1="640" y1="326" x2="670" y2="326" stroke="#00838f" stroke-width="4" stroke-linecap="round"/>
+<text x="680" y="331" font-size="14" fill="#222" text-anchor="start" font-weight="normal">Piezo LS1 leg 2 (same tone, inverted)</text>
+<text x="216" y="377" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 21</text>
 <circle cx="230" cy="372" r="6" fill="#f2c94c" stroke="#8a6d1f"/>
-<line x1="236" y1="372" x2="380" y2="372" stroke="#6a1b9a" stroke-width="4" stroke-linecap="round"/>
+<line x1="236" y1="372" x2="380" y2="372" stroke="#1565c0" stroke-width="4" stroke-linecap="round"/>
 <rect x="390" y="359" width="250" height="26" rx="6" fill="#fff7e0" stroke="#c9a227"/>
-<text x="515" y="377" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">R1 100 Ω · R2 10 kΩ to GND</text>
-<line x1="640" y1="372" x2="670" y2="372" stroke="#6a1b9a" stroke-width="4" stroke-linecap="round"/>
-<text x="680" y="377" font-size="14" fill="#222" text-anchor="start" font-weight="normal">IN of the 4 vibration motor modules</text>
-<text x="216" y="423" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 11</text>
+<text x="515" y="377" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">direct (3.3 V part)</text>
+<line x1="640" y1="372" x2="670" y2="372" stroke="#1565c0" stroke-width="4" stroke-linecap="round"/>
+<text x="680" y="377" font-size="14" fill="#222" text-anchor="start" font-weight="normal">MPU-6050 SDA (I2C)</text>
+<text x="216" y="423" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 22</text>
 <circle cx="230" cy="418" r="6" fill="#f2c94c" stroke="#8a6d1f"/>
-<line x1="236" y1="418" x2="380" y2="418" stroke="#00838f" stroke-width="4" stroke-linecap="round"/>
+<line x1="236" y1="418" x2="380" y2="418" stroke="#1565c0" stroke-width="4" stroke-linecap="round"/>
 <rect x="390" y="405" width="250" height="26" rx="6" fill="#fff7e0" stroke="#c9a227"/>
-<text x="515" y="423" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">R6 100 Ω</text>
-<line x1="640" y1="418" x2="670" y2="418" stroke="#00838f" stroke-width="4" stroke-linecap="round"/>
-<text x="680" y="423" font-size="14" fill="#222" text-anchor="start" font-weight="normal">Piezo LS1 leg 1 (5 kHz)</text>
-<text x="216" y="469" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 18</text>
-<circle cx="230" cy="464" r="6" fill="#f2c94c" stroke="#8a6d1f"/>
-<line x1="236" y1="464" x2="380" y2="464" stroke="#00838f" stroke-width="4" stroke-linecap="round"/>
-<rect x="390" y="451" width="250" height="26" rx="6" fill="#fff7e0" stroke="#c9a227"/>
-<text x="515" y="469" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">R7 100 Ω</text>
-<line x1="640" y1="464" x2="670" y2="464" stroke="#00838f" stroke-width="4" stroke-linecap="round"/>
-<text x="680" y="469" font-size="14" fill="#222" text-anchor="start" font-weight="normal">Piezo LS1 leg 2 (same tone, inverted)</text>
-<text x="216" y="515" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 21</text>
-<circle cx="230" cy="510" r="6" fill="#f2c94c" stroke="#8a6d1f"/>
-<line x1="236" y1="510" x2="380" y2="510" stroke="#1565c0" stroke-width="4" stroke-linecap="round"/>
-<rect x="390" y="497" width="250" height="26" rx="6" fill="#fff7e0" stroke="#c9a227"/>
-<text x="515" y="515" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">direct (3.3 V part)</text>
-<line x1="640" y1="510" x2="670" y2="510" stroke="#1565c0" stroke-width="4" stroke-linecap="round"/>
-<text x="680" y="515" font-size="14" fill="#222" text-anchor="start" font-weight="normal">MPU-6050 SDA (I2C)</text>
-<text x="216" y="561" font-size="14" fill="#fff" text-anchor="end" font-weight="bold">GPIO 22</text>
-<circle cx="230" cy="556" r="6" fill="#f2c94c" stroke="#8a6d1f"/>
-<line x1="236" y1="556" x2="380" y2="556" stroke="#1565c0" stroke-width="4" stroke-linecap="round"/>
-<rect x="390" y="543" width="250" height="26" rx="6" fill="#fff7e0" stroke="#c9a227"/>
-<text x="515" y="561" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">direct (3.3 V part)</text>
-<line x1="640" y1="556" x2="670" y2="556" stroke="#1565c0" stroke-width="4" stroke-linecap="round"/>
-<text x="680" y="561" font-size="14" fill="#222" text-anchor="start" font-weight="normal">MPU-6050 SCL (I2C)</text>
-<text x="40" y="678" font-size="13" fill="#7a1010" text-anchor="start" font-weight="normal">⚠ Do not use: 5, 8, 9, 15 (strapping) · 6, 7 (JTAG) · 12, 13 (USB) · 16, 17 (UART0 serial monitor) · 14, 24–30 (flash: corrupts it silently).</text>
-<text x="40" y="700" font-size="13" fill="#7a1010" text-anchor="start" font-weight="normal">⚠ GPIO 4 is a strapping pin: the red LED + resistor to GND and nothing else.</text>
-<text x="40" y="722" font-size="13" fill="#444" text-anchor="start" font-weight="normal">Free: GPIO 19, 20, 23. The driver screen, RGB LED, voice and button are on the Pi Zero's Whisplay HAT.</text>
-<text x="40" y="744" font-size="13" fill="#444" text-anchor="start" font-weight="normal">Full wiring: Hardware/pinout.md · drawing: Hardware/drawings/DRIFTS_Schematic_rev6.pdf</text>
+<text x="515" y="423" font-size="12.5" fill="#5c4400" text-anchor="middle" font-weight="normal">direct (3.3 V part)</text>
+<line x1="640" y1="418" x2="670" y2="418" stroke="#1565c0" stroke-width="4" stroke-linecap="round"/>
+<text x="680" y="423" font-size="14" fill="#222" text-anchor="start" font-weight="normal">MPU-6050 SCL (I2C)</text>
+<text x="40" y="540" font-size="13" fill="#7a1010" text-anchor="start" font-weight="normal">⚠ Do not use: 4, 5, 8, 9, 15 (strapping) · 6, 7 (JTAG) · 12, 13 (USB) · 16, 17 (UART0 serial monitor) · 14, 24–30 (flash: corrupts it silently).</text>
+<text x="40" y="562" font-size="13" fill="#444" text-anchor="start" font-weight="normal">Free: GPIO 2, 3, 19, 20, 23. The driver screen, status LED, voice and button are on the Pi Zero's Whisplay HAT.</text>
+<text x="40" y="584" font-size="13" fill="#444" text-anchor="start" font-weight="normal">Full wiring: Hardware/pinout.md · drawing: Hardware/drawings/DRIFTS_Schematic_rev6.pdf</text>
 </svg>

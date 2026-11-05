@@ -13,7 +13,6 @@ M1,ERM vibration motor,4,3V 60-100mA,generic coin ERM,20,have,Confirm rated volt
 LS1,Passive piezo buzzer,1,Driven differentially GPIO11/GPIO18 at 5 kHz,generic passive piezo,2,needed,Must be PASSIVE not active; neither leg to GND
 R1,Gate series resistor,1,100 ohm 1/4W,,1,needed,Motor IN / gate
 R2,Gate pull-down,1,10k 1/4W,,1,needed,Holds motor IN low during MCU reset
-R5 R8 R9,LED series resistors,3,100 ohm (green) and 330 ohm x2,,1,needed,R5 green 100R (330R if yellow-green); R8 yellow; R9 red
 R6 R7,Piezo series resistors,2,100 ohm 1/4W,,1,needed,One per piezo leg (GPIO11 and GPIO18)
 R4,Motor series resistor,4,27 ohm 0.5W,,2,conditional,Only if 3V motors on 5V rail - see README 5.2
 C1,Bulk capacitor,1,100-470uF 16V,,1,needed,At motor supply
