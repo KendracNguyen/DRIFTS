@@ -256,3 +256,64 @@ def test_neutral_and_off_timer():
     assert n.value == pytest.approx(10.0)
     o = fs.OffTimer()
     assert o.update(0, True) == 0 and o.update(2.5, True) == 2.5 and o.update(3, False) == 0
+
+
+# ---------------------------------------------------------------- gaze: closed eyes + calibration
+def run_src(src, t, t1, px, m, dt=0.1):
+    f = None
+    while t < t1:
+        f = src.compute(t, px, m, edge=0.0)
+        t += dt
+    return t, f
+
+
+def test_eyes_closed_counts_as_off_road():
+    src = FaceMeshSource(landmarker=object())
+    t, f = run_src(src, 0.0, 5.0, face_points(1.0), rot_matrix())
+    assert not f["gaze_off"] and f["gaze_reason"] is None
+    t, f = run_src(src, t, t + 0.5, face_points(0.0), rot_matrix())          # eyes shut, head still on road
+    assert f["eyes_closed"] and f["gaze_off"] and f["gaze_reason"] == "eyes closed"
+    t, f = run_src(src, t, t + 2.6, face_points(0.0), rot_matrix())
+    assert f["gaze_off_s"] > 2.5
+    t, f = run_src(src, t, t + 0.5, face_points(1.0), rot_matrix())          # open again: back on road
+    assert not f["gaze_off"]
+
+
+def test_iris_calibration_learns_the_road_position_from_open_eyes():
+    src = FaceMeshSource(landmarker=object())
+    off = face_points(1.0)
+    off[fs.IRIS_RIGHT] = (266.0, 200.0)       # camera off to one side: road gaze reads +0.1
+    off[fs.IRIS_LEFT] = (386.0, 200.0)
+    t, f = run_src(src, 0.0, 2.0, face_points(0.0), rot_matrix())            # closed-eye frames: not learned
+    assert not f["gaze_calibrated"] and f["gaze_calib_progress"] == 0
+    t, f = run_src(src, t, t + 4.0, off, rot_matrix())
+    assert f["gaze_calibrated"] and f["gaze_x"] == pytest.approx(0.0) and not f["gaze_off"]
+    away = face_points(1.0)
+    away[fs.IRIS_RIGHT] = (281.0, 200.0)      # 0.35 raw = 0.25 past the road position
+    away[fs.IRIS_LEFT] = (401.0, 200.0)
+    t, f = run_src(src, t, t + 0.3, away, rot_matrix())
+    assert f["gaze_x"] == pytest.approx(0.25) and f["gaze_off"] and f["gaze_reason"] == "eyes looking away"
+    src.calibrate(10)                          # Calibrate button
+    t, f = run_src(src, t, t + 0.3, away, rot_matrix())
+    assert not f["gaze_calibrated"]
+
+
+def test_pipeline_road_pose_ignores_closed_eye_frames():
+    from types import SimpleNamespace
+    from drifts.headpose import AttentionTracker, Calibration
+    from drifts.live import Pipeline
+    fake = SimpleNamespace(cal=Calibration(auto_samples=5), attn=AttentionTracker(), pose={},
+                           args=SimpleNamespace(gaze_dev=0.16, calib_frames=5),
+                           camera=SimpleNamespace(profile_loaded=False, face={}))
+    def frame(yaw, state, closed=False):
+        fake.camera.face = {"found": True, "yaw": yaw, "pitch": 0.0, "roll": 0.0, "eye_state": state,
+                            "eyes_closed": closed, "gaze_dev": 0.0}
+        Pipeline._update_face_pose(fake, 0.0)
+    for _ in range(5):
+        frame(25.0, "closed", True)           # head drooped/turned with eyes shut: ignored
+    assert not fake.cal.done
+    for _ in range(5):
+        frame(10.0, "open")
+    assert fake.cal.done and fake.cal.yaw0 == pytest.approx(10.0)
+    frame(10.0, "closed", True)
+    assert fake.attn.state == "off_road"      # eyes closed -> off road even with the head on road

@@ -83,7 +83,7 @@ Open `http://<pi-address>:8080/#dev` from a laptop on the same network.
 
 | # | Signal | How it's measured | Flagged when |
 | --- | --- | --- | --- |
-| 1 | **Off-road gaze** | Iris position between the eye corners, plus head pose. Glances longer than 2 s are counted | Iris offset > 0.16, or head off road |
+| 1 | **Off-road gaze** | Iris position between the eye corners (relative to the calibrated road position), plus head pose. **Closed eyes count as off road.** Glances longer than 2 s are counted | Eyes closed, iris offset > 0.16 from the road position, or head off road |
 | 2 | **Yawn** | MAR held above 0.50 for ≥ 1.5 s; counted over 10 min | Yawning |
 | 3 | **Yaw** | Nose axis (MediaPipe's head-pose matrix); + = turned to the driver's right | Beyond ±30° from the road pose |
 | 4 | **Pitch** | Nose axis; + = looking down. A drop of ≥ 12° that comes back within 3 s is a **nod**; staying down > 2 s is **droop** | Droop |
@@ -96,8 +96,15 @@ Open `http://<pi-address>:8080/#dev` from a laptop on the same network.
 "Closed" is measured against the driver's own open-eye EAR (85th percentile of
 the last minute), so it adapts to each face without a calibration step.
 
-**Yaw and pitch** are shown relative to the **road pose**: the median of the
-first seconds with a face, or the **Calibrate** button.
+**Calibration.** Yaw, pitch and the iris position are all shown relative to
+the **road pose**: what the driver looks like while looking at the road.
+- It's learned automatically in the first few seconds with a face, or again
+  when you press **Calibrate** (in the dev view's Head pose group, or on the
+  driver view).
+- Only frames with the **eyes open** are used, so a head that droops while
+  the eyes close never becomes the "normal" pose.
+- The dev view shows the progress ("calibrating 40 %: look at the road with
+  your eyes open"), then "calibrated: head + eyes".
 
 EAR P1–P6 use MediaPipe landmarks:
 

@@ -124,6 +124,8 @@ display:flex;align-items:center;gap:6px;color:var(--muted);user-select:none}
 /* clusters */
 .cl{padding:12px 0;border-top:1px solid var(--line)}.cl:first-child{border-top:0;padding-top:2px}
 .cl-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:8px}
+.calbtn{margin-left:auto;font-size:11px;padding:4px 10px;border-radius:8px;border:1px solid #6b3a44;background:transparent;color:var(--ink)}
+.calbtn:hover{background:#7d1d2c}
 .cl-h small{font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted);font-size:11.5px}
 .sg{display:grid;grid-template-columns:118px 1fr auto;align-items:center;gap:10px;padding:5px 0}
 .sg .n{font-size:13px;color:var(--ink)}.sg .n small{display:block;color:var(--muted);font-size:11px}
@@ -367,7 +369,8 @@ body.dev .bbar{display:block}
     <img class="zoomimg" id="zoomimg" alt="Eye close-ups with P1-P6">
    </div>
    <div class="cl">
-    <div class="cl-h"><span class="dot d-head"></span>Head pose <small>from the nose axis · relative to the road pose</small></div>
+    <div class="cl-h"><span class="dot d-head"></span>Head pose <small>from the nose axis · relative to the road pose</small>
+     <button class="calbtn" id="dv-calbtn" onclick="fetch('/calibrate',{method:'POST'})">Calibrate</button></div>
     <div class="twocol">
      <svg class="viz" id="xybox" viewBox="0 0 200 150"></svg>
      <div>
@@ -607,7 +610,7 @@ function mbar(id,frac){$(id).style.width=Math.max(0,Math.min(100,frac*100))+"%"}
 function drawGaze(p,f){const W=200,H=120,cx=100,cy=60,sx=100/50,sy=60/40;
  const gx=(p.yaw??0)+(f.gaze_x??0)*60,gy=(p.pitch??0);
  const x=Math.max(6,Math.min(W-6,cx+gx*sx)),y=Math.max(6,Math.min(H-6,cy+gy*sy));
- const off=p.attention==="off"||f.gaze_off;
+ const off=p.attention==="off_road"||f.gaze_off;
  $("gazebox").innerHTML=`<rect x="${cx-30*sx}" y="${cy-20*sy}" width="${60*sx}" height="${40*sy}" rx="6" fill="rgba(126,226,160,.07)" stroke="#2f6b45" stroke-dasharray="4 3"/>
  <text x="${cx}" y="${cy-20*sy-5}" fill="#6f9c80" font-size="9" text-anchor="middle">ROAD</text>
  <line x1="${cx}" y1="4" x2="${cx}" y2="${H-4}" stroke="#2c1f23"/><line x1="4" y1="${cy}" x2="${W-4}" y2="${cy}" stroke="#2c1f23"/>
@@ -641,14 +644,18 @@ async function devTick(){if(!devOn)return;let s;
  const tr=(f.ear_terms||{}).r;$("dv-f-ear").innerHTML=tr?`right eye: (|P2−P6| + |P3−P5|) / 2|P1−P4| = (${tr[0].toFixed(1)} + ${tr[1].toFixed(1)}) / (2·${tr[2].toFixed(1)}) = <b>${n2(f.ear_r,3)}</b>`:"EAR = (|P2−P6| + |P3−P5|) / 2|P1−P4|";
  mbar("dv-b-blink",(f.perclos??0)/0.3);$("dv-v-blink").innerHTML=(f.blink_rate==null?"--":Math.round(f.blink_rate))+"<small>/min</small>";
  $("dv-s-blink").textContent=`PERCLOS ${f.perclos==null?"warming up":Math.round(f.perclos*100)+"%"} · mean ${fx(f.mean_blink_ms,0)} ms · long closures ${f.long_closures??0}`;
- const off=p.attention==="off"||f.gaze_off;$("dv-v-gaze").textContent=!f.found?"NO FACE":off?"OFF ROAD":"ON ROAD";$("dv-v-gaze").className="pill2 "+(!f.found?"mid":off?"off":"on");
- $("dv-s-gaze").textContent=`iris ${sgn(f.gaze_x,2)} · off ${n2(f.gaze_off_s,1)} s · ${p.glances??0} glances > 2 s`;
+ const off=p.attention==="off_road"||f.gaze_off;$("dv-v-gaze").textContent=!f.found?"NO FACE":f.eyes_closed?"EYES CLOSED · OFF ROAD":off?"OFF ROAD":"ON ROAD";$("dv-v-gaze").className="pill2 "+(!f.found?"mid":off?"off":"on");
+ $("dv-s-gaze").textContent=(f.gaze_reason?f.gaze_reason+" · ":"")+(p.attention==="off_road"&&!f.gaze_reason?"head turned away · ":"")+
+  `iris ${sgn(f.gaze_x,2)}${f.gaze_calibrated?"":" (calibrating)"} · off ${n2(f.gaze_off_s,1)} s · ${p.glances??0} glances > 2 s`;
  drawGaze(p,f);
  // head
  $("dv-v-yaw").innerHTML=sgn(p.yaw)+"<small>°</small>";$("dv-v-pitch").innerHTML=sgn(p.pitch)+"<small>°</small>";$("dv-v-roll").innerHTML=sgn(p.roll)+"<small>°</small>";
  $("dv-yawdir").textContent=p.yaw==null?"left / right":Math.abs(p.yaw)<5?"straight ahead":p.yaw>0?"turned right":"turned left";
  $("dv-pitchdir").textContent=p.pitch==null?"up / down":Math.abs(p.pitch)<5?"level":p.pitch>0?"looking down":"looking up";
- $("dv-s-head").textContent=`Nods in the last minute ${f.nods??0} · droop ${n2(f.droop_s,1)} s · ${p.calibrated?"calibrated to the road pose":"calibrating the road pose…"}`;
+ const calP=Math.min(p.calib_progress??0,f.gaze_calib_progress??1),calOk=p.calibrated&&f.gaze_calibrated!==false;
+ $("dv-s-head").textContent=`Nods in the last minute ${f.nods??0} · droop ${n2(f.droop_s,1)} s · `+
+  (calOk?"calibrated: head + eyes":`calibrating ${Math.round(calP*100)}%: look at the road with your eyes open`);
+ $("dv-calbtn").textContent=calOk?"Calibrate":"Calibrating…";
  drawXY(p,f);
  // mouth
  mbar("dv-b-mar",(f.mar??0)/0.8);$("dv-v-mar").innerHTML=n2(f.mar)+"<small>MAR</small>";

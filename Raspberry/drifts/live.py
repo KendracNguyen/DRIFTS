@@ -191,6 +191,8 @@ class Pipeline:
     def recalibrate(self) -> None:
         """Driver looks at the road; the next ~3 s become the neutral pose."""
         self.cal.restart(self.args.calib_frames)
+        if hasattr(self.camera, "calibrate"):
+            self.camera.calibrate(self.args.calib_frames)
 
     def _update_pose(self, now: float) -> None:
         if self.face_on:
@@ -223,11 +225,14 @@ class Pipeline:
         raw = (HeadPose(found=True, yaw=f["yaw"], pitch=f["pitch"], roll=f["roll"], quality=1.0)
                if f.get("found") and f.get("yaw") is not None else None)
         if raw is not None and not getattr(self.camera, "profile_loaded", False):
-            self.cal.add(raw)
+            # Only learn the road pose from frames with the eyes open: a head
+            # that droops while the eyes close must not become "normal".
+            if f.get("eye_state", "open") == "open":
+                self.cal.add(raw)
             raw = self.cal.apply(raw)
         calibrated = getattr(self.camera, "profile_loaded", False) or self.cal.done
         gd = f.get("gaze_dev")
-        gaze_off = gd is not None and gd > self.args.gaze_dev
+        gaze_off = (gd is not None and gd > self.args.gaze_dev) or bool(f.get("eyes_closed"))
         state = self.attn.update(now, raw or HeadPose(found=False), gaze_off=gaze_off)
         prog = 1.0 if calibrated else len(self.cal._y) / max(1, self.cal.auto_samples)
         self.pose.update(found=bool(raw), yaw=raw.yaw if raw else None, pitch=raw.pitch if raw else None,
