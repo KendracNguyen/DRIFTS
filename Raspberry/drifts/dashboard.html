@@ -186,8 +186,6 @@ color:#fff;font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px}
 .pts .none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#C9B9BE;font-size:13px}
 .raw{font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;background:#141015;color:#E9DDE0;border-radius:12px;padding:10px 12px;
 white-space:pre-wrap;word-break:break-all;margin:0}
-.fact{display:flex;gap:10px;align-items:flex-start;padding:10px 16px;border-top:1px solid var(--line);font-size:13.5px}
-.fact:first-child{border-top:0}.fact .i{color:var(--green-ink);display:flex;margin-top:1px}.fact .i.warn{color:var(--yellow-ink)}
 .big0{font-size:22px;font-weight:700;color:var(--green-ink)}
 /* bottom navigation */
 nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:#fff;
@@ -488,13 +486,6 @@ nav a.on{color:var(--maroon);font-weight:700}
   <div class="row"><span class="i" data-i="cal"></span><span class="l">Video or photos saved</span><span class="v"><span class="big0" id="pv-saved">0</span></span></div>
   <div class="row"><span class="i" data-i="wifi"></span><span class="l">Uploads to the internet</span><span class="v"><span class="big0">0</span></span></div>
   <div class="row"><span class="i" data-i="monitor"></span><span class="l">Live preview</span><span class="v" id="pv-preview">--</span></div>
- </div>
- <div class="card" style="margin-top:12px">
-  <div class="fact"><span class="i" data-i="check" data-s="18"></span><span>No video or photos are stored. Frames live in memory for a fraction of a second.</span></div>
-  <div class="fact"><span class="i" data-i="check" data-s="18"></span><span>No face recognition: DRIFTS measures eyes, mouth and head angle, not who you are.</span></div>
-  <div class="fact"><span class="i" data-i="check" data-s="18"></span><span>No cloud. Everything runs on the Pi in the car. The preview only goes to a phone on the car's own Wi-Fi while the page is open.</span></div>
-  <div class="fact"><span class="i" data-i="check" data-s="18"></span><span>What is kept: your alertness score per drive (Trip History) and, if you calibrate, your measured eye and head ranges. Numbers only.</span></div>
-  <div class="fact"><span class="i warn" data-i="warn" data-s="18"></span><span id="pv-train">Training Capture (Settings) is the one exception: it saves photos for teaching the eye model, only when you press its buttons.</span></div>
  </div>
  <div class="card" style="margin-top:12px">
   <div class="row"><span class="l">Show camera preview on Home<br><small style="color:var(--muted);font-weight:400">Off: Home shows the points only, and no video is sent at all</small></span>
@@ -842,8 +833,6 @@ async function privacyTick(){const onPage=$("t-privacy").classList.contains("on"
  $("pv-sent").textContent=(pv.sent||[]).length?pv.sent.slice(-6).map(x=>`${tf(x.t)}  ${x.msg}`).join("\n"):"(nothing sent yet)";
  $("pv-frames").textContent=pv.frames_analysed.toLocaleString();$("pv-saved").textContent=pv.frames_saved;
  $("pv-saved").style.color=pv.frames_saved?"var(--yellow-ink)":"";
- $("pv-train").textContent=pv.frames_saved?`Training Capture saved ${pv.frames_saved} photo(s) to ${pv.saved_dir}. It only saves when its buttons are pressed.`:
-  "Training Capture (Settings) is the one exception: it saves photos for teaching the eye model, only when you press its buttons. Nothing saved so far.";
  $("pv-preview").textContent=pv.preview_open?"open on a phone now":"off (no video sent)"}
 setInterval(privacyTick,500);
 setInterval(tick,500);tick();
