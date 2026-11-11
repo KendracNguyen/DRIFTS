@@ -1,4 +1,4 @@
-"""Guided calibration and accuracy test for the face mesh (dev view).
+"""Guided calibration and accuracy test for the face mesh (phone app: Settings -> Calibration).
 
 Calibration: nine poses, each held for 2 s:
     eyes closed, eyes open, mouth closed, mouth open, left, right, up, down, forward
@@ -283,7 +283,7 @@ class Guided:
                 "overall": None if tot == 0 else round(hit / tot, 3)}
 
     def snapshot(self, now: float, face: Optional[dict] = None) -> dict:
-        """What the dev view's calibration strip shows."""
+        """What the phone app's calibration page shows."""
         steps = self.steps
         cur = steps[self.index] if self.active else None
         hold = 0.0 if self.hold_since is None else min(1.0, (now - self.hold_since) / self.hold_s)

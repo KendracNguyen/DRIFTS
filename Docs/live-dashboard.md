@@ -12,8 +12,9 @@ The eye score is sent to the ESP32 as `EYE:<n>` every 2 s, so closing your
 eyes in front of the camera moves the real alert score and alert outputs.
 
 **Dev view (all eight face signals).** Start with `--face mesh` and turn on
-**Settings → Developer Mode** (or open `#dev`): landmarks, EAR P1–P6, the nose axis,
-glasses detection and every signal charted live. See [dev-view.md](dev-view.md).
+the **"Worried about what the camera is tracking?"** panel on Home: the 478
+face points, the raw numbers and every message to the ESP32, live. See
+[face-signals.md](face-signals.md) and [privacy-and-data.md](privacy-and-data.md).
 
 ```
 camera ──► eye tracker ──► PERCLOS ──► EYE:<n> ──► ESP32 ──► score, buzzer, motors
@@ -40,7 +41,7 @@ or red** by the ESP32's level, with the same words as the Whisplay LCD
 | **History** | **Trip**: alertness for this drive and the Trip History list. **Trends**: trips recorded, average alertness, alerts per trip; eye score, head yaw and RPM charts |
 | **Devices** | ESP32, Raspberry Pi, driver camera, LCD display, vehicle OBD: Online / Offline badges, tap a row for details; RPM / speed / throttle |
 | **AI** | Driver AI Assistant (preview): Tap to talk, quick actions (Check Alertness, Find Rest Stop, Explain My Score, Emergency Contacts) and "Ask DRIFTS". Answers come from DRIFTS's own measurements; voice input and a language model come later. Emergency Assistance and the SOS screen |
-| **Settings** | Driver profile, **Calibration** (1. Quick: road pose in 3 s; 2. Create profile: the 9-pose long calibration and the accuracy test), Emergency Contacts, alerts & interventions, Wi-Fi, display, training capture, Developer Mode (opens `/dev`) |
+| **Settings** | Driver profile, **Calibration** (1. Quick: road pose in 3 s; 2. Create profile: the 9-pose long calibration and the accuracy test), Emergency Contacts, alerts & interventions, Wi-Fi, display, training capture |
 
 **Placeholders, honestly labelled:**
 - Rest-stop routing, Share My Location and Auto-Notify need the phone's location or a messaging service. They show PLACEHOLDER / PLANNED and never show made-up places or results.

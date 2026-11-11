@@ -89,7 +89,7 @@ refined. Decisions so far (Nov 4 2026):
 ## Before the symposium (checklist)
 - [ ] Reserve the laptop's IP on the hotspot; print the QR sheet; test both
   codes on an iPhone and an Android phone.
-- [ ] Load test: 15+ phones watching for 10 minutes. The presenter's dev view
+- [ ] Load test: 15+ phones watching for 10 minutes. The presenter's screen
   must stay smooth, and the hotspot's admin page shows the load.
 - [ ] Check from a phone that every control is refused (403) and the page shows "View only".
 - [ ] Put the sign out; check the camera framing.
