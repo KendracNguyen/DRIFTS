@@ -37,11 +37,11 @@ or red** by the ESP32's level, with the same words as the Whisplay LCD
 
 | Tab | Shows |
 | --- | --- |
-| **Home** | "Welcome, Kendra" (the profile name), the alertness ring and status, Current Status (eyes, head pose, blink rate, PERCLOS), the live camera, **Active Interventions** (alert buzzer, seat vibration, spoken warning, voice confirm), **Nearest Rest Stop** (placeholder until GPS) |
+| **Home** | "Welcome, Kendra" (the profile name), the alertness ring with the status beside it (eyes, head, blinks, PERCLOS), the live camera with a light outline of what is measured (face, brows, eyes green open / red closed, lips, a head-direction arrow when you look away), "Worried about what the camera is tracking?", **Active Interventions** (alert buzzer, seat vibration, spoken warning, voice confirm), **Nearest Rest Stop** (placeholder until GPS) |
 | **History** | **Trip**: alertness for this drive and the Trip History list. **Trends**: trips recorded, average alertness, alerts per trip; eye score, head yaw and RPM charts |
 | **Devices** | ESP32, Raspberry Pi, driver camera, LCD display, vehicle OBD: Online / Offline badges, tap a row for details; RPM / speed / throttle |
-| **AI** | Driver AI Assistant (preview): Tap to talk, quick actions (Check Alertness, Find Rest Stop, Explain My Score, Emergency Contacts) and "Ask DRIFTS". Answers come from DRIFTS's own measurements; voice input and a language model come later. Emergency Assistance and the SOS screen |
-| **Settings** | Driver profile, **Calibration** (1. Quick: road pose in 3 s; 2. Create profile: the 9-pose long calibration and the accuracy test), Emergency Contacts, alerts & interventions, Wi-Fi, display, training capture |
+| **Chat button** (bottom-right corner, every page) | Driver AI Assistant (preview), no longer a tab: Tap to talk, quick actions (Check Alertness, Find Rest Stop, Explain My Score, Emergency Contacts) and "Ask DRIFTS". Answers come from DRIFTS's own measurements; voice input and a language model come later. Emergency Assistance and the SOS screen |
+| **Settings** | Driver profile, **Calibration** (1. Quick: road pose in 3 s; 2. Create profile: the 9-pose long calibration and the accuracy test), Emergency Contacts, alerts & interventions, Wi-Fi, display, training capture. **Test Alerts**: Buzzer and Vibration buttons run the ESP32's buzzer or motors for 2 s (`POST /test?what=buzzer|vibration` → `TEST:0:2000` / `TEST:2000:0`) |
 
 **Placeholders, honestly labelled:**
 - Rest-stop routing, Share My Location and Auto-Notify need the phone's location or a messaging service. They show PLACEHOLDER / PLANNED and never show made-up places or results.
@@ -75,8 +75,10 @@ level; **STANDBY** = not reached.
   by hand; browsers block sound until you tap. Used for the no-hardware
   simulation; see [`buzzer-alerts.md`](buzzer-alerts.md).
 - **Test sound here**: one beep on this device.
-- **Beep ESP32 buzzer**: sends `BEEP` (firmware v15+), one 1 s beep on the
+- **Beep ESP32 buzzer** (Devices): sends `BEEP` (firmware v15+), one 1 s beep on the
   real buzzer.
+- **Settings → Test Alerts → Buzzer / Vibration**: 2 s of the real buzzer or
+  the 4 motors, through the ESP32's pin test (works over the wire or BLE).
 
 ## Tomorrow's demo: laptop setup (recommended)
 

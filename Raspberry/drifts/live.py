@@ -50,6 +50,7 @@ from drifts.perf import PerfMonitor, capability
 log = logging.getLogger("drifts.live")
 
 LABELS = {"open": "Open", "closed": "Closed", "drowsy": "Drowsy/Microsleep"}
+TESTS = {"buzzer": "TEST:0:2000", "vibration": "TEST:2000:0"}   # phone Settings: 2 s each
 
 
 class VideoSource:
@@ -293,87 +294,126 @@ class Pipeline:
                          gaze_off=gaze_off, people=getattr(self.camera, "people", 0),
                          inference_ms=getattr(self.camera, "inference_ms", None))
 
+    # ------------------------------------------------------------------ preview
+    # The phone's camera card. The numbers are on the page, so the picture only
+    # carries a light outline of what is measured: face, brows, eyes (green open,
+    # red closed), irises, lips (amber on a yawn) and a short head-direction
+    # arrow. No text, no banners.
+    _OK = (120, 210, 90)          # BGR: green
+    _BAD = (70, 70, 235)          # red
+    _WARN = (40, 180, 250)        # amber
+    _SOFT = (245, 240, 240)       # white
+
     def _draw_face(self, img, px, mirrored: bool) -> None:
-        """Eye and mouth outlines from the 478-point mesh (Pi 5 rig)."""
+        """A light outline from the 478-point mesh, drawn anti-aliased and blended."""
         import cv2
         import numpy as np
-        from drifts.face_mediapipe import EYE_CONTOURS, MOUTH_CONTOUR
-        if px is None:
+        from drifts.face_mediapipe import (BROWS, EYE_OUTLINES, FACE_OVAL, IRIS_CENTRES, LIPS_OUTER, NOSE_TIP)
+        if px is None or len(px) < 468:
             return
         w = img.shape[1]
-        def poly(idx, colour):
-            pts = np.array([[w - px[i][0] if mirrored else px[i][0], px[i][1]] for i in idx], np.int32)
-            cv2.polylines(img, [pts], True, colour, 1, cv2.LINE_AA)
+        P = np.array([[w - x if mirrored else x, y] for x, y in px], np.float32)
+        span = float(np.ptp(P[list(FACE_OVAL), 0])) or 1.0
+        t = max(1, int(round(span / 110)))                    # line weight follows face size
         f = self.camera.face
-        eye_col = (60, 60, 230) if f.get("eye_state") in ("closed", "closing") else (255, 200, 0)
-        for c in EYE_CONTOURS:
-            poly(c, eye_col)
-        poly(MOUTH_CONTOUR, (60, 60, 230) if f.get("yawning") else (200, 120, 255))
-        if f.get("night"):
-            cv2.putText(img, "NIGHT (IR)" + (" +CLAHE" if f.get("ir_enhanced") else ""), (10, 56),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (60, 200, 255), 1)
+        closed = f.get("eye_state") in ("closed", "closing") or bool(f.get("eyes_closed"))
+
+        def pts(idx):
+            return (P[list(idx)] * 4).astype(np.int32)        # 2 bits of sub-pixel precision
+
+        layer = img.copy()
+        cv2.polylines(layer, [pts(FACE_OVAL)], True, self._SOFT, t, cv2.LINE_AA, shift=2)
+        for br in BROWS:
+            cv2.polylines(layer, [pts(br)], False, self._SOFT, t, cv2.LINE_AA, shift=2)
+        cv2.addWeighted(layer, 0.35, img, 0.65, 0, img)       # face and brows: faint
+
+        eye = self._BAD if closed else self._OK
+        layer = img.copy()
+        for e in EYE_OUTLINES:
+            cv2.fillPoly(layer, [pts(e)], eye, cv2.LINE_AA, shift=2)
+        cv2.addWeighted(layer, 0.22, img, 0.78, 0, img)       # a tint inside each eye
+        for e in EYE_OUTLINES:
+            cv2.polylines(img, [pts(e)], True, eye, t, cv2.LINE_AA, shift=2)
+        if not closed and len(P) > max(IRIS_CENTRES):
+            r = max(2, int(span / 70))
+            for i in IRIS_CENTRES:
+                cv2.circle(img, tuple(int(v) for v in P[i]), r, self._SOFT, -1, cv2.LINE_AA)
+        layer = img.copy()
+        cv2.polylines(layer, [pts(LIPS_OUTER)], True, self._WARN if f.get("yawning") else self._SOFT, t,
+                      cv2.LINE_AA, shift=2)
+        cv2.addWeighted(layer, 0.7, img, 0.3, 0, img)
+        self._draw_heading(img, tuple(P[NOSE_TIP]), span * 0.35, mirrored, t + 1)
+
+    def _draw_heading(self, img, nose, length: float, mirrored: bool, thickness: int) -> None:
+        """A short arrow from the nose: where the head points. Green on the road, red off it."""
+        import cv2
+        import math
+        if self.pose["yaw"] is None or self.pose["profile"]:
+            return
+        dx = math.sin(math.radians(self.pose["yaw"])) * length
+        dx = dx if mirrored else -dx          # the driver's right shows on the image left
+        dy = math.sin(math.radians(self.pose["pitch"])) * length
+        if math.hypot(dx, dy) < length * 0.15:
+            return                            # looking ahead: no arrow, nothing to see
+        start = (int(nose[0]), int(nose[1]))
+        end = (int(nose[0] + dx), int(nose[1] + dy))
+        colour = self._OK if self.pose["attention"] == "on_road" else self._BAD
+        cv2.arrowedLine(img, start, end, colour, thickness, cv2.LINE_AA, tipLength=0.3)
 
     def _draw_pose(self, img, kps, mirrored: bool) -> None:
+        """Rigs with 5 keypoints and no mesh (AI Camera, sim): small eye dots + the arrow."""
         import cv2
-        if kps is None:
+        if kps is None or getattr(self.camera, "landmarks", None) is not None:
             return
         w = img.shape[1]
         pts = {}
-        for i, colour in ((0, (60, 200, 255)), (1, (255, 200, 0)), (2, (255, 200, 0)),
-                          (3, (200, 120, 255)), (4, (200, 120, 255))):
+        for i in range(5):
             x, y, c = float(kps[i][0]), float(kps[i][1]), float(kps[i][2])
-            if c < 0.3:
-                continue
-            x = w - x if mirrored else x
-            pts[i] = (int(x), int(y))
-            cv2.circle(img, pts[i], 4, colour, -1)
-        if 1 in pts and 2 in pts:
-            cv2.line(img, pts[1], pts[2], (255, 200, 0), 1)
-        if 0 in pts and self.pose["yaw"] is not None and not self.pose["profile"]:
-            import math
-            L = 70
-            dx = math.sin(math.radians(self.pose["yaw"])) * L
-            dx = dx if mirrored else -dx       # driver's right appears on the image left
-            dy = math.sin(math.radians(self.pose["pitch"])) * L
-            end = (int(pts[0][0] + dx), int(pts[0][1] + dy))
-            colour = (80, 200, 80) if self.pose["attention"] == "on_road" else (60, 60, 230)
-            cv2.arrowedLine(img, pts[0], end, colour, 3, tipLength=0.25)
-        y0 = img.shape[0] - 12
-        label = {"on_road": "ON ROAD", "off_road": f"OFF ROAD {self.pose['off_for']:.1f}s",
-                 "unknown": "NO HEAD POSE"}[self.pose["attention"]]
-        if not self.pose["calibrated"]:
-            label += "  (calibrating: look at the road)"
-        if self.args.pose == "sim":
-            cv2.putText(img, "SIMULATED HEAD (scripted keypoints)", (10, 56), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.55, (60, 200, 255), 1)
-        cv2.rectangle(img, (0, y0 - 22), (w, img.shape[0]), (0, 0, 0), -1)
-        cv2.putText(img, label, (10, y0), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                    (80, 200, 80) if self.pose["attention"] == "on_road" else (60, 60, 230), 2)
-        if self.pose["yaw"] is not None and not self.pose["profile"]:
-            cv2.putText(img, f"Y {self.pose['yaw']:+.0f}  P {self.pose['pitch']:+.0f}  R {self.pose['roll']:+.0f}",
-                        (w - 210, y0), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (230, 230, 230), 1)
+            if c >= 0.3:
+                pts[i] = (int(w - x if mirrored else x), int(y))
+        span = abs(pts[1][0] - pts[2][0]) * 2.5 if 1 in pts and 2 in pts else 120.0
+        for i in (1, 2):
+            if i in pts:
+                cv2.circle(img, pts[i], max(3, int(span / 40)), self._OK, -1, cv2.LINE_AA)
+        if 0 in pts:
+            self._draw_heading(img, pts[0], span * 0.35, mirrored, max(2, int(span / 90)))
 
     def request_capture(self, label: str, n: int) -> None:
         with self._lock:
             self._burst += [label] * max(1, min(n, 50))
 
     def _annotate(self, frame, obs, perclos, score, closed_for):
+        """Eye-tracker rigs (no mesh): thin face and eye boxes. The numbers are on the page."""
         import cv2
         img = frame.copy()
-        colour = {OPEN: (80, 200, 80), CLOSED: (60, 60, 230), NO_FACE: (0, 200, 230)}[obs.state]
+        if self.face_on:
+            return img
+        colour = {OPEN: self._OK, CLOSED: self._BAD, NO_FACE: self._WARN}[obs.state]
         if obs.face:
             x, y, w, h = obs.face
-            cv2.rectangle(img, (x, y), (x + w, y + h), colour, 2)
+            cv2.rectangle(img, (x, y), (x + w, y + h), colour, 2, cv2.LINE_AA)
         for x, y, w, h in obs.eyes:
-            cv2.rectangle(img, (x, y), (x + w, y + h), (255, 200, 0), 1)
-        banner = {OPEN: "EYES OPEN", CLOSED: "EYES CLOSED", NO_FACE: "NO FACE"}[obs.state]
-        if obs.state == CLOSED and closed_for >= 1.0:
-            banner += f"  {closed_for:.1f}s"
-        cv2.rectangle(img, (0, 0), (img.shape[1], 34), (0, 0, 0), -1)
-        cv2.putText(img, banner, (10, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.7, colour, 2)
-        info = f"PERCLOS {'--' if perclos is None else f'{perclos*100:.0f}%'}  eye {'--' if score is None else score}"
-        cv2.putText(img, info, (img.shape[1] - 260, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (230, 230, 230), 1)
+            cv2.rectangle(img, (x, y), (x + w, y + h), self._SOFT, 1, cv2.LINE_AA)
         return img
+
+    def _preview_crop(self, img):
+        """Crop the preview to the phone card's 16:10, centred on the face (smoothed)."""
+        h, w = img.shape[:2]
+        px = getattr(self.camera, "landmarks", None) if self.face_on else None
+        if px is not None and len(px) > 1:
+            cx = sum(p[0] for p in px) / len(px)
+            cx = w - cx if self.args.mirror else cx
+            cy = sum(p[1] for p in px) / len(px)
+            prev = getattr(self, "_crop_c", None)
+            self._crop_c = (cx, cy) if prev is None else (prev[0] * 0.8 + cx * 0.2, prev[1] * 0.8 + cy * 0.2)
+        cx, cy = getattr(self, "_crop_c", None) or (w / 2, h / 2)
+        if w / h > 1.6:                                       # wider than the card: trim the sides
+            cw, ch = int(h * 1.6), h
+        else:                                                 # taller: trim top and bottom
+            cw, ch = w, int(w / 1.6)
+        x0 = int(min(max(cx - cw / 2, 0), w - cw))
+        y0 = int(min(max(cy - ch / 2, 0), h - ch))
+        return img[y0:y0 + ch, x0:x0 + cw]
 
     def _run(self) -> None:
         try:
@@ -460,7 +500,7 @@ class Pipeline:
                     self._perf, self._perf_t = self.perf.snapshot(), now
                 self.frames_analysed += 1
                 # The preview is only encoded while a phone has it open (/stream.mjpg).
-                jpeg = (cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 70])[1].tobytes()
+                jpeg = (cv2.imencode(".jpg", self._preview_crop(img), [cv2.IMWRITE_JPEG_QUALITY, 75])[1].tobytes()
                         if now < self.stream_until else None)
                 if self.face_on and hasattr(self.camera, "apply_profile"):
                     self._guided_step(now)
@@ -659,6 +699,11 @@ def make_handler(pipe: Pipeline):
                 self._send(200, b"ok", "text/plain")
             elif u.path == "/beep":
                 pipe.link.send_command("BEEP")      # ESP32 firmware v15+: one 1 s beep
+                self._send(200, b"ok", "text/plain")
+            elif u.path == "/test" and q.get("what", [""])[0] in TESTS:
+                cmd = TESTS[q["what"][0]]           # the ESP32's pin test: TEST:<motor ms>:<buzzer ms>
+                pipe.link.send_command(cmd)
+                pipe.sent_log.append((round(time.time(), 1), cmd))
                 self._send(200, b"ok", "text/plain")
             elif u.path == "/glasses" and hasattr(pipe.camera, "set_glasses_mode"):
                 pipe.camera.set_glasses_mode(q.get("mode", ["auto"])[0])

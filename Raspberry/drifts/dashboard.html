@@ -31,20 +31,26 @@ header h1{margin:0;font-size:22px;line-height:1.15;font-weight:700;letter-spacin
 .devbtn{display:none}
 .demo{font-size:9.5px;font-weight:700;letter-spacing:.6px;background:#fff;color:var(--maroon);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:3px}
 /* layout */
-main{flex:1;padding:16px 16px 96px}
+main{flex:1;padding:16px 16px 150px}
 h2{font-size:16px;font-weight:700;color:var(--maroon);margin:18px 2px 8px;display:flex;align-items:center;justify-content:space-between}
 h2:first-child{margin-top:2px}
 h2 a{font-size:12px;font-weight:600;color:var(--maroon);cursor:pointer;display:flex;align-items:center;gap:2px}
 .card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);border:1px solid var(--line)}
 .pad{padding:14px 16px}
 /* score card */
-.score{display:flex;align-items:center;gap:18px;padding:16px 18px}
+.score{display:flex;align-items:center;gap:14px;padding:16px 16px 14px}
 .gauge{position:relative;width:118px;height:118px;flex:none}
 .gauge svg{transform:rotate(-90deg);display:block}
 .gauge .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .gauge .c b{font-size:40px;font-weight:700;line-height:1;color:var(--maroon-dk);letter-spacing:-.5px}
 .gauge .c small{font-size:13.5px;color:var(--ink);margin-top:2px}
-.st{min-width:0}
+.st{min-width:0;flex:1}
+.mini{margin-top:9px;border-top:1px solid var(--line);padding-top:4px}
+.mini>div{display:flex;align-items:center;gap:7px;min-height:25px;font-size:12.5px}
+.mini .i{color:var(--muted);display:flex;flex:none}
+.mini .l{color:var(--muted);flex:1;white-space:nowrap}
+.mini .v{font-weight:700;color:var(--ink);white-space:nowrap}
+.mini .v.bad{color:var(--red-ink)}
 .st .t{display:flex;align-items:center;gap:7px;font-size:17px;font-weight:700;line-height:1.25}
 .st .s{font-size:13.5px;color:var(--ink);margin-top:3px}
 .st .s2{font-size:12px;color:var(--muted);margin-top:6px}
@@ -189,10 +195,22 @@ white-space:pre-wrap;word-break:break-all;margin:0}
 .big0{font-size:22px;font-weight:700;color:var(--green-ink)}
 /* bottom navigation */
 nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:#fff;
-border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:6}
+border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:6}
 nav a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:500;color:#7A7A80;text-decoration:none;cursor:pointer}
 nav a.on{color:var(--maroon);font-weight:700}
 .tab{display:none}.tab.on{display:block}
+/* driver assistance: a chat button in the corner instead of a tab */
+.fab{position:fixed;right:max(16px,calc(50% - 215px + 16px));bottom:calc(76px + env(safe-area-inset-bottom));width:56px;height:56px;
+border-radius:50%;border:0;background:var(--maroon);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;
+box-shadow:0 6px 18px rgba(122,21,40,.35),0 2px 4px rgba(0,0,0,.12);z-index:7}
+.fab:active{transform:scale(.95)}
+/* Settings: test the ESP32's outputs */
+.tests{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tests button{font:inherit;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 12px;display:flex;align-items:center;
+gap:10px;text-align:left;cursor:pointer;box-shadow:var(--shadow);color:var(--ink)}
+.tests button:active{transform:scale(.98)}.tests button:disabled{opacity:.7}
+.tests .ib{width:38px;height:38px;border-radius:11px;background:var(--blush);color:var(--maroon);display:flex;align-items:center;justify-content:center;flex:none}
+.tests b{display:block;font-size:14px}.tests small{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
 </style>
 </head>
 <body><div class="app">
@@ -217,15 +235,13 @@ nav a.on{color:var(--maroon);font-weight:700}
      stroke-dasharray="314.16" stroke-dashoffset="314.16" style="transition:stroke-dashoffset .5s,stroke .3s"/></svg>
    <div class="c"><b id="ringv">--</b><small>/ 100</small></div></div>
   <div class="st"><div class="t"><span id="sticon"></span><span id="sttitle">No score</span></div>
-   <div class="s" id="stsub">Waiting for the ESP32</div><div class="s2" id="stnote"></div></div>
- </div>
-
- <h2>Current Status</h2>
- <div class="card">
-  <div class="row"><span class="i" data-i="eye"></span><span class="l">Eyes</span><span class="v" id="h-eyes">--</span></div>
-  <div class="row"><span class="i" data-i="crosshair"></span><span class="l">Head Pose</span><span class="v" id="h-pose">--</span></div>
-  <div class="row"><span class="i" data-i="activity"></span><span class="l">Blink Rate</span><span class="v" id="h-blink">--</span></div>
-  <div class="row"><span class="i" data-i="wheel"></span><span class="l">PERCLOS</span><span class="v" id="h-perclos">--</span></div>
+   <div class="s" id="stsub">Waiting for the ESP32</div>
+   <div class="mini">
+    <div><span class="i" data-i="eye" data-s="15"></span><span class="l">Eyes</span><span class="v" id="h-eyes">--</span></div>
+    <div><span class="i" data-i="crosshair" data-s="15"></span><span class="l">Head</span><span class="v" id="h-pose">--</span></div>
+    <div><span class="i" data-i="activity" data-s="15"></span><span class="l">Blinks</span><span class="v" id="h-blink">--</span></div>
+    <div><span class="i" data-i="wheel" data-s="15"></span><span class="l">PERCLOS</span><span class="v" id="h-perclos">--</span></div>
+   </div><div class="s2" id="stnote"></div></div>
  </div>
 
  <h2 style="visibility:hidden;margin:6px 0 0;height:4px"></h2>
@@ -233,7 +249,7 @@ nav a.on{color:var(--maroon);font-weight:700}
   <div class="msg" id="feedmsg" style="display:none"></div></div>
  <div class="pts" id="ptscard" style="display:none"><canvas id="pts-home"></canvas><span class="lbl2">Camera preview off · points only</span><span class="none" id="pts-home-none">No face in view</span></div>
  <div class="card trust" onclick="show('privacy')"><span class="ib" data-i="shield" data-s="22"></span>
-  <span style="flex:1"><b>Worried about what the camera is tracking?</b><small>It measures your face as a few numbers. No video or photos are recorded. See exactly what it sees.</small></span>
+  <span style="flex:1"><b>Worried about what the camera is tracking?</b><small>It measures your face for raw data. No video or pictures are recorded. See what it sees.</small></span>
   <span class="chev" data-i="chev"></span></div>
 
  <h2>Active Interventions</h2>
@@ -311,6 +327,12 @@ nav a.on{color:var(--maroon);font-weight:700}
   <div class="set" data-go="s-display"><span class="i" data-i="sliders" data-s="22"></span><span class="t"><b>Display</b><small>Brightness · Theme</small></span><span class="chev" data-i="chev"></span></div>
   <div class="set" data-go="s-train"><span class="i" data-i="camera" data-s="22"></span><span class="t"><b>Training Capture</b><small>Eye-model frames</small></span><span class="chev" data-i="chev"></span></div>
  </div>
+ <h2>Test Alerts</h2>
+ <div class="tests">
+  <button onclick="testEsp('buzzer',this)"><span class="ib" data-i="bell" data-s="20"></span><span><b>Buzzer</b><small>Beeps for 2 s</small></span></button>
+  <button onclick="testEsp('vibration',this)"><span class="ib" data-i="vibrate" data-s="20"></span><span><b>Vibration</b><small>Motors for 2 s</small></span></button>
+ </div>
+ <div class="note" style="margin:8px 4px">Runs on the ESP32 in the car. Stops by itself.</div>
 </section>
 
 <section class="tab" id="t-s-profile">
@@ -377,7 +399,7 @@ nav a.on{color:var(--maroon);font-weight:700}
   <div class="row"><span class="l">Speak alerts<br><small style="color:var(--muted);font-weight:400">Voice on each level change</small></span>
    <label class="sw"><input type="checkbox" id="voice" checked><span></span></label></div>
   <div class="pad"><div class="btns" style="grid-template-columns:1fr 1fr"><button class="b" onclick="testLocal();setTimeout(()=>speak('LEVEL1'),1100)">Test sound here</button>
-   <button class="b" onclick="beepEsp()">Beep ESP32 buzzer</button></div></div>
+   <button class="b" onclick="show('settings')">Test buzzer &amp; motors</button></div></div>
  </div>
 </section>
 
@@ -411,6 +433,7 @@ nav a.on{color:var(--maroon);font-weight:700}
 <!-- ============================== AI ASSISTANT ============================== -->
 <section class="tab" id="t-ai">
  <div id="ai-home">
+  <div class="back" onclick="show('home')"><span data-i="chevl" data-s="16"></span>Home</div>
   <div class="aihero"><span data-i="sparkle" data-s="40" style="color:var(--maroon);display:inline-flex"></span>
    <h1>Driver AI Assistant <span class="ph">PREVIEW</span></h1><p>Your in-drive co-pilot for alertness, insights, and safer decisions.</p>
    <button class="mic" onclick="aiGo('listen')" aria-label="Tap to talk"><span data-i="mic" data-s="44"></span></button>
@@ -497,9 +520,9 @@ nav a.on{color:var(--maroon);font-weight:700}
  <a class="on" data-t="home"><span data-i="home" data-s="22"></span>Home</a>
  <a data-t="history"><span data-i="activity" data-s="22"></span>History</a>
  <a data-t="devices"><span data-i="radio" data-s="22"></span>Devices</a>
- <a data-t="ai"><span data-i="sparkle" data-s="22"></span>AI</a>
  <a data-t="settings"><span data-i="gear" data-s="22"></span>Settings</a>
 </nav>
+<button class="fab" id="fab" onclick="aiGo('home');show('ai')" aria-label="Driver assistance"><span data-i="chat" data-s="26"></span></button>
 </div>
 
 <script>
@@ -534,6 +557,7 @@ const IC={
  warning:'<path d="M12 3 2 20.5h20z" fill="currentColor" stroke="none"/><path d="M12 9.5v5" stroke="#fff" stroke-width="2.4"/><circle cx="12" cy="17.4" r="1.3" fill="#fff" stroke="none"/>',
  alert:'<circle cx="12" cy="12" r="10" fill="currentColor" stroke="none"/><path d="M12 7v6.5" stroke="#fff" stroke-width="2.4"/><circle cx="12" cy="16.8" r="1.3" fill="#fff" stroke="none"/>',
  dash:'<circle cx="12" cy="12" r="9.5"/><path d="M7.5 12h9"/>',
+ chat:'<path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7.5a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 3.8v-3.8h0A1.5 1.5 0 0 1 4 15z"/><path d="M8.5 9h7M8.5 12h4.5"/>',
  sparkle:'<path d="M12 3c.6 4.2 2.8 6.4 7 7-4.2.6-6.4 2.8-7 7-.6-4.2-2.8-6.4-7-7 4.2-.6 6.4-2.8 7-7z"/><path d="M19 2.5v3M17.5 4h3"/>',
  phone:'<path d="M5 3h3.5l1.6 4.2-2.1 1.5a12 12 0 0 0 7.3 7.3l1.5-2.1L21 15.5V19a2 2 0 0 1-2.2 2A17 17 0 0 1 3 5.2 2 2 0 0 1 5 3z"/>',
  pin:'<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
@@ -559,6 +583,11 @@ function tone(ms){const a=audio();if(!a)return;const o=a.createOscillator(),g=a.
 function buzz(ms){if(navigator.vibrate)navigator.vibrate(ms)}
 function testLocal(){tone(1000);buzz(1000)}
 async function beepEsp(){try{await fetch("/beep",{method:"POST"})}catch(e){}}
+let espLive=false;
+async function testEsp(what,btn){const sm=btn.querySelector("small"),was=sm.textContent;let ok=false;
+ try{ok=(await fetch("/test?what="+what,{method:"POST"})).ok}catch(e){}
+ btn.disabled=true;sm.textContent=!ok?"Couldn't reach the Pi":espLive?"Running…":"Sent · ESP32 not connected";
+ setTimeout(()=>{sm.textContent=was;btn.disabled=false},2500)}
 // Spoken alerts, as the Pi Zero (Whisplay HAT) and Tokyo (Pi 5) speak them. Same
 // words as Voice/phrases.json (tests/test_dashboard_voice.py checks they match).
 const SAY={LEVEL1:"You seem tired. Consider taking a break soon.",
@@ -586,6 +615,7 @@ function show(name){const tab=$("t-"+name);if(!tab)return;
  const navName=name.startsWith("s-")?"settings":name;
  document.querySelectorAll("nav a").forEach(x=>x.classList.toggle("on",x.dataset.t===navName));
  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t===tab));
+ $("fab").style.display=name==="ai"?"none":"";
  history.replaceState(null,"","#"+name);window.scrollTo(0,0);if(name==="history")loadHistory()}
 document.querySelectorAll("nav a").forEach(a=>a.onclick=()=>show(a.dataset.t));
 document.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>show(el.dataset.go));
@@ -650,7 +680,7 @@ async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-s
  $("fw").textContent="fw "+(p.fw||"--");
  $("drive").textContent=dur(s.time-s.started);
  // score card: colour and words from drifts/ui_model.py (the same as the LCD)
- const sc=live?p.score:null;$("ringv").textContent=fx(sc);
+ espLive=!!live;const sc=live?p.score:null;$("ringv").textContent=fx(sc);
  $("arc").style.strokeDashoffset=314.16*(1-(sc==null?0:clamp(sc)/100));
  $("arc").style.stroke=ui.color||"#8E8E96";
  const titleCase=t=>t?t.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()):"";
