@@ -3,9 +3,19 @@
 #include "config.h"
 #include "line_buffer.h"
 
+#include <driver/gpio.h>
+
 PiUart PiWire;
 
 static LineBuffer<160> g_rx;
+
+static bool isPiMessage(const char *s) {
+    static const char *const WORDS[] = {"PING", "DROWSY", "NOT_DROWSY", "BEEP", "EYE:", "TEST:", "DRV:", "SCORE"};
+    for (const char *w : WORDS) {
+        if (strncasecmp(s, w, strlen(w)) == 0) return true;
+    }
+    return false;
+}
 
 void PiUart::init() {
     // The 1 Hz status line is ~250 bytes; a TX buffer this size means
@@ -13,6 +23,9 @@ void PiUart::init() {
     Serial1.setTxBufferSize(1024);
     Serial1.setRxBufferSize(512);
     Serial1.begin(PI_UART_BAUD, SERIAL_8N1, PI_UART_RX_PIN, PI_UART_TX_PIN);
+    // RX idles HIGH. With no Pi wired, a pull-up keeps the pin from floating
+    // and turning noise into bytes.
+    gpio_pullup_en((gpio_num_t)PI_UART_RX_PIN);
     Serial1.println("HELLO " DRIFTS_FW_VERSION);
     Serial.printf("[UART] Pi link on GPIO %d (TX) / %d (RX), %lu baud\n", PI_UART_TX_PIN, PI_UART_RX_PIN,
                   (unsigned long)PI_UART_BAUD);
@@ -23,6 +36,9 @@ void PiUart::service(uint32_t now_ms) {
     while (budget-- > 0 && Serial1.available() > 0) {
         if (!g_rx.push((char)Serial1.read())) continue;
         const char *line = g_rx.line();
+        // Only a real Pi message counts as "heard": noise on an unwired RX pin
+        // must not look like a Pi that went quiet (that would trip the fail-safe).
+        if (!isPiMessage(line)) continue;
         lastHeardMs_ = now_ms;
         if (!everHeard_ || !announced_) {
             Serial.println("[UART] Pi heard on the wired link");

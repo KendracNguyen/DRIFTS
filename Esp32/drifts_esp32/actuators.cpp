@@ -13,6 +13,10 @@ static bool testBuzzOn = false;
 static bool testBuzzDc = false;
 static uint32_t testMotorEnd = 0;
 static uint32_t testBuzzEnd = 0;
+// PATTERN test: the alert's on / off pulses for a set time, outside the alert
+// state machine (so the Pi fail-safe can't end it).
+static bool patternOn = false;
+static uint32_t patternEnd = 0;
 
 void setMotor(int duty) {
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
@@ -117,8 +121,19 @@ void startPinTest(uint32_t motorMs, uint32_t buzzerMs, bool buzzerDc) {
                   buzzerDc ? "DC: 11 HIGH, 18 LOW (silent)" : "5 kHz differential tone");
 }
 
+void startPatternTest(uint32_t ms, bool motors) {
+    stopAll();
+    patternOn = true;
+    patternEnd = millis() + ms;
+    startPulse(buzzPulse, DROWSY_BUZZ_HZ, DROWSY_BUZZ_ON_MS, DROWSY_BUZZ_OFF_MS, setBuzzer);
+    if (motors) startPulse(vibPulse, DROWSY_VIB_DUTY, DROWSY_VIB_ON_MS, DROWSY_VIB_OFF_MS, setMotor);
+    Serial.printf("[TEST] Pattern %lu s: buzzer %d ms on / %d ms off%s. STOP ends it\n",
+                  (unsigned long)(ms / 1000), DROWSY_BUZZ_ON_MS, DROWSY_BUZZ_OFF_MS,
+                  motors ? ", motors 500 / 300 ms" : "");
+}
+
 bool isPinTestActive() {
-    return testMotorOn || testBuzzOn;
+    return testMotorOn || testBuzzOn || patternOn;
 }
 
 void updateActuators() {
@@ -126,6 +141,7 @@ void updateActuators() {
     // Signed difference, so the comparison survives millis() wrapping.
     if (testMotorOn && (int32_t)(now - testMotorEnd) >= 0) endTestMotor();
     if (testBuzzOn && (int32_t)(now - testBuzzEnd) >= 0) endTestBuzzer();
+    if (patternOn && (int32_t)(now - patternEnd) >= 0) stopAll();
     updatePulse(vibPulse, setMotor);
     updatePulse(buzzPulse, setBuzzer);
     piezoUpdate();
@@ -143,6 +159,10 @@ void startAlert() {
 void stopAll() {
     endTestMotor();
     endTestBuzzer();
+    if (patternOn) {
+        patternOn = false;
+        Serial.println("[TEST] Pattern off");
+    }
     alertRunning = false;
     startPulse(vibPulse, 0, 0, 0, setMotor);
     startPulse(buzzPulse, 0, 0, 0, setBuzzer);

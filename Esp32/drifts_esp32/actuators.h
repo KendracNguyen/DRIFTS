@@ -27,3 +27,8 @@ bool isAlertActive();
 // or earlier test. Ends on its own; stopAll() and startAlert() also end it.
 void startPinTest(uint32_t motorMs, uint32_t buzzerMs, bool buzzerDc);
 bool isPinTestActive();
+
+// PATTERN[:s][:M] command: the alert's buzzer pulses (DROWSY_BUZZ_ON_MS /
+// _OFF_MS, 1 s / 1 s) for `ms`, plus the motor pulses when `motors`. A test:
+// the Pi fail-safe and the 20 s alert cap don't apply; STOP ends it.
+void startPatternTest(uint32_t ms, bool motors);
