@@ -4,7 +4,7 @@ glasses-aware fusion that turns them into one face score.
 Pure Python (math only), so all of it is unit-tested without a camera:
 tests/test_facesignals.py. drifts/facemesh.py feeds it from MediaPipe.
 
-Signals (the dashboard's dev view shows each one):
+Signals (the phone app's privacy panel shows the raw values):
   1-3  yaw / pitch / roll   head pose from MediaPipe's facial transformation
                             matrix: the "nose axis". Sign convention as
                             headpose.py: yaw + = driver turned to THEIR right,
@@ -23,7 +23,7 @@ drowsiness part d in 0..1, and the composite is their weighted sum, 0-100
 
 Glasses. EAR depends on six eyelid points; lenses (reflections, frames over
 the lid, refraction) make them less reliable. When glasses are detected (or
-switched on in the dev view), the weights move from the eyes to the nose
+switched in config), the weights move from the eyes to the nose
 axis: head nods, head drooping, head tilt (WEIGHTS vs WEIGHTS_GLASSES).
 """
 
@@ -59,7 +59,7 @@ class EarTerms:
 
 
 def ear_terms(px: Sequence, idx: Sequence[int]) -> Optional[EarTerms]:
-    """EAR with its three distances, for the dev view's worked formula."""
+    """EAR with its three distances, with its three distances."""
     if px is None or len(px) <= max(idx):
         return None
     p1, p2, p3, p4, p5, p6 = idx
@@ -286,7 +286,7 @@ class GlassesDetector:
     The measurement is smoothed over ~1.5 s with hysteresis, so a single
     frame can't flip the decision. mode "on" / "off" overrides it; the dev
     view shows the raw value so the threshold can be tuned on the team's own
-    faces (Docs/dev-view.md).
+    faces (Docs/face-signals.md).
     """
 
     def __init__(self, on_above: float = 0.22, off_below: float = 0.15, tau_s: float = 1.5, mode: str = "auto"):
@@ -333,7 +333,7 @@ def fuse(eye_score: Optional[float], head_score: Optional[float], glasses: bool)
 
 
 # ---------------------------------------------------------------- composite (the eight signals)
-# Signal keys, grouped by what they measure on the face. The dev view and the
+# Signal keys, grouped by what they measure on the face. The phone app and the
 # overlay colour each cluster the same way.
 CLUSTERS = {
     "eyes": ("ear", "blink", "gaze"),

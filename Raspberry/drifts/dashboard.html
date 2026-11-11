@@ -175,6 +175,20 @@ background:radial-gradient(circle,#B51F3B 0 60%,#C94761 61% 100%);color:#fff;box
 background:radial-gradient(circle,#D7263D 0 55%,#B51F3B 56% 100%);box-shadow:0 0 0 16px rgba(255,255,255,.10),0 0 0 32px rgba(255,255,255,.05);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:30px;font-weight:700}
 .sos .wb{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;background:#fff;color:var(--maroon);border:0;border-radius:14px;padding:12px;font:inherit;font-weight:700;cursor:pointer}
 .sos .wb:disabled{opacity:.6;cursor:default}
+/* privacy panel */
+.trust{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-top:12px;cursor:pointer;background:linear-gradient(135deg,#fff,#FBEFF2)}
+.trust .ib{width:42px;height:42px;border-radius:12px;background:var(--maroon);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.trust b{display:block;font-size:15px}.trust small{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}
+.pts{position:relative;border-radius:16px;overflow:hidden;background:#141015;aspect-ratio:16/10;box-shadow:var(--shadow)}
+.pts canvas{width:100%;height:100%;display:block}
+.pts .lbl2{position:absolute;left:10px;top:10px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);
+color:#fff;font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px}
+.pts .none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#C9B9BE;font-size:13px}
+.raw{font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;background:#141015;color:#E9DDE0;border-radius:12px;padding:10px 12px;
+white-space:pre-wrap;word-break:break-all;margin:0}
+.fact{display:flex;gap:10px;align-items:flex-start;padding:10px 16px;border-top:1px solid var(--line);font-size:13.5px}
+.fact:first-child{border-top:0}.fact .i{color:var(--green-ink);display:flex;margin-top:1px}.fact .i.warn{color:var(--yellow-ink)}
+.big0{font-size:22px;font-weight:700;color:var(--green-ink)}
 /* bottom navigation */
 nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:#fff;
 border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:6}
@@ -217,8 +231,12 @@ nav a.on{color:var(--maroon);font-weight:700}
  </div>
 
  <h2 style="visibility:hidden;margin:6px 0 0;height:4px"></h2>
- <div class="cam"><img src="/stream.mjpg" alt="Live driver camera"><span class="lbl2"><span class="ldot" id="camdot"></span>Driver Camera (Live)</span>
+ <div class="cam" id="camcard"><img id="camimg" src="/stream.mjpg" alt="Live driver camera"><span class="lbl2"><span class="ldot" id="camdot"></span>Driver Camera (Live) · not recorded</span>
   <div class="msg" id="feedmsg" style="display:none"></div></div>
+ <div class="pts" id="ptscard" style="display:none"><canvas id="pts-home"></canvas><span class="lbl2">Camera preview off · points only</span><span class="none" id="pts-home-none">No face in view</span></div>
+ <div class="card trust" onclick="show('privacy')"><span class="ib" data-i="shield" data-s="22"></span>
+  <span style="flex:1"><b>Worried about what the camera is tracking?</b><small>It measures your face as a few numbers. No video or photos are recorded. See exactly what it sees.</small></span>
+  <span class="chev" data-i="chev"></span></div>
 
  <h2>Active Interventions</h2>
  <div class="card iv"><span class="ib" data-i="bell" data-s="22"></span><span class="t"><b>Alert buzzer</b><small>Beep · 5 kHz piezo · 1 s on / 1 s off</small></span><span class="pill" id="hp1">STANDBY</span></div>
@@ -294,8 +312,6 @@ nav a.on{color:var(--maroon);font-weight:700}
   <div class="set" data-go="s-wifi"><span class="i" data-i="wifi" data-s="22"></span><span class="t"><b>Wi-Fi</b><small id="s-wifisub">--</small></span><span class="chev" data-i="chev"></span></div>
   <div class="set" data-go="s-display"><span class="i" data-i="sliders" data-s="22"></span><span class="t"><b>Display</b><small>Brightness · Theme</small></span><span class="chev" data-i="chev"></span></div>
   <div class="set" data-go="s-train"><span class="i" data-i="camera" data-s="22"></span><span class="t"><b>Training Capture</b><small>Eye-model frames</small></span><span class="chev" data-i="chev"></span></div>
-  <div class="set" style="cursor:default"><span class="i" data-i="code" data-s="22"></span><span class="t"><b>Developer Mode</b><small>Opens the desktop dev view (/dev)</small></span>
-   <label class="sw"><input type="checkbox" id="devsw"><span></span></label></div>
  </div>
 </section>
 
@@ -378,7 +394,7 @@ nav a.on{color:var(--maroon);font-weight:700}
  <div class="back" data-go="settings"><span data-i="chevl" data-s="16"></span>Settings</div>
  <h2>Display</h2>
  <div class="card">
-  <div class="row"><span class="i" data-i="sliders"></span><span class="l">Theme</span><span class="v">Light (dark in Developer Mode)</span></div>
+  <div class="row"><span class="i" data-i="sliders"></span><span class="l">Theme</span><span class="v">Light</span></div>
   <div class="row"><span class="i" data-i="monitor"></span><span class="l">LCD brightness</span><span class="v">config.toml [whisplay]</span></div>
  </div>
 </section>
@@ -442,6 +458,49 @@ nav a.on{color:var(--maroon);font-weight:700}
    <button class="wb" disabled><span data-i="pin" data-s="20"></span>Share My Location (planned)</button></div>
  </div>
 </section>
+<!-- ============================== PRIVACY ============================== -->
+<section class="tab" id="t-privacy">
+ <div class="back" data-go="home"><span data-i="chevl" data-s="16"></span>Home</div>
+ <h2 style="font-size:20px">What the camera sees</h2>
+ <div class="note" style="margin:0 2px 10px">DRIFTS doesn't record you. Each camera frame is turned into the points and numbers below, then thrown away and replaced by the next one.</div>
+ <div class="pts"><canvas id="pts-full"></canvas><span class="lbl2">Points, not pictures · <span id="pts-rate">--</span></span><span class="none" id="pts-full-none">No face in view</span></div>
+ <div class="note" style="margin:6px 4px 0">This is everything the analysis works from: 478 points on the face, as positions. No picture, and no identity: the points can't tell who you are.</div>
+
+ <h2>The numbers it measures</h2>
+ <div class="card">
+  <div class="row"><span class="i" data-i="eye"></span><span class="l">Eye openness <small style="color:var(--muted);font-weight:400">(EAR)</small></span><span class="v" id="pv-ear">--</span></div>
+  <div class="row"><span class="i" data-i="activity"></span><span class="l">Blinks per minute</span><span class="v" id="pv-blink">--</span></div>
+  <div class="row"><span class="i" data-i="wheel"></span><span class="l">Time eyes closed <small style="color:var(--muted);font-weight:400">(PERCLOS)</small></span><span class="v" id="pv-perclos">--</span></div>
+  <div class="row"><span class="i" data-i="mic"></span><span class="l">Mouth opening <small style="color:var(--muted);font-weight:400">(MAR)</small></span><span class="v" id="pv-mar">--</span></div>
+  <div class="row"><span class="i" data-i="crosshair"></span><span class="l">Head turn / nod / tilt</span><span class="v" id="pv-head">--</span></div>
+  <div class="row"><span class="i" data-i="user"></span><span class="l">Face in view</span><span class="v" id="pv-found">--</span></div>
+ </div>
+ <div class="note" style="margin:10px 4px 6px">Raw data, as the software has it right now:</div>
+ <pre class="raw" id="pv-raw">--</pre>
+
+ <h2>What leaves the camera</h2>
+ <div class="card pad"><div class="note" style="margin:0 0 8px">Only these short messages, sent to the ESP32 alert controller in the car (by wire or USB). Nothing goes to the internet.</div>
+  <pre class="raw" id="pv-sent" style="min-height:60px">--</pre></div>
+
+ <h2>What is kept</h2>
+ <div class="card">
+  <div class="row"><span class="i" data-i="camera"></span><span class="l">Frames analysed and discarded</span><span class="v" id="pv-frames">--</span></div>
+  <div class="row"><span class="i" data-i="cal"></span><span class="l">Video or photos saved</span><span class="v"><span class="big0" id="pv-saved">0</span></span></div>
+  <div class="row"><span class="i" data-i="wifi"></span><span class="l">Uploads to the internet</span><span class="v"><span class="big0">0</span></span></div>
+  <div class="row"><span class="i" data-i="monitor"></span><span class="l">Live preview</span><span class="v" id="pv-preview">--</span></div>
+ </div>
+ <div class="card" style="margin-top:12px">
+  <div class="fact"><span class="i" data-i="check" data-s="18"></span><span>No video or photos are stored. Frames live in memory for a fraction of a second.</span></div>
+  <div class="fact"><span class="i" data-i="check" data-s="18"></span><span>No face recognition: DRIFTS measures eyes, mouth and head angle, not who you are.</span></div>
+  <div class="fact"><span class="i" data-i="check" data-s="18"></span><span>No cloud. Everything runs on the Pi in the car. The preview only goes to a phone on the car's own Wi-Fi while the page is open.</span></div>
+  <div class="fact"><span class="i" data-i="check" data-s="18"></span><span>What is kept: your alertness score per drive (Trip History) and, if you calibrate, your measured eye and head ranges. Numbers only.</span></div>
+  <div class="fact"><span class="i warn" data-i="warn" data-s="18"></span><span id="pv-train">Training Capture (Settings) is the one exception: it saves photos for teaching the eye model, only when you press its buttons.</span></div>
+ </div>
+ <div class="card" style="margin-top:12px">
+  <div class="row"><span class="l">Show camera preview on Home<br><small style="color:var(--muted);font-weight:400">Off: Home shows the points only, and no video is sent at all</small></span>
+   <label class="sw"><input type="checkbox" id="previewsw" checked><span></span></label></div>
+ </div>
+</section>
 </main>
 <nav>
  <a class="on" data-t="home"><span data-i="home" data-s="22"></span>Home</a>
@@ -492,7 +551,8 @@ const IC={
  plus:'<path d="M12 5v14M5 12h14"/>', send:'<path d="M3 11.5 21 3l-8.5 18-2-7.5z"/>',
  info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.6" r="1" fill="currentColor"/>',
  bars:'<path d="M5 20v-6M10 20V9M15 20v-9M20 20V5"/>', warn:'<path d="M12 3 2 20.5h20z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.3" r="1" fill="currentColor"/>',
- wave:'<path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/>'};
+ wave:'<path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/>',
+ shield:'<path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.3 7.5 9.5 4.3-1.2 7.5-4.9 7.5-9.5V6z"/><path d="m8.8 12 2.2 2.2 4.4-4.6"/>'};
 function svg(name,size){return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC[name]||""}</svg>`}
 document.querySelectorAll("[data-i]").forEach(el=>el.innerHTML=svg(el.dataset.i,+(el.dataset.s||18)));
 // ---- Alarm on this device (simulation without ESP32, or a second alert) ----
@@ -543,8 +603,7 @@ document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{histMode=b.da
  document.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x===b));
  $("h-trip").style.display=histMode==="trip"?"":"none";$("h-trends").style.display=histMode==="trends"?"":"none";drawCharts()});
 $("seeall").onclick=()=>{showAll=!showAll;$("seeall").firstChild.textContent=showAll?"Show Less ":"See All ";drawTrips()};
-$("devsw").onchange=()=>{if($("devsw").checked){$("devsw").checked=false;toggleDev()}};
-if(location.hash&&location.hash!=="#dev")show(location.hash.slice(1));
+if(location.hash)show(location.hash.slice(1));
 async function cap(label,n=1){await fetch(`/capture?label=${label}&n=${n}`,{method:"POST"})}
 $("send").onchange=e=>fetch(`/eye_send?on=${e.target.checked?1:0}`,{method:"POST"});
 document.addEventListener("keydown",e=>{const k=e.key.toLowerCase();
@@ -749,12 +808,47 @@ function aiAsk(q,keep){q=(q||"").trim();if(!q)return;$("ai-in").value="";$("ai-i
  ["home","listen","emergency","sos"].forEach(k=>$("ai-"+k).style.display="none");$("ai-chat").style.display="";
  const [txt,extra]=answer(q);if(!keep)$("ai-thread").innerHTML="";
  $("ai-thread").innerHTML+=bubble(q,true)+bubble(txt,false)+extra;window.scrollTo(0,document.body.scrollHeight)}
+// ---- privacy panel: the points and numbers the camera produces ----
+let showPreview=true;try{showPreview=localStorage.getItem("drifts-preview")!=="off"}catch(e){}
+function applyPreview(){$("previewsw").checked=showPreview;$("camcard").style.display=showPreview?"":"none";
+ $("ptscard").style.display=showPreview?"none":"";
+ // no <img> = no stream request = the Pi stops making preview frames within 3 s
+ if(showPreview){if(!$("camimg").getAttribute("src"))$("camimg").setAttribute("src","/stream.mjpg")}else $("camimg").removeAttribute("src")}
+$("previewsw").onchange=e=>{showPreview=e.target.checked;try{localStorage.setItem("drifts-preview",showPreview?"on":"off")}catch(x){}applyPreview()};
+applyPreview();
+function drawPoints(id,noneId,pv){const c=$(id);if(!c||c.offsetParent===null)return;const r=c.getBoundingClientRect(),d=window.devicePixelRatio||1;
+ if(c.width!==Math.round(r.width*d)){c.width=Math.round(r.width*d);c.height=Math.round(r.height*d)}
+ const g=c.getContext("2d"),W=c.width,H=c.height;g.fillStyle="#141015";g.fillRect(0,0,W,H);
+ const P=pv.points||[];$(noneId).style.display=P.length?"none":"flex";if(!P.length)return;
+ let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;for(let i=0;i<P.length;i+=2){x0=Math.min(x0,P[i]);x1=Math.max(x1,P[i]);y0=Math.min(y0,P[i+1]);y1=Math.max(y1,P[i+1])}
+ const k=Math.min(W/((x1-x0)||1),H/((y1-y0)||1))*0.8,cx=(x0+x1)/2,cy=(y0+y1)/2;
+ g.fillStyle="#FF9AB0";for(let i=0;i<P.length;i+=2){let x=(P[i]-cx)*k,y=(P[i+1]-cy)*k;if(pv.mirror)x=-x;
+  g.beginPath();g.arc(W/2+x,H/2+y,1.6*d,0,6.3);g.fill()}}
+const n2=(v,dd=2)=>v==null?"--":Number(v).toFixed(dd);
+async function privacyTick(){const onPage=$("t-privacy").classList.contains("on"),homePts=$("t-home").classList.contains("on")&&!showPreview;
+ if(!onPage&&!homePts)return;let pv;try{pv=await (await fetch("/privacy.json",{cache:"no-store"})).json()}catch(e){return}
+ drawPoints("pts-home","pts-home-none",pv);drawPoints("pts-full","pts-full-none",pv);if(!onPage)return;
+ const m=pv.measures||{};$("pts-rate").textContent=pv.fps?`${fx(pv.fps,1)} updates / s`:"--";
+ $("pv-ear").textContent=m.ear==null?"--":`${n2(m.ear)} · ${m.eye_state||"--"}`;
+ $("pv-blink").textContent=m.blink_rate==null?"--":fx(m.blink_rate);
+ $("pv-perclos").textContent=m.perclos==null?"--":fx(m.perclos*100,1)+"%";
+ $("pv-mar").textContent=n2(m.mar);
+ $("pv-head").textContent=m.yaw==null?"--":`${fx(m.yaw)}° / ${fx(m.pitch)}° / ${fx(m.roll)}°`;
+ $("pv-found").textContent=m.found?"yes":"no";
+ const raw={ear:m.ear,mar:m.mar,yaw:m.yaw,pitch:m.pitch,roll:m.roll,blinks_per_min:m.blink_rate,perclos:m.perclos,state:m.state,
+  points:`478 × (x, y)  e.g. nose tip ${pv.points&&pv.points.length?`(${pv.points[2]}, ${pv.points[3]})`:"--"}`};
+ $("pv-raw").textContent=JSON.stringify(raw,null,1).replace(/"(\w+)":/g,"$1:");
+ const tf=t=>new Date(t*1000).toLocaleTimeString([],{hour:"numeric",minute:"2-digit",second:"2-digit"});
+ $("pv-sent").textContent=(pv.sent||[]).length?pv.sent.slice(-6).map(x=>`${tf(x.t)}  ${x.msg}`).join("\n"):"(nothing sent yet)";
+ $("pv-frames").textContent=pv.frames_analysed.toLocaleString();$("pv-saved").textContent=pv.frames_saved;
+ $("pv-saved").style.color=pv.frames_saved?"var(--yellow-ink)":"";
+ $("pv-train").textContent=pv.frames_saved?`Training Capture saved ${pv.frames_saved} photo(s) to ${pv.saved_dir}. It only saves when its buttons are pressed.`:
+  "Training Capture (Settings) is the one exception: it saves photos for teaching the eye model, only when you press its buttons. Nothing saved so far.";
+ $("pv-preview").textContent=pv.preview_open?"open on a phone now":"off (no video sent)"}
+setInterval(privacyTick,500);
 setInterval(tick,500);tick();
 
 // Camera problems (crashed pipeline, no webcam) shown on the feed itself.
 function feedProblem(s){const m=s.error?"Camera stopped: "+s.error+"<br><small>Full error in the terminal. Fix it, then restart drifts.live.</small>":
  s.camera_note||"";const el=$("feedmsg");if(!el)return;if(m){el.innerHTML=m;el.style.display="flex"}else el.style.display="none"}
-// Developer Mode: the desktop dev view (/dev) with the face mesh drawn in the browser.
-function toggleDev(){location.href="/dev"}
-if(location.hash==="#dev")location.replace("/dev");
 </script></body></html>

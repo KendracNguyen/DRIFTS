@@ -7,8 +7,8 @@ training-frame capture, served as a web page.
     sudo systemctl stop drifts && python -m drifts.live --esp uart
     # No hardware at all:
     python -m drifts.live --esp sim
-    # All eight face signals + the dev view (laptop webcam first, then the Pi):
-    python -m drifts.live --face mesh --camera 0 --esp sim      # see Docs/dev-view.md
+    # All eight face signals (laptop webcam first, then the Pi):
+    python -m drifts.live --face mesh --camera 0 --esp sim      # see Docs/face-signals.md
 
 Then open http://localhost:8080 (or http://<pi-address>:8080 from a phone on
 the same network).
@@ -29,6 +29,7 @@ can train on it directly.
 from __future__ import annotations
 
 import argparse
+import collections
 import json
 import logging
 import threading
@@ -42,7 +43,6 @@ from urllib.parse import parse_qs, urlparse
 from drifts.camera import Camera
 from drifts.config import load_config
 from drifts.esp_link import make_link
-from drifts.facemesh import DEFAULT_LAYERS, LAYERS as DEV_LAYERS
 from drifts.eyes import CLOSED, NO_FACE, OPEN, EyeObservation, EyeTracker, PerclosWindow, eye_score
 from drifts.headpose import AttentionTracker, Calibration, HeadPose, estimate
 from drifts.perf import PerfMonitor, capability
@@ -142,13 +142,12 @@ class Pipeline:
         self.backend = getattr(camera, "backend", "mediapipe") if self.face_on else args.pose
         # Dev view: the full-analysis overlay and close-ups are drawn only while
         # someone is watching them (they cost CPU on a Pi Zero).
-        self.dev_capable = hasattr(camera, "render_dev")
-        self.dev_until = 0.0
-        self.dev_layers = set(DEFAULT_LAYERS)
-        self.dev_jpeg: Optional[bytes] = None
-        self.zoom_jpeg: Optional[bytes] = None        # eyes close-up
-        self.mouth_jpeg: Optional[bytes] = None
-        self.dev_id = 0
+        # Privacy: the preview JPEG is only made while a phone is watching it, and
+        # every frame is analysed in memory and dropped (nothing is written unless
+        # Training Capture is used). /privacy.json reports it.
+        self.stream_until = 0.0
+        self.frames_analysed = 0
+        self.sent_log: collections.deque = collections.deque(maxlen=12)   # (t, message) to the ESP32
         self.perf = PerfMonitor()
         # Extension points (Tokyo uses them): per-frame callbacks f(pipe, now),
         # extra status fields, and fields overlaid on the ESP32 snapshot (e.g.
@@ -187,13 +186,6 @@ class Pipeline:
         self.trips = TripLog(Path(args.trips))     # the History tab's earlier drives
         self._trip_saved = 0.0
         self.whisplay = False                      # set when --whisplay drives the HAT
-        # Dev view XL (/dev): raw camera frames + landmarks; the browser draws the mesh,
-        # so the Pi only encodes a plain JPEG and sends 478 points (docs/dev-view.md).
-        self.xl_until = 0.0
-        self.cam_jpeg: Optional[bytes] = None
-        self.face_pkt: Optional[dict] = None
-        self.xl_id = 0
-        self.drowsy_hist: list = []                # (t, composite drowsiness), 1 Hz, last hour
         from drifts.guided import Guided, load_profile
         self.guided = Guided(name=args.profile)
         self.profile = load_profile(args.profile) if self.face_on else None
@@ -438,6 +430,7 @@ class Pipeline:
                     last_send = now
                     self.link.send_eye(score)
                     self.eye["last_sent"] = score
+                    self.sent_log.append((round(now, 1), f"EYE:{int(score)}"))
                 # The eye score alone can't reach Intervention 2 (0.7 x eye + 0.3 x driving),
                 # so a drowsy face is confirmed to the ESP32 as DROWSY: buzzer + motors.
                 if self.send_eye and self.face_on and not getattr(self.args, "no_drowsy", False):
@@ -445,6 +438,7 @@ class Pipeline:
                     cmd = self.drowsy_trigger.update(now, f.get("state") if f.get("found") else "no_face")
                     if cmd:
                         self.link.send_command(cmd)
+                        self.sent_log.append((round(now, 1), cmd))
                         log.info("[ALERT] Face %s -> %s to the ESP32", f.get("state"), cmd)
 
                 with self._lock:
@@ -464,37 +458,16 @@ class Pipeline:
                         log.warning("hook %s failed: %s", getattr(hook, "__name__", hook), exc)
                 if now - self._perf_t >= 2.0:
                     self._perf, self._perf_t = self.perf.snapshot(), now
-                jpeg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 70])[1].tobytes()
-                if self.face_on and hasattr(self.camera, "packet"):
+                self.frames_analysed += 1
+                # The preview is only encoded while a phone has it open (/stream.mjpg).
+                jpeg = (cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 70])[1].tobytes()
+                        if now < self.stream_until else None)
+                if self.face_on and hasattr(self.camera, "apply_profile"):
                     self._guided_step(now)
-                    if now < self.xl_until and getattr(self.camera, "last_frame", None) is not None:
-                        cj = cv2.imencode(".jpg", self.camera.last_frame, [cv2.IMWRITE_JPEG_QUALITY, 75])[1].tobytes()
-                        pkt = self.camera.packet(mirror=self.args.mirror)
-                        # The frame rides in the same event as its landmarks: one connection
-                        # per viewer (browsers allow ~6 per site) and the mesh always matches
-                        # the picture under it.
-                        import base64
-                        pkt["jpg"] = base64.b64encode(cj).decode("ascii")
-                        with self._lock:
-                            self.cam_jpeg, self.face_pkt, self.xl_id = cj, pkt, self.xl_id + 1
-                if self.dev_capable and now < self.dev_until:
-                    raw = getattr(self.camera, "last_frame", None)
-                    if raw is not None:
-                        dev = self.camera.render_dev(raw, self.dev_layers, mirror=self.args.mirror)
-                        enc = lambda im, q: cv2.imencode(".jpg", im, [cv2.IMWRITE_JPEG_QUALITY, q])[1].tobytes()
-                        dj = enc(dev, 80)
-                        zj = enc(self.camera.render_zoom(raw, "eyes"), 85)
-                        mj = enc(self.camera.render_zoom(raw, "mouth"), 85)
-                        with self._lock:
-                            self.dev_jpeg, self.zoom_jpeg, self.mouth_jpeg = dj, zj, mj
-                            self.dev_id += 1
                 if not self.history or now - self.history[-1][0] >= 1.0:
                     esp = {**self.link.snapshot(), **self.esp_override}
                     self.history.append((round(now, 1), esp["score"], score, esp["rpm"], self.pose["yaw"]))
                     del self.history[:-3600]          # keep the last hour
-                    dz = self.camera.face.get("drowsiness") if self.face_on else None
-                    self.drowsy_hist.append((round(now, 1), None if dz is None else round(dz, 1)))
-                    del self.drowsy_hist[:-3600]
                     if now - self._trip_saved >= 30:
                         self._trip_saved = now
                         self.save_trip()
@@ -541,6 +514,29 @@ class Pipeline:
         st["mirror"] = bool(self.args.mirror)
         return st
 
+    def privacy(self) -> dict:
+        """What the camera produces, for the phone's privacy panel: the numbers
+        it measures, the face points it works from, what is sent and what is kept."""
+        f = dict(getattr(self.camera, "face", {}) or {}) if self.face_on else {}
+        px = getattr(self.camera, "landmarks", None) if self.face_on else None
+        w, h = getattr(self.camera, "frame_size", (0, 0)) if self.face_on else (0, 0)
+        pts = []
+        if px and w and h:          # 478 points, 0-1000 of the frame: what the analysis works from
+            pts = [v for x, y in px for v in (round(1000 * x / w), round(1000 * y / h))]
+        keys = ("found", "ear", "mar", "yaw", "pitch", "roll", "blink_rate", "perclos", "eye_state",
+                "yawns", "drowsiness", "state", "inference_ms")
+        saved = sum(self.capture.counts.values())
+        return {
+            "measures": {k: (round(f[k], 3) if isinstance(f.get(k), float) else f.get(k)) for k in keys},
+            "points": pts, "mirror": bool(self.args.mirror),
+            "sent": [{"t": t, "msg": m} for t, m in list(self.sent_log)],
+            "frames_analysed": self.frames_analysed,
+            "frames_saved": saved, "saved_dir": str(self.capture.root.resolve()) if saved else None,
+            "uploads": 0,
+            "preview_open": time.time() < self.stream_until,
+            "fps": self.eye.get("fps"), "time": time.time(),
+        }
+
     def _status(self) -> dict:
         with self._lock:
             eye = dict(self.eye)
@@ -549,7 +545,6 @@ class Pipeline:
             "drowsy_sent": self.drowsy_trigger.active,
             "eye_tracker": self.tracker is not None or self.face_on, "pose": dict(self.pose),
             "face": dict(self.camera.face) if self.face_on else None,
-            "dev": {"capable": self.dev_capable, "layers": sorted(self.dev_layers)},
             "rig": {"name": self.args.rig_name or self._perf["model"], "backend": self.backend,
                     "fps": eye["fps"], "inference_ms": getattr(self.camera, "inference_ms", None),
                     "perf": self._perf, **capability(self.backend)},
@@ -603,54 +598,8 @@ def make_handler(pipe: Pipeline):
                                             "eye": [r[2] for r in h], "rpm": [r[3] for r in h],
                                             "yaw": [r[4] for r in h]}).encode(),
                            "application/json")
-            elif path == "/dev":
-                self._send(200, PAGE_FILE.with_name("devview.html").read_bytes(), "text/html; charset=utf-8")
-            elif path == "/mesh.json":
-                conn = getattr(pipe.camera, "conn", {}) or {}
-                self._send(200, json.dumps({k: [x for ab in v for x in ab] for k, v in conn.items()}).encode(),
-                           "application/json")
-            elif path == "/drowsy.json":
-                self._send(200, json.dumps(list(pipe.drowsy_hist)).encode(), "application/json")
-            elif path == "/face.sse":
-                # One event per processed frame: 478 landmarks (+ blendshapes). The
-                # browser draws the mesh, so nothing is rendered on the Pi.
-                self.send_response(200)
-                self.send_header("Content-Type", "text/event-stream")
-                self.send_header("Cache-Control", "no-store")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-                last = -1
-                try:
-                    while True:
-                        pipe.xl_until = time.time() + 3.0
-                        with pipe._lock:
-                            pkt, fid = pipe.face_pkt, pipe.xl_id
-                        if pkt is not None and fid != last:
-                            last = fid
-                            self.wfile.write(b"data: " + json.dumps({**pkt, "t": time.time()}).encode() + b"\n\n")
-                            self.wfile.flush()
-                        time.sleep(0.02)
-                except ConnectionError:
-                    pass
-            elif path == "/cam.mjpg":
-                self.send_response(200)
-                self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
-                self.send_header("Cache-Control", "no-store")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-                last = -1
-                try:
-                    while True:
-                        pipe.xl_until = time.time() + 3.0
-                        with pipe._lock:
-                            jpeg, fid = pipe.cam_jpeg, pipe.xl_id
-                        if jpeg is not None and fid != last:
-                            last = fid
-                            self.wfile.write(b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
-                                             + str(len(jpeg)).encode() + b"\r\n\r\n" + jpeg + b"\r\n")
-                        time.sleep(0.02)
-                except ConnectionError:
-                    pass
+            elif path == "/privacy.json":
+                self._send(200, json.dumps(pipe.privacy()).encode(), "application/json")
             elif path == "/trips.json":
                 self._send(200, json.dumps(pipe.trips.load()).encode(), "application/json")
             elif path.startswith("/static/fonts/") and path.endswith(".woff2"):
@@ -669,28 +618,6 @@ def make_handler(pipe: Pipeline):
                 self._send(200, PAGE_FILE.with_name("compare.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/status.json":
                 self._send(200, json.dumps(pipe.status()).encode(), "application/json")
-            elif path in ("/dev.mjpg", "/zoom.mjpg", "/mouth.mjpg"):
-                if not pipe.dev_capable:
-                    self._send(404, b"dev view needs --face mesh", "text/plain")
-                    return
-                attr = {"/dev.mjpg": "dev_jpeg", "/zoom.mjpg": "zoom_jpeg", "/mouth.mjpg": "mouth_jpeg"}[path]
-                self.send_response(200)
-                self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
-                self.send_header("Cache-Control", "no-store")
-                self.end_headers()
-                last = -1
-                try:
-                    while True:
-                        pipe.dev_until = time.time() + 3.0       # keep rendering while watched
-                        with pipe._lock:
-                            jpeg, fid = getattr(pipe, attr), pipe.dev_id
-                        if jpeg is not None and fid != last:
-                            last = fid
-                            self.wfile.write(b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
-                                             + str(len(jpeg)).encode() + b"\r\n\r\n" + jpeg + b"\r\n")
-                        time.sleep(0.03)
-                except ConnectionError:      # viewer left (broken pipe / reset / aborted on Windows)
-                    pass
             elif path == "/stream.mjpg":
                 self.send_response(200)
                 self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
@@ -700,6 +627,7 @@ def make_handler(pipe: Pipeline):
                 last = -1
                 try:
                     while True:
+                        pipe.stream_until = time.time() + 3.0     # encode frames only while watched
                         with pipe._lock:
                             jpeg, fid = pipe.jpeg, pipe.frame_id
                         if jpeg is not None and fid != last:
@@ -735,9 +663,6 @@ def make_handler(pipe: Pipeline):
             elif u.path == "/glasses" and hasattr(pipe.camera, "set_glasses_mode"):
                 pipe.camera.set_glasses_mode(q.get("mode", ["auto"])[0])
                 self._send(200, b"ok", "text/plain")
-            elif u.path == "/dev_layers":
-                pipe.dev_layers = {k for k in DEV_LAYERS if q.get(k, ["1"])[0] == "1"}
-                self._send(200, b"ok", "text/plain")
             elif u.path == "/eye_send":
                 pipe.send_eye = q.get("on", ["1"])[0] == "1"
                 self._send(200, b"ok", "text/plain")
@@ -766,7 +691,7 @@ def build_parser(prog: str = "python -m drifts.live") -> argparse.ArgumentParser
     p.add_argument("--no-eyes", action="store_true", help="skip the Haar eye tracker (saves CPU on a Pi Zero)")
     p.add_argument("--face", choices=["off", "mesh", "mediapipe"], default="off",
                    help="mesh = all eight signals from MediaPipe's face landmarker (laptop, Pi Zero 2 W, Pi 5), "
-                        "with the dev view; mediapipe = Pi 5 rig via dms-face")
+                        "(Docs/face-signals.md); mediapipe = Pi 5 rig via dms-face")
     p.add_argument("--face-model", default=None, help="face_landmarker.task (default: downloaded to Raspberry/models)")
     p.add_argument("--whisplay", action="store_true",
                    help="also drive the Whisplay HAT screen with the live face data (Pi Zero; [whisplay] in config.toml)")
@@ -775,7 +700,7 @@ def build_parser(prog: str = "python -m drifts.live") -> argparse.ArgumentParser
                    help="--face mesh: glasses detection (on = always lean on head pose)")
     p.add_argument("--dms-dir", default=None, help="dms-face checkout (default ~/dms-face or $DMS_FACE_DIR)")
     p.add_argument("--profile", default="default",
-                   help="driver profile: Raspberry/profiles/<name>.json from the dev view's guided "
+                   help="driver profile: Raspberry/profiles/<name>.json from the phone app's guided "
                         "calibration (--face mesh), or the dms-face profile (--face mediapipe)")
     p.add_argument("--face-delegate", choices=["cpu", "gpu"], default="cpu",
                    help="MediaPipe delegate for --face mesh (gpu: Linux / macOS; falls back to the CPU)")

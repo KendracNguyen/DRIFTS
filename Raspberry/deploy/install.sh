@@ -76,7 +76,7 @@ if [ "${PI5:-0}" = "1" ]; then
   echo "    Calibrate:  cd $DMS_DIR && ~/drifts/.venv/bin/python run.py --calibrate --profile <name> --no-display"
 fi
 
-# Face mesh (first model, all eight signals + the dashboard's dev view):
+# Face mesh (first model, all eight signals):
 # MediaPipe's face landmarker, no calibration profile. Opt in with:
 #   MESH=1 bash deploy/install.sh      (64-bit Pi OS; the Pi 5 rig's PI5=1 also works)
 # --no-deps keeps out MediaPipe's second OpenCV and audio stack; the four
@@ -87,7 +87,7 @@ if [ "${MESH:-0}" = "1" ] || [ "${PI5:-0}" = "1" ]; then
   .venv/bin/pip install -q --no-cache-dir --no-deps "mediapipe>=1.0.0"
   .venv/bin/pip install -q --no-cache-dir absl-py flatbuffers certifi
   .venv/bin/python -c "from drifts.facemesh import ensure_model; print('    model:', ensure_model())"
-  echo "    Run:  .venv/bin/python -m drifts.live --face mesh --esp ble    (dev view: 'Switch to dev view')"
+  echo "    Run:  .venv/bin/python -m drifts.live --face mesh --esp uart"
 fi
 
 # Whisplay HAT (driver screen, RGB LED, voice, button): PiSugar's driver.
