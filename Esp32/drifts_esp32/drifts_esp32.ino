@@ -14,11 +14,14 @@
   Serial test commands (115200 baud):
     WAKE          trigger a Pi analysis cycle by hand
     DROWSY        simulate a DROWSY result from the Pi
+                  (an alert score below 50, Intervention 2, also starts the alert)
     NOT_DROWSY    simulate a NOT_DROWSY result
     STOP          stop the alert
     TEST:m:b[:DC] drive motor m ms, piezo b ms (DC = 3.3 V across it, silent)
     SWEEP         piezo 4-6 kHz in 100 Hz steps (find the loudest; STOP ends it)
     BEEP          one 1 s beep (also accepted over BLE, e.g. from a phone)
+    PATTERN[:s][:M]  repeating 1 s on / 1 s off beeps for s seconds (10 default,
+                  max 60); :M adds the motor pulses. STOP ends it
     WATCH         toggle a 1 Hz line of live OBD values
     GYRO          toggle a 5 Hz line of yaw rate and steering reversals
     OBD RESTART   drop the dongle link and rescan from scratch
@@ -80,7 +83,12 @@ static uint32_t piSilentForMs(uint32_t now) {
 static void wakePi() { PiWire.wakePi(); Hub.wakePi(); }
 static void setPiIdle() { PiWire.setPiIdle(); Hub.setPiIdle(); }
 
+// True while the current alert was started by the alert score itself
+// (Intervention 2), not by a DROWSY result from the Pi.
+static bool scoreAlert = false;
+
 static void enterIdle(const char *why) {
+    scoreAlert = false;
     if (state == SystemState::Alerting || isPinTestActive() || piezoSweepActive()) stopAll();
     state = SystemState::Idle;
     stateStartMs = millis();
@@ -135,7 +143,7 @@ void setup() {
                       MIN_SPEED_KPH, GATE_COVERAGE * 100.0f);
     }
 
-    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / WATCH / GYRO / OBD RESTART / SCORE n / I2C SCAN / SWEEP / BEEP");
+    Serial.println("[MAIN] Ready. Commands: WAKE / DROWSY / NOT_DROWSY / STOP / BRAKE / STATUS / TEST:m:b[:DC] / PATTERN[:s][:M] / WATCH / GYRO / OBD RESTART / SCORE n / I2C SCAN / SWEEP / BEEP");
 #if PIEZO_SWEEP_TEST
     piezoSweepStart();
 #endif
@@ -235,6 +243,11 @@ static void handleSerial() {
     cmd.trim();
     if (cmd.isEmpty()) return;
 
+    if (cmd.equalsIgnoreCase("STOP") && isPinTestActive()) {
+        stopAll();
+        Serial.println("[CMD] Test stopped");
+        return;
+    }
     if (cmd.equalsIgnoreCase("WAKE")) {
         wakePi();
         state = SystemState::WaitingPi;
@@ -248,6 +261,24 @@ static void handleSerial() {
         alertScore.onPiResult(false, millis());
         piStatus = "not_drowsy";
         enterIdle("simulated NOT_DROWSY");
+    } else if (cmd.equalsIgnoreCase("PATTERN") || cmd.startsWith("PATTERN:") || cmd.startsWith("pattern:")) {
+        // PATTERN            10 s of 1 s on / 1 s off beeps
+        // PATTERN:30         30 s (1-60)
+        // PATTERN:30:M       ... with the motors pulsing too
+        long secs = 10;
+        bool motors = false;
+        if (cmd.length() > 8) {
+            String rest = cmd.substring(8);
+            int colon = rest.indexOf(':');
+            secs = (colon < 0 ? rest : rest.substring(0, colon)).toInt();
+            motors = colon >= 0 && rest.substring(colon + 1).equalsIgnoreCase("M");
+        }
+        if (secs < 1 || secs > 60) {
+            Serial.println("[CMD] Usage: PATTERN  or  PATTERN:<1-60 s>  or  PATTERN:<s>:M  (with motors)");
+        } else {
+            if (state == SystemState::Alerting) enterIdle("pattern test");
+            startPatternTest((uint32_t)secs * 1000, motors);
+        }
     } else if (tryBeep(cmd, "serial")) {
         // handled
     } else if (cmd.equalsIgnoreCase("SWEEP")) {
@@ -426,6 +457,22 @@ void loop() {
     if (now - lastScoreMs >= 1000) {
         lastScoreMs = now;
         alertScore.update(drivingRatios(snap), now);
+
+        // Intervention 2 drives the buzzer and motors by itself: a low score
+        // from the Pi's EYE:<n> (or the driving score) is enough, no DROWSY
+        // result needed. It ends once the score recovers past the hysteresis
+        // (level back above LOW). MAX_ALERT_MS still breaks it into 20 s alerts
+        // that restart while the score stays low; a stale eye score falls back
+        // to driving, so a dead Pi can't keep it going.
+        const bool low = alertScore.level() == AlertLevel::Low;
+        if (low && state == SystemState::Idle && !isPinTestActive() && !piezoSweepActive()) {
+            Serial.printf("[SCORE] Alert score %.0f: Intervention 2 -> buzzer + motors\n", alertScore.score());
+            enterAlerting();
+            scoreAlert = true;
+            piStatus = "score_low";
+        } else if (!low && scoreAlert && state == SystemState::Alerting) {
+            enterIdle("alert score recovered");
+        }
     }
 
 

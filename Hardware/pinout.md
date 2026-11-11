@@ -44,6 +44,7 @@ CH343 USB chip place pins differently from the Espressif DevKitC.
 | **MPU-6050 (GY-521)** | VCC → 3V3, GND → GND, SDA → GPIO 21, SCL → GPIO 22, AD0 → GND (address 0x68). It's a 3.3 V part: no level shifter. Test: `I2C SCAN` lists `0x68` |
 | **4 motor modules** (GND, VCC, IN) | IN of all four ← R1 100 Ω ← GPIO 10, with R2 10 kΩ from IN to GND (holds them off during reset). VCC → **5V** (3V3 can't start four motors alongside the ESP32; 3 V motors: lower `DROWSY_VIB_DUTY`), GND → GND |
 | **Piezo LS1** (passive) | GPIO 11 → R6 100 Ω → LS1 pin 1. LS1 pin 2 → R7 100 Ω → GPIO 18. Neither leg to GND, no flyback diode |
+| **Or: 3-pin buzzer module** (signal, VCC, GND) | Signal → GPIO 11, VCC → 3V3 (5V for a 5 V module), GND → GND; GPIO 18 unused. Set `BUZZER_KIND` in `config.h` (firmware v22): `BUZZER_ACTIVE_LOW` (the default: a "low level trigger" module that beeps non-stop if driven like a piezo), `BUZZER_ACTIVE_HIGH`, or `BUZZER_PIEZO_DIFF` for the bare piezo. Optional 10 kΩ from GPIO 11 to 3V3 keeps a LOW-trigger module quiet while the ESP32 resets |
 | **Pi Zero link** (UART, firmware v21) | GPIO 19 → R10 1 kΩ → Pi pin 10 (GPIO 15 RX). Pi pin 8 (GPIO 14 TX) → R11 1 kΩ → GPIO 20. ESP32 GND ↔ Pi pin 6. Both 3.3 V: no level shifter. **TX to RX**, twisted together, away from the motor wires. Test: `STATUS` on the ESP32 console shows `wire=1` once the Pi runs |
 
 **Free ESP32 pins:** 2, 3, 23 (and 0, 1, which are the 32 kHz crystal

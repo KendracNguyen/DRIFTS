@@ -16,7 +16,7 @@
 
 // Printed at boot and by STATUS, so the flashed image can be identified.
 // Matches the drifts_c6_8M_uartchip_<version>.bin file name.
-#define DRIFTS_FW_VERSION "v21"
+#define DRIFTS_FW_VERSION "v24"
 
 // ---------------------------------------------------------------
 // Pin assignments  --  TARGET: ESP32-C6-WROOM-1
@@ -53,6 +53,19 @@ constexpr int PIEZO_LEDC_CH  = 5;
 // 1 = sweep 4-6 kHz once at boot (piezo.h). The SWEEP serial command does
 // the same at any time.
 #define PIEZO_SWEEP_TEST 0
+
+// Which buzzer is on GPIO 11 (see piezo.h):
+//   BUZZER_PIEZO_DIFF   bare passive piezo between GPIO 11 and GPIO 18 (5 kHz tone)
+//   BUZZER_ACTIVE_HIGH  3-pin active buzzer module that sounds while its signal is HIGH
+//   BUZZER_ACTIVE_LOW   3-pin active buzzer module that sounds while its signal is LOW
+//                       ("low level trigger"; beeps non-stop if driven like a piezo)
+// Modules: signal -> GPIO 11, VCC -> 3V3 (or 5V for a 5 V module), GND -> GND;
+// GPIO 18 is not used. Wrong kind? Idle beeping = ACTIVE_LOW; a weak buzz on
+// TEST:0:3000 but a loud one on TEST:0:3000:DC = ACTIVE_HIGH.
+#define BUZZER_PIEZO_DIFF  0
+#define BUZZER_ACTIVE_HIGH 1
+#define BUZZER_ACTIVE_LOW  2
+#define BUZZER_KIND BUZZER_ACTIVE_LOW
 
 
 // MPU-6050 on the I2C bus. See "Longitudinal acceleration" below for why

@@ -73,6 +73,20 @@ Open http://localhost:8080/dev in Chrome or Edge, full screen (F11), then:
 Each panel's **pts** chip is that group's share of the composite drowsiness
 score. The signal maths and weights are unchanged: see the tables below.
 
+## When the camera sets off the alert
+
+The ESP32's alert score is 0.7 × eye + 0.3 × driving. Parked, or without the
+OBD dongle, the driving part stays near 100. So the eye part alone stops around
+60 (CAUTION), even with the eyes closed. `drifts.live` therefore also confirms
+drowsiness itself:
+- **`DROWSY`:** sent once the face mesh says **drowsy** (eyes closed ≥ 1 s, or
+  drowsiness > 50) for 1.5 s, and again every 10 s while it lasts. The ESP32
+  then runs the buzzer (1 s on / 1 s off) and the motors.
+- **`NOT_DROWSY`:** sent after 3 s of being alert again.
+- **Requirements:** a real ESP32 (`--esp serial --port COM5` on the laptop,
+  `--esp uart` on the Pi; `--esp sim` reaches no hardware) and the
+  "Send eye score to ESP32" switch on. `--no-drowsy` turns this off.
+
 ## How the mesh gets to the browser (and why)
 
 The Pi does **not** draw the mesh. For every processed frame it sends:

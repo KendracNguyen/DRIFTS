@@ -168,6 +168,8 @@ class Pipeline:
         self.window = PerclosWindow(args.window)
         self.capture = Capture(Path(args.capture_dir))
         self.send_eye = not args.no_eye
+        from drifts.drowsy_trigger import DrowsyTrigger
+        self.drowsy_trigger = DrowsyTrigger()       # camera-confirmed DROWSY -> ESP32 alert
         self.jpeg: Optional[bytes] = None
         self.frame = None
         self.frame_id = 0
@@ -436,6 +438,14 @@ class Pipeline:
                     last_send = now
                     self.link.send_eye(score)
                     self.eye["last_sent"] = score
+                # The eye score alone can't reach Intervention 2 (0.7 x eye + 0.3 x driving),
+                # so a drowsy face is confirmed to the ESP32 as DROWSY: buzzer + motors.
+                if self.send_eye and self.face_on and not getattr(self.args, "no_drowsy", False):
+                    f = self.camera.face
+                    cmd = self.drowsy_trigger.update(now, f.get("state") if f.get("found") else "no_face")
+                    if cmd:
+                        self.link.send_command(cmd)
+                        log.info("[ALERT] Face %s -> %s to the ESP32", f.get("state"), cmd)
 
                 with self._lock:
                     burst = self._burst.pop(0) if self._burst else None
@@ -536,6 +546,7 @@ class Pipeline:
             eye = dict(self.eye)
         return {
             "eye": eye, "eye_sending": self.send_eye, "eyes_sent": self.link.eyes_sent,
+            "drowsy_sent": self.drowsy_trigger.active,
             "eye_tracker": self.tracker is not None or self.face_on, "pose": dict(self.pose),
             "face": dict(self.camera.face) if self.face_on else None,
             "dev": {"capable": self.dev_capable, "layers": sorted(self.dev_layers)},
@@ -778,6 +789,8 @@ def build_parser(prog: str = "python -m drifts.live") -> argparse.ArgumentParser
     p.add_argument("--http-port", type=int, default=8080)
     p.add_argument("--window", type=float, default=10.0, help="PERCLOS window, seconds")
     p.add_argument("--eye-every", type=float, default=2.0, help="seconds between EYE:<n> sends")
+    p.add_argument("--no-drowsy", action="store_true",
+                   help="don't send DROWSY when the face mesh sees drowsiness (score only)")
     p.add_argument("--no-eye", action="store_true", help="show eye tracking but do not send EYE scores")
     p.add_argument("--work-width", type=int, default=320, help="detection resolution (lower = faster)")
     p.add_argument("--mirror", action="store_true", help="mirror the image (selfie view)")
