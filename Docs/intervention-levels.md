@@ -54,7 +54,7 @@ So:
 | --- | --- | --- | --- | --- |
 | — | Alertness normal | 70–100 | KSS ≤ 6 | — |
 | **Intervention 1** | **Signs of Fatigue** | 50–69 | KSS 7 — "may warn" | Screen and RGB LED yellow. Planned: buzzer |
-| **Intervention 2** | **Worsening Signs** | 0–49 | KSS 8+ — "must warn" | Screen and RGB LED red; buzzer + motor when the Pi confirms DROWSY |
+| **Intervention 2** | **Worsening Signs** | 0–49 | KSS 8+ — "must warn" | Screen and RGB LED red; **buzzer (1 s on / 1 s off) + motors as soon as the score is below 50** (firmware v24), or when the Pi reports DROWSY. Stops when the score recovers to 55 |
 
 > ⚠ The score-to-KSS column is a **design mapping**, not a validated
 > measurement. Until the eye model is trained and checked against KSS

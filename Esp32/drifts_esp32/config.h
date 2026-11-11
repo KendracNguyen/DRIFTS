@@ -16,7 +16,7 @@
 
 // Printed at boot and by STATUS, so the flashed image can be identified.
 // Matches the drifts_c6_8M_uartchip_<version>.bin file name.
-#define DRIFTS_FW_VERSION "v23"
+#define DRIFTS_FW_VERSION "v24"
 
 // ---------------------------------------------------------------
 // Pin assignments  --  TARGET: ESP32-C6-WROOM-1

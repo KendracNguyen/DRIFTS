@@ -14,6 +14,7 @@
   Serial test commands (115200 baud):
     WAKE          trigger a Pi analysis cycle by hand
     DROWSY        simulate a DROWSY result from the Pi
+                  (an alert score below 50, Intervention 2, also starts the alert)
     NOT_DROWSY    simulate a NOT_DROWSY result
     STOP          stop the alert
     TEST:m:b[:DC] drive motor m ms, piezo b ms (DC = 3.3 V across it, silent)
@@ -82,7 +83,12 @@ static uint32_t piSilentForMs(uint32_t now) {
 static void wakePi() { PiWire.wakePi(); Hub.wakePi(); }
 static void setPiIdle() { PiWire.setPiIdle(); Hub.setPiIdle(); }
 
+// True while the current alert was started by the alert score itself
+// (Intervention 2), not by a DROWSY result from the Pi.
+static bool scoreAlert = false;
+
 static void enterIdle(const char *why) {
+    scoreAlert = false;
     if (state == SystemState::Alerting || isPinTestActive() || piezoSweepActive()) stopAll();
     state = SystemState::Idle;
     stateStartMs = millis();
@@ -451,6 +457,22 @@ void loop() {
     if (now - lastScoreMs >= 1000) {
         lastScoreMs = now;
         alertScore.update(drivingRatios(snap), now);
+
+        // Intervention 2 drives the buzzer and motors by itself: a low score
+        // from the Pi's EYE:<n> (or the driving score) is enough, no DROWSY
+        // result needed. It ends once the score recovers past the hysteresis
+        // (level back above LOW). MAX_ALERT_MS still breaks it into 20 s alerts
+        // that restart while the score stays low; a stale eye score falls back
+        // to driving, so a dead Pi can't keep it going.
+        const bool low = alertScore.level() == AlertLevel::Low;
+        if (low && state == SystemState::Idle && !isPinTestActive() && !piezoSweepActive()) {
+            Serial.printf("[SCORE] Alert score %.0f: Intervention 2 -> buzzer + motors\n", alertScore.score());
+            enterAlerting();
+            scoreAlert = true;
+            piStatus = "score_low";
+        } else if (!low && scoreAlert && state == SystemState::Alerting) {
+            enterIdle("alert score recovered");
+        }
     }
 
 
