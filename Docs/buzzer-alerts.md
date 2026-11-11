@@ -31,7 +31,7 @@ central can write to.
 | **Pi** (or a laptop with Bluetooth) | `python -m drifts.beep` (`-n 3` for three beeps). On the Pi first `sudo systemctl stop drifts`: the ESP32 takes one Pi link at a time |
 | **Laptop over USB** | `python -m drifts.beep --serial COM5`, or type `BEEP` in miniterm |
 | **Any phone** | Free app **nRF Connect** or **LightBlue** → connect to `DRIFTS-ESP32` → characteristic `DF710003-B5A3-F393-E0A9-E50E24DCCA9E` → write text `BEEP` |
-| **Live dashboard** | **Beep ESP32 buzzer** button (Home and Devices tabs) |
+| **Live dashboard** | **Beep ESP32 buzzer** button (Devices tab); **Settings → Test Alerts** (buzzer or motors, 2 s) |
 
 Notes:
 - `BEEP` is ignored while an alert or pin test is running. The buzzer is
