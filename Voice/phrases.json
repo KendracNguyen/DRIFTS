@@ -18,6 +18,7 @@
     {"id": 9,  "name": "CHECK_IN",    "text": "Are you okay? Press the button to confirm."},
     {"id": 10, "name": "TEST",        "text": "This is a DRIFTS voice test."},
     {"id": 11, "name": "AWAKE",       "text": "Are you awake? Please say: I am awake."},
-    {"id": 12, "name": "SHUTDOWN",    "text": "DRIFTS is shutting down. Unplug when the screen goes dark."}
+    {"id": 12, "name": "SHUTDOWN",    "text": "DRIFTS is shutting down. Unplug when the screen goes dark."},
+    {"id": 13, "name": "WELCOME",     "text": "Welcome to Drifts."}
   ]
 }

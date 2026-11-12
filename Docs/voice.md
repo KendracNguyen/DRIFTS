@@ -31,6 +31,7 @@ Never renumber a phrase; add new ones at the end.
 | 9 | CHECK_IN | "Are you okay? Press the button to confirm." | reserved (Tokyo) |
 | 10 | TEST | "This is a DRIFTS voice test." | tests |
 | 11 | AWAKE | "Are you awake? Please say: I am awake." | first model: the Level 3 check-in, when an alert has lasted 20 s (the LCD shows "Awake Check: say 'I am awake'") |
+| 13 | WELCOME | "Welcome to Drifts." | first model: with the welcome screen at start-up (instead of READY) |
 | 12 | SHUTDOWN | "DRIFTS is shutting down. Unplug when the screen goes dark." | first model: the HAT button held 5 s (safe power-off) |
 
 Rules, the same on every system:

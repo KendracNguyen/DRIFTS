@@ -518,3 +518,26 @@ def test_hold_can_be_turned_off():
     ui.button.press(0.0)
     ui.tick(st(), 6.0)
     assert ui.shutdown_at is None and calls == []
+
+
+# ---------------------------------------------------------------- the welcome artwork and voice
+def test_welcome_shows_the_artwork_and_falls_back_to_bars(monkeypatch):
+    from drifts import whisplay_ui as wu
+    img = wu.render(st(), 0.0, "welcome")
+    assert img.size == (W, H)
+    r, g, b = img.getpixel((10, 140))                                 # checkered maroon edge of the art
+    assert r > g and r > b and r < 140
+    white = sum(1 for x in range(20, 220) for y in range(185, 222) if min(img.getpixel((x, y))) > 220)
+    assert white > 800                                                # the white DRIFTS lettering
+    monkeypatch.setattr(wu, "_welcome_cache", {"img": None})           # no artwork file: the colour bars
+    bars = wu.render(st(), 0.0, "welcome")
+    assert bars.getpixel((5, 120)) == (255, 255, 255) and bars.getpixel((W - 5, 120))[2] > 200
+
+
+def test_welcome_voice_plays_once_at_start_and_no_ready_line():
+    ui = WhisplayUI(WhisplayConfig(enabled=True), board=SimBoard(), sim=True)
+    for t in (0.0, 0.5, 2.0, 5.0, 9.0):
+        ui.tick(st(), t)
+    said = [n for _, n in ui.speaker.played]
+    assert said[0] == "WELCOME" and said.count("WELCOME") == 1 and "READY" not in said
+    assert ui.view(st(), booted=False, now=0.1) == "welcome"

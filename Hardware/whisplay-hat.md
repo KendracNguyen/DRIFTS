@@ -99,7 +99,7 @@ everything else in the phone app (no menus, no assistant on the LCD).
 
 | Screen | Shows | When |
 | --- | --- | --- |
-| **Welcome** | the colour-bar screen: DRIFTS, bars, "Starting...", "Driver Fatigue Detection System", three progress squares | first 4 s |
+| **Welcome** | the DRIFTS artwork, with the voice "Welcome to Drifts." (the colour-bar screen if the artwork is missing) | first 4 s |
 | **Score** | ring gauge, label, two readings: eyes and pose (OK), blinks and yaw (caution), intervention (high). Without the camera: driving score, speed, OBD | always, after the welcome |
 | **Calibration** | quick: head guide, "Look at the road and hold still", progress. Profile / accuracy test: the current pose in large text, step *n* of 9, hold bar. Then "Calibration complete" for 3 s | while a calibration started **in the phone app** runs |
 | **Awake Check** | mic, "Say 'I am awake'", 10 s countdown; then "Thank you" | an alert has lasted 20 s (Level 3 check-in) |

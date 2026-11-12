@@ -410,8 +410,43 @@ BARS = ((255, 255, 255), (255, 255, 0), (0, 255, 0), (0, 255, 255), (255, 0, 255
 WELCOME_RED = (232, 34, 48)
 
 
+ASSETS = Path(__file__).with_name("assets")
+WELCOME_ART = ASSETS / "drifts_logo_square.webp"     # the DRIFTS artwork, square, full size
+WELCOME_IMAGE = ASSETS / "welcome_240x280.png"       # the same, cropped to the screen (fallback)
+_welcome_cache: dict = {}
+
+
+def welcome_image():
+    """The start-up artwork at the canvas's drawing size (sides of the square art
+    trimmed to the 240 x 280 screen), or None if neither file can be read."""
+    if "img" not in _welcome_cache:
+        from PIL import Image
+        img = None
+        try:
+            art = Image.open(WELCOME_ART).convert("RGB")
+            cw = round(art.height * W / H)
+            x0 = (art.width - cw) // 2
+            img = art.crop((x0, 0, x0 + cw, art.height)).resize((W * S, H * S), Image.LANCZOS)
+        except (OSError, ValueError):
+            try:
+                img = Image.open(WELCOME_IMAGE).convert("RGB").resize((W * S, H * S), Image.LANCZOS)
+            except (OSError, ValueError):
+                img = None
+        _welcome_cache["img"] = img
+    return _welcome_cache["img"]
+
+
 def view_welcome(c: Canvas, st: UiState, ctx: dict) -> None:
-    """Start-up: the colour-bar test screen, as DRIFTS. Three squares fill in while it starts."""
+    """Start-up: the DRIFTS artwork (the colour-bar screen if the image is missing)."""
+    art = welcome_image()
+    if art is not None:
+        c.img.paste(art, (0, 0))
+        return
+    view_welcome_bars(c, st, ctx)
+
+
+def view_welcome_bars(c: Canvas, st: UiState, ctx: dict) -> None:
+    """Start-up fallback: the colour-bar test screen, as DRIFTS. Three squares fill in while it starts."""
     c.text(120, 26, "DRIFTS", 26, 700, INK, "mm")
     for x in (16, 224):                                           # red corner marks
         c.rect(x - 5, 21, x + 5, 31, fill=WELCOME_RED)
@@ -608,8 +643,10 @@ class VoiceDirector:
     repeat_s while it lasts, unless acknowledged); RECOVERED back to OK;
     OBD_LOST / ESP_LOST when a link that was up drops for lost_s."""
 
-    def __init__(self, repeat_s: float = 60.0, lost_s: float = 5.0, ready_after_s: float = 3.0):
+    def __init__(self, repeat_s: float = 60.0, lost_s: float = 5.0, ready_after_s: float = 3.0,
+                 ready_name: Optional[str] = "READY"):
         self.repeat_s, self.lost_s, self.ready_after_s = repeat_s, lost_s, ready_after_s
+        self.ready_name = ready_name            # None: the start-up line is played elsewhere (the welcome screen)
         self.t0: Optional[float] = None
         self.ready = False
         self.tier = 0
@@ -644,7 +681,8 @@ class VoiceDirector:
             self.t0 = now
         if not self.ready and now - self.t0 >= self.ready_after_s:
             self.ready = True
-            self.queue("READY")
+            if self.ready_name:
+                self.queue(self.ready_name)
         tier = st.tier if st.score is not None else self.tier
         if tier != self.tier:
             if tier == 2:
@@ -897,7 +935,9 @@ def orient(img, rotate: int):
         return img
     if rotate == 180:
         return img.rotate(180)
-    land = Image.new("RGB", (H, W), BG)                      # what the driver sees: 280 x 240
+    rgb = img.convert("RGB")
+    edge = sorted((rgb.getpixel((0, y)) for y in range(H)), key=sum)[H // 2]   # the screen's edge colour
+    land = Image.new("RGB", (H, W), edge)                    # what the driver sees: 280 x 240
     small = img.resize((round(W * W / H), W), Image.LANCZOS)  # 206 x 240
     land.paste(small, ((H - small.width) // 2, 0))
     return land.rotate(-rotate, expand=True)                 # PIL turns anticlockwise: -rotate is clockwise
@@ -993,7 +1033,9 @@ class WhisplayUI:
                         "double": check_action(cfg.button_double), "hold": check_action(cfg.button_hold)}
         self.board = board or (SimBoard() if sim else HatBoard(cfg.driver_dir, cfg.rotate, cfg.joystick))
         self.speaker = Speaker(cfg.audio_device, sim=sim)
-        self.voice = VoiceDirector(repeat_s=cfg.repeat_s)
+        # The welcome screen says "Welcome to Drifts." itself, so no separate "ready" line
+        self.voice = VoiceDirector(repeat_s=cfg.repeat_s, ready_name=None)
+        self._welcomed = False
         self.button = ButtonDecoder(cfg.long_s, 0.0 if self.actions["double"] == "none" else cfg.double_s,
                                     None if self.actions["hold"] == "none" else cfg.hold_s)
         self.shutdown_at: Optional[float] = None   # set by the shutdown hold: power off at this time
@@ -1198,6 +1240,9 @@ class WhisplayUI:
         if self.t0 is None:
             self.t0 = now
         booted = now - self.t0 >= BOOT_S
+        if not self._welcomed and self.cfg.voice:
+            self._welcomed = True
+            self.speaker.play("WELCOME", now)    # with the welcome screen
         for ev in self.button.poll(now):
             self.handle(ev, st, now)
         while self._joy:
