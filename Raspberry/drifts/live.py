@@ -662,6 +662,25 @@ def make_handler(pipe: Pipeline):
                 self._send(200, json.dumps(pipe.privacy()).encode(), "application/json")
             elif path == "/trips.json":
                 self._send(200, json.dumps(pipe.trips.load()).encode(), "application/json")
+            elif path.startswith("/static/icons/") and path.endswith(".png"):
+                f = ICON_DIR / Path(path).name                 # name only: no way out of the folder
+                if f.exists():
+                    body = f.read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/png")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Cache-Control", "max-age=86400")
+                    self.end_headers()
+                    self.wfile.write(body)
+                else:
+                    self._send(404, b"not found", "text/plain")
+            elif path in ("/manifest.webmanifest", "/favicon.ico"):
+                if path == "/favicon.ico":
+                    self.send_response(301)
+                    self.send_header("Location", "/static/icons/icon-32.png")
+                    self.end_headers()
+                else:
+                    self._send(200, json.dumps(WEB_MANIFEST).encode(), "application/manifest+json")
             elif path.startswith("/static/fonts/") and path.endswith(".woff2"):
                 f = FONT_DIR / Path(path).name
                 if f.exists():
@@ -880,6 +899,14 @@ def main(argv=None) -> int:
 
 PAGE_FILE = Path(__file__).with_name("dashboard.html")
 FONT_DIR = Path(__file__).with_name("static") / "fonts"
+ICON_DIR = Path(__file__).with_name("static") / "icons"
+# "Add to Home Screen": the DRIFTS icon and name, full screen like an app
+WEB_MANIFEST = {
+    "name": "DRIFTS", "short_name": "DRIFTS", "start_url": "/", "display": "standalone",
+    "background_color": "#3B0008", "theme_color": "#650E20",
+    "icons": [{"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+              {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png"}],
+}
 
 
 if __name__ == "__main__":

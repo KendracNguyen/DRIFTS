@@ -54,3 +54,26 @@ def test_home_has_status_beside_score_and_ai_is_a_chat_button():
     assert 'data-t="ai"' not in html and 'id="fab"' in html
     assert "testEsp('buzzer'" in html and "testEsp('vibration'" in html
     assert "It measures your face for raw data. No video or pictures are recorded. See what it sees." in html
+
+
+def test_app_icon_and_manifest(tmp_path):
+    import json
+    p = make(tmp_path)
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(p))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        for n in (32, 180, 192, 512):
+            r = urllib.request.urlopen(f"{base}/static/icons/icon-{n}.png")
+            assert r.headers["Content-Type"] == "image/png" and r.read(8) == b"\x89PNG\r\n\x1a\n"
+        m = json.loads(urllib.request.urlopen(f"{base}/manifest.webmanifest").read())
+        assert m["name"] == "DRIFTS" and {i["sizes"] for i in m["icons"]} == {"192x192", "512x512"}
+        try:
+            urllib.request.urlopen(f"{base}/static/icons/..%2Fdashboard.html")
+            assert False
+        except urllib.error.HTTPError as e:
+            assert e.code == 404
+    finally:
+        srv.shutdown()
+    html = (Path(__file__).resolve().parents[1] / "drifts" / "dashboard.html").read_text()
+    assert 'rel="apple-touch-icon"' in html and 'rel="manifest"' in html
