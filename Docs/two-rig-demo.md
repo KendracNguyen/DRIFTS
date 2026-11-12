@@ -61,12 +61,12 @@ the 1-hour soak test, calibration).
 
 ### Rig B: Pi 5 + Arducam (64-bit Raspberry Pi OS)
 ```powershell
-# laptop, repo's Raspberry folder
-powershell -ExecutionPolicy Bypass -File .\deploy\deploy.ps1 -PiHost drifts-pi5.local -Install
+# laptop, in the repo folder
+powershell -ExecutionPolicy Bypass -File .\Raspberry\deploy\deploy.ps1 -PiHost drifts-pi5.local -Install
 ```
 ```bash
 # on the Pi 5
-cd ~/drifts && PI5=1 bash deploy/install.sh        # dms-face + MediaPipe (lean, pinned)
+cd ~/drifts/Raspberry && PI5=1 bash deploy/install.sh        # dms-face + MediaPipe (lean, pinned)
 sudo systemctl stop drifts
 rpicam-hello -t 3000                               # camera check
 .venv/bin/python ~/dms-face/tests/test_core.py     # dms-face self-test: 41 tests
@@ -89,11 +89,11 @@ real ESP32 to one rig, and run the other with `--esp sim`.
 
 ```bash
 # Rig B (Pi 5): drives the real ESP32, buzzer and motors
-cd ~/drifts && .venv/bin/python -m drifts.live --face mediapipe --profile kendra \
+cd ~/drifts/Raspberry && .venv/bin/python -m drifts.live --face mediapipe --profile kendra \
     --esp ble --rig-name "Pi 5 + OV5647 day/night"
 
 # Rig A (Zero 2 W)
-cd ~/drifts && .venv/bin/python -m drifts.live --pose imx500 --no-eyes \
+cd ~/drifts/Raspberry && .venv/bin/python -m drifts.live --pose imx500 --no-eyes \
     --esp sim --rig-name "Pi Zero 2 W + AI Camera"
 ```
 

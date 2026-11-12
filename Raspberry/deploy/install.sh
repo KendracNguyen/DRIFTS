@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One-time setup on the Pi. Safe to re-run after every deploy.
-#   cd ~/drifts && bash deploy/install.sh
+#   cd ~/drifts/Raspberry && bash deploy/install.sh
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"

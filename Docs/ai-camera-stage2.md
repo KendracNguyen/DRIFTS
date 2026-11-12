@@ -53,12 +53,12 @@ Use **Raspberry Pi OS Lite 64-bit**. The camera needs the Zero's narrow
 22-pin ribbon cable.
 
 ```powershell
-# laptop, in the repo's Raspberry folder
-powershell -ExecutionPolicy Bypass -File .\deploy\deploy.ps1 -Install
+# laptop, in the repo folder
+powershell -ExecutionPolicy Bypass -File .\Raspberry\deploy\deploy.ps1 -Install
 ```
 ```bash
 # on the Pi
-cd ~/drifts && AI_CAMERA=1 bash deploy/install.sh   # adds imx500-all (10-15 min) + munkres
+cd ~/drifts/Raspberry && AI_CAMERA=1 bash deploy/install.sh   # adds imx500-all (10-15 min) + munkres
 sudo systemctl stop drifts
 ```
 

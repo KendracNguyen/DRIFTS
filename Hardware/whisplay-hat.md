@@ -94,21 +94,17 @@ buzzer and motors (rules in `Raspberry/drifts/ui_model.py`):
 The ESP32 has 5 points of hysteresis, so a score of 72 can still be yellow
 while it recovers. A partial score (no eye data) draws the ring dimmer.
 
-**Screens.** The button cycles through the first six. An alert always
-returns to the score.
+**Screens.** A status display: the screen picks itself, and the driver does
+everything else in the phone app (no menus, no assistant on the LCD).
 
-| Screen | Shows | Data |
+| Screen | Shows | When |
 | --- | --- | --- |
 | **Welcome** | DRIFTS, "Starting..." | first 4 s |
-| **Calibration** | head guide, "Look forward and keep a neutral posture", progress | camera pipeline, until the road pose is set |
-| **Score** | ring gauge, label, two readings: eyes and pose (OK), blinks and yaw (caution), intervention (high). Without the camera: driving score, speed, OBD | ESP32 + camera |
-| **Driving Status** | speed, RPM, throttle, driving score | ESP32 (OBD) |
-| **Detection Metrics** | PERCLOS, blink rate, head yaw, head pitch | camera pipeline; `--` without it |
-| **Device Status** | Raspberry Pi, ESP32, OBD dongle, camera, audio: Online / Offline / Unknown | live link state |
-| **System Setup** | profile, Wi-Fi network, calibration, brightness. Changes will come from the phone app | config + `iwgetid` |
-| **Driver AI** | "Assistant offline" until a voice assistant exists. Listening, thinking and response screens are ready for it | — |
-| **Rest stop** | "Location unavailable": there is no GPS yet | — |
-| **Emergency** | "No trusted contact set": contacts will come from the phone app | — |
+| **Score** | ring gauge, label, two readings: eyes and pose (OK), blinks and yaw (caution), intervention (high). Without the camera: driving score, speed, OBD | always, after the welcome |
+| **Calibration** | quick: head guide, "Look at the road and hold still", progress. Profile / accuracy test: the current pose in large text, step *n* of 9, hold bar. Then "Calibration complete" for 3 s | while a calibration started **in the phone app** runs |
+| **Awake Check** | mic, "Say 'I am awake'", 10 s countdown; then "Thank you" | an alert has lasted 20 s (Level 3 check-in) |
+
+An alert always shows the score (or the awake check), never a calibration.
 
 No screen shows a made-up reading. Missing values are `--`; demo data
 always carries the DEMO tag.
@@ -140,17 +136,19 @@ double press each run an action set in `config.toml` (`[whisplay]
 button_short / button_long / button_double`). Actions and setup:
 [`../Docs/whisplay-bringup.md`](../Docs/whisplay-bringup.md#the-side-button).
 
+It is a **developer** button: the driver doesn't need it.
+
 | Press (defaults) | Action |
 | --- | --- |
-| **Short press, no alert** | Next page: score → driving → metrics → devices → setup → Driver AI |
-| **Any short or double press during an alert** | **Acknowledge** ("I'm awake"): logged, the screen shows "Acknowledged", and the Level 2 voice repeat pauses for 60 s. This one can't be remapped |
+| **Short press** | nothing (`none`), so a stray press does nothing |
+| **Any press during the awake check** | Answers "I am awake" (the backup until the voice reply exists) |
+| **Any short or double press during an alert** | **Acknowledge**: logged, the screen shows "Acknowledged", and the Level 2 voice repeat pauses for 60 s. This one can't be remapped |
 | **Long press (≥ 1.5 s)** | Repeat the last voice message |
 | **Double press** | Re-take the road pose (calibration), with the camera pipeline |
 
 **Safety rule:** no button press stops an alert while the driver is still
 scored as drowsy. The ESP32's buzzer and motors keep running; only the
-Pi's voice repeat pauses. The Level 3 check-in (clip 9, "Are you okay? Press
-the button to confirm") will use the same press.
+Pi's voice repeat pauses.
 
 ## Architecture
 

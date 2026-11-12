@@ -1,9 +1,10 @@
 # Whisplay HAT: Bring-up and Implementation Plan
 
 The software for the first model's driver display is finished and tested
-against a simulated HAT. This page covers three things:
-- **Day 1:** what to do when the HAT arrives, step by step.
-- **The side button:** how to program it.
+against a simulated HAT. This page covers four things:
+- **The LCD:** what it shows and when. It is a status display; the driver uses the phone app.
+- **Day 0 and Day 1:** getting the code onto the Pi, then testing the camera and the LCD, step by step.
+- **The side button:** for developers only.
 - **The plan:** what comes after the screen works.
 
 The hardware datasheet is in [`../Hardware/whisplay-hat.md`](../Hardware/whisplay-hat.md).
@@ -12,15 +13,18 @@ The hardware datasheet is in [`../Hardware/whisplay-hat.md`](../Hardware/whispla
 
 | Part | Code | Tested |
 | --- | --- | --- |
-| Screen: 16 views (score ring, driving, metrics, devices, setup, AI, rest stop, emergency) | `drifts/whisplay_ui.py` | simulated; PNGs in `Hardware/drawings/whisplay_screens.png` |
+| Screen: welcome, score (4 bands), calibration (quick / profile step / complete), "Say 'I am awake'" (asking / thank you); picks itself | `drifts/whisplay_ui.py` | simulated; PNGs in `Hardware/drawings/whisplay_screens.png` |
 | RGB LED: green / yellow / red 1 s / red slow blink / blue | `led_color()` | simulated |
-| Voice: clips on level changes and lost links | `VoiceDirector`, `Speaker` | simulated; clips play on a laptop |
-| **Side button:** short / long / double press, each mapped in `config.toml` | `ButtonDecoder`, `WhisplayUI.do()` | simulated (26 Whisplay unit tests in all) |
-| Joy version: 5-way joystick | `joystick = true` | simulated |
+| Voice: clips on level changes, lost links, a finished calibration and the awake check | `VoiceDirector`, `Speaker` | simulated; clips play on a laptop |
+| Calibration started in the phone app shows on the LCD | `Pipeline.calib_ui()` → `UiState.calibrating` | simulated with `drifts.live --whisplay-sim` |
+| Awake check (Level 3): an alert lasting 20 s asks "Say 'I am awake'" | `WhisplayUI.ask_awake()` / `confirm_awake()` | simulated; the voice reply itself is phase 4 |
+| **Side button (developers):** short / long / double press, each mapped in `config.toml` | `ButtonDecoder`, `WhisplayUI.do()` | simulated (30 Whisplay unit tests in all) |
+| Joy version: 5-way joystick (centre = the button) | `joystick = true` | simulated |
 | Screen rotation (mount upside down) | `rotate = 180` | simulated |
 | Clean shutdown: screen and LED off | `WhisplayUI.close()` | simulated |
 | Bring-up self-test | `python -m drifts.whisplay_check --hw` | simulated |
 | Installer: PiSugar driver, gpiod, spidev, groups, font | `WHISPLAY=1 bash deploy/install.sh` | not run on a Pi yet |
+| Copy from the laptop: `Raspberry` + `Voice` to `~/drifts` | `Raspberry/deploy/deploy.ps1` | not run on a Pi yet |
 
 **Checked against PiSugar's own driver** (`runtime/whisplay.py` in
 github.com/PiSugar/Whisplay, read Nov 2026):
@@ -33,9 +37,31 @@ github.com/PiSugar/Whisplay, read Nov 2026):
   **`whisplay-ai-chatbot`** (`chatbot.service`). Either one takes exclusive control of the screen, LED
   and button. DRIFTS refuses to start while one is running, and the installer disables both.
 
+## The LCD: a status display
+
+The driver never has to touch the screen. It changes by itself:
+
+| When | Shows |
+| --- | --- |
+| Starting (4 s) | **Welcome**: DRIFTS, "Starting..." |
+| Always, after that | **Score**: the alertness ring (green 70+, yellow 50–69, red below 50, grey with no data) and two lines under it |
+| The driver starts a calibration **in the phone app** (Settings → Calibration) | **Calibration**: quick road pose ("Look at the road"), or the 9-pose profile / accuracy test (the current pose in large text, step *n* of 9, a hold bar). Then **"Calibration complete"** for 3 s and the voice says so |
+| An alert has lasted 20 s (`awake_after_s`) | **"Awake Check: say 'I am awake'"** with a countdown, for 10 s (`awake_window_s`), and the voice asks. Then **"Thank you"** for 2.5 s once answered. It asks again 20 s later if the alert goes on |
+
+An alert always wins over a calibration. The automatic road-pose pass at
+start-up does **not** take over the screen: only a calibration the driver asked
+for does.
+
+**Answering "I am awake".** Speech recognition is phase 4 (below). Until then,
+any press of the side button answers it, and the screen says "Or press the side
+button". When a recogniser exists it is plugged in as
+`WhisplayUI(hooks={"listen": start})` and calls `ui.confirm_awake(now)`; the
+screen then says "Listening...". Answering never stops the ESP32's buzzer or
+motors: they follow the alert score.
+
 ### Screens to check against
 
-- **LCD**, every view with example data:
+- **LCD**, every screen with example data:
   ![LCD screens](../Hardware/drawings/whisplay_screens.png)
 - **Bring-up check** screens (`whisplay_check --hw`):
   ![Self-test screens](../Hardware/drawings/whisplay_check_screens.png)
@@ -49,10 +75,53 @@ Playwright from `drifts.live --esp sim --video Simuletic_DMS_Dataset/images`.
 
 ---
 
-## Day 1: bring-up (about 30 minutes)
+## Day 0: get the Pi ready (about 45 minutes, most of it waiting)
 
-**Before it arrives:** the Pi Zero 2 W already runs 64-bit Raspberry Pi OS
-with DRIFTS installed (`bash deploy/install.sh`), and SSH works.
+1. **Flash the SD card** with Raspberry Pi Imager: **Raspberry Pi OS Lite (64-bit)**.
+   In the Imager's settings (the gear):
+   - Hostname `drifts`, user `drifts` and a password.
+   - Your Wi-Fi (the phone's hotspot works for the car).
+   - **Enable SSH**.
+2. **Connect the camera** (Pi off): the Zero's narrow 22-pin ribbon, contacts towards the board.
+3. **Boot, then check SSH** from the laptop: `ssh drifts@drifts.local`.
+4. **Copy DRIFTS and install** (on the laptop, PowerShell, in the `DRIFTS-repo` folder). One of these:
+   ```powershell
+   # A. copy from the laptop (no GitHub login needed on the Pi)
+   powershell -ExecutionPolicy Bypass -File .\Raspberry\deploy\deploy.ps1 -Install -Mesh -Whisplay
+   ```
+   ```bash
+   # B. or clone on the Pi
+   git clone https://github.com/KendracNguyen/DRIFTS.git ~/drifts
+   cd ~/drifts/Raspberry && MESH=1 WHISPLAY=1 bash deploy/install.sh
+   ```
+   Either way the Pi ends up with `~/drifts/Raspberry` (the app) and
+   `~/drifts/Voice` (the clips). The install takes 15–30 min on a Zero 2 W:
+   - the wired ESP32 link (UART on, Bluetooth off),
+   - the Python environment,
+   - MediaPipe and its face model (`-Mesh` / `MESH=1`),
+   - the Whisplay driver (`-Whisplay` / `WHISPLAY=1`),
+   - the `drifts` service, which starts on every boot.
+   Without the HAT fitted yet, leave out `-Whisplay` and run it again later.
+5. **Reboot** (`sudo reboot`): the UART and the HAT's sound card need it.
+6. **Camera check** (no HAT needed):
+   ```bash
+   sudo systemctl stop drifts                 # the service holds the camera
+   rpicam-hello --list-cameras                # the camera is listed
+   cd ~/drifts/Raspberry
+   .venv/bin/python -m drifts.live --face mesh --esp sim
+   ```
+   Open **http://drifts.local:8080** on the phone (same Wi-Fi):
+   - The camera card shows your face with the outline (eyes green when open, red when closed).
+   - **Devices → Raspberry Pi** shows the frame rate. Note it: it is the first measurement for the Pi Zero face-mesh goal.
+   - **Settings → Calibration → Quick calibrate**: the calibration runs.
+   - Stop with Ctrl-C, then `sudo systemctl start drifts`.
+
+Later updates: run `deploy.ps1` without `-Install`, or `git pull` on the Pi
+and `sudo systemctl restart drifts`.
+
+---
+
+## Day 1: the HAT arrives (about 30 minutes)
 
 1. **Fit the HAT.**
    - Power the Pi off.
@@ -89,23 +158,30 @@ with DRIFTS installed (`bash deploy/install.sh`), and SSH works.
    | Button | the screen ticks off **short**, **hold 1.5 s**, **double** | nothing: another program holds the HAT (the check says which) |
 
    The results are saved to `whisplay_check_report.txt`. Commit it, or paste it in the PR.
-5. **Try the screens and the button** with example data (DEMO tag):
+5. **Try the screens** with example data (DEMO tag):
    ```bash
-   .venv/bin/python -m drifts.whisplay_ui --browse     # every press is printed; Ctrl-C to stop
-   .venv/bin/python -m drifts.whisplay_ui --demo       # OK -> Level 1 -> Level 2 -> OK, with voice, 36 s
+   .venv/bin/python -m drifts.whisplay_ui --demo       # welcome -> OK -> Level 1 -> Level 2 -> OK, with voice, 36 s
    ```
-6. **With the ESP32 (firmware v21, wired: [`../Hardware/schematic.md` §5b](../Hardware/schematic.md)):**
+   For the other screens, set `button_short = "awake_check"` in `config.toml` and run
+   `.venv/bin/python -m drifts.whisplay_ui --browse`: a press shows the awake check.
+6. **With the ESP32 (firmware v24, wired: [`../Hardware/schematic.md` §5b](../Hardware/schematic.md)):**
    - Set `enabled = true` under `[whisplay]` in `config.toml`.
    - Run `sudo systemctl restart drifts`.
-   - The score appears a few seconds after the Bluetooth link comes up.
+   - Welcome, then the score, a few seconds after the ESP32's first status line.
    - Unplug the OBD dongle: the LED blinks red and, after 5 s, the voice says the OBD link was lost.
-7. **With the camera** (eyes, blinks, head pose and calibration on the screen):
+7. **With the camera and the phone** (the full first model):
    ```bash
    sudo systemctl stop drifts
    .venv/bin/python -m drifts.live --face mesh --esp uart --whisplay
    ```
-   - A double press re-takes the road pose: the calibration screen shows.
-   - Note the frame rate on the Device and dashboard pages. This is the first measurement for the Pi Zero face-mesh goal.
+   | Do | The LCD |
+   | --- | --- |
+   | Wait 4 s | welcome, then the score with "Eyes: Open" and the pose |
+   | Phone: Settings → Calibration → **Quick calibrate** | "Look at the road", the bar fills, then "Calibration complete" and the voice |
+   | Phone: **Create profile** | each pose in large text, step 1 of 9 … 9 of 9, then complete |
+   | Close your eyes until the score turns red | red ring, LED red 1 s / 1 s, buzzer and motors |
+   | Keep them closed 20 s more | "Awake Check: say 'I am awake'" and the voice asks; press the button: "Thank you" |
+   | Open your eyes | back to green, "Alertness back to normal" |
 
 ---
 
@@ -117,41 +193,47 @@ with DRIFTS installed (`bash deploy/install.sh`), and SSH works.
 - **Long press:** held 1.5 s. It fires while still held.
 - **Double press:** two presses within 0.4 s.
 
-Set the actions in `Raspberry/config.toml`, then run `sudo systemctl restart drifts`:
+The button is for **developers on the bench**. The driver does everything in
+the phone app, and the screen changes by itself. Set the actions in
+`Raspberry/config.toml`, then run `sudo systemctl restart drifts`:
 
 ```toml
 [whisplay]
-button_short = "next_page"       # default
+button_short = "none"            # default: a stray press does nothing
 button_long = "repeat_voice"     # default
 button_double = "calibrate"      # default; "none" = no double press and no 0.4 s wait
 long_s = 1.5
 double_s = 0.4
+awake_after_s = 20.0             # an alert this long asks "Say 'I am awake'" (0 = off)
+awake_window_s = 10.0
 ```
 
 | Action | Does |
 | --- | --- |
-| `next_page` / `prev_page` | score → driving → metrics → devices → setup → Driver AI |
-| `page:<name>` | straight to `score`, `driving`, `vision`, `devices`, `setup` or `ai` |
 | `repeat_voice` | plays the last voice message again |
-| `calibrate` | re-takes the road pose (needs `drifts.live`; the car program shows "needs the camera") |
-| `ai` | opens the Driver AI screen ("Assistant offline" until phase 4) |
+| `calibrate` | re-takes the road pose, like Quick calibrate in the app (needs `drifts.live`; the car program shows "needs the camera") |
+| `awake_check` | shows the awake check now (to test the screen and the voice) |
 | `brightness` | 30 → 70 → 100 % |
 | `none` | nothing |
 
-**Fixed safety rule:** during an alert (Intervention 1 or 2), a short or
-double press **acknowledges** it, whatever the mapping says:
-- The screen shows "Acknowledged".
-- The voice repeat pauses for 60 s.
-- The ESP32's buzzer and motors keep running.
+The old page actions (`next_page`, `prev_page`, `page:<name>`, `ai`) are
+retired with those screens. An older `config.toml` that still has them starts
+normally and treats them as `none` (with a warning in the log).
 
-The press is logged. A long press during an alert still repeats the message.
+**Fixed safety rules**, whatever the mapping says:
+- **During the awake check**, any press answers "I am awake" (the backup until the voice reply exists).
+- **During an alert** (Intervention 1 or 2), a short or double press **acknowledges** it:
+  the screen shows "Acknowledged" and the voice repeat pauses for 60 s.
+- The ESP32's buzzer and motors keep running either way. A long press during an alert still repeats the message.
 
-**From Python**, other programs can add their own actions with `hooks`:
-`WhisplayUI(cfg, hooks={"calibrate": fn, "ai": fn})`. `drifts.live` uses
+Every press is logged.
+
+**From Python**, other programs add their own actions with `hooks`:
+`WhisplayUI(cfg, hooks={"calibrate": fn, "listen": fn})`. `drifts.live` uses
 this for `calibrate`.
 
-**Joy version** (`joystick = true`): up/left and down/right page through
-the screens, and the centre press counts as a short press.
+**Joy version** (`joystick = true`): the centre press counts as a short
+press. There are no pages to move through.
 
 ---
 
@@ -159,16 +241,16 @@ the screens, and the centre press counts as a short press.
 
 | Phase | What | Needs | Done when |
 | --- | --- | --- | --- |
-| **0: software** ✅ | Screens, LED, voice, programmable button, self-test, installer, docs | — | this PR |
+| **0: software** ✅ | Status screens, LED, voice, developer button, self-test, installer, docs | — | done |
 | **1: bring-up** | Day 1 above. Record the version, orientation, LED order, speaker loudness and mic level | the HAT | `whisplay_check --hw` all PASS, report committed |
 | **2: in the car** | `enabled = true`, ESP32 v21 over the UART wire. Measure the height with the HAT, loudness over road noise, and the current when idle and speaking (USB meter). Set the brightness for day/night | phase 1, the car | a drive with every level shown and heard; numbers in `whisplay-hat.md` |
 | **3: camera on the Zero** | `drifts.live --face mesh --whisplay` on the Pi Zero. Measure fps and CPU with the screen running; the screen only redraws on change, ~10 ms a frame on a laptop | phase 1, Arducam | fps noted; decide whether the Zero runs the mesh or keeps the Haar tracker |
-| **4: Driver AI (push to talk)** | Long press (or `button_long = "ai"`) records from the HAT's mics: listening → thinking → answer screens, which are already drawn. **Fixed intents first**, answered from DRIFTS data with Piper speech, no internet needed: "what's my score", "why did it drop" (the measured signals that changed), "is my camera connected". Then optional speech-to-text and a language model | phase 1; a speech-to-text choice (below) | 4 intents work parked, answers use only measured values |
+| **4: "I am awake" by voice** | During the awake check, record from the HAT's mics and listen for "I am awake" (one fixed phrase, offline). Plug it in with `hooks={"listen": ...}` and `confirm_awake()`. The Driver AI assistant stays in the phone app, not on the LCD | phase 1; a speech-to-text choice (below) | the phrase is heard in the car over road noise; a miss falls back to the button |
 | **5: phone app** | ✅ 4 tabs (Home, History, Devices, Settings) in the mockup's design, band colours from `ui_model.py`, real trip history. The Driver AI Assistant opens from a chat button in the corner | — | assistant answers with phase 4 |
-| **6: rest stop and emergency** | Real data only: GPS or the phone's location for rest stops, contacts from the phone app, confirmed calls. Opt-in "notify a contact after sustained high fatigue" with a cancel period | phase 5 | screens leave "unavailable" with real data |
+| **6: rest stop and emergency** | In the phone app only. Real data only: the phone's location for rest stops, contacts from the app, confirmed calls. Opt-in "notify a contact after sustained high fatigue" with a cancel period | phase 5 | the app's placeholders show real data |
 
-**Phase 4 options.** PiSugar's `whisplay-ai-chatbot` is a reference, not
-something to copy:
+**Phase 4 options.** PiSugar's `whisplay-ai-chatbot` is a reference for
+recording on the HAT, not something to copy:
 - It is **GPL-3.0**: copying its code would make DRIFTS GPL too.
 - It is mostly **Node.js**.
 - It **takes over the HAT** as `chatbot.service`.
@@ -179,11 +261,11 @@ Speech-to-text options:
 
 | Option | On the Pi Zero 2 W | Notes |
 | --- | --- | --- |
-| Fixed phrases (Vosk small model, ~40 MB) | runs, a few phrases | offline; enough for the 4 intents |
+| Fixed phrases (Vosk small model, ~40 MB) | runs, a few phrases | offline; enough for "I am awake" |
 | Whisper tiny (whisper.cpp) | slow: seconds per phrase | offline; better on Tokyo's Pi 5 |
 | Cloud speech-to-text + language model | fast | needs internet and an API key in the car; must never be needed for an alert |
 
-Whatever we choose, **the alert never depends on the assistant**. The ESP32
+Whatever we choose, **the alert never depends on speech recognition**. The ESP32
 fires the buzzer and motors on its own, and the Pi's voice warnings are
 pre-recorded clips.
 
