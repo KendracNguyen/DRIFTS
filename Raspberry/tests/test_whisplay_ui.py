@@ -441,3 +441,15 @@ def test_speaker_uses_the_default_device_and_falls_back(monkeypatch):
     assert sp.playing(0.1) and sp.device == "default" and calls[-1] == "default"   # retried on "default"
     sp.play("READY", 5.0)
     assert calls[-1] == "default"                                 # and stays there
+
+
+def test_demo_uses_the_mount_settings(tmp_path, monkeypatch):
+    """--demo / --browse read config.toml's [whisplay] (rotate = 90 on our mount), not defaults."""
+    from drifts import config as config_mod
+    from drifts.whisplay_ui import demo_config
+    toml = tmp_path / "config.toml"
+    toml.write_text('[whisplay]\nenabled = false\nrotate = 90\naudio_device = "default"\nbrightness = 40\n')
+    monkeypatch.setattr(config_mod, "DEFAULT_CONFIG", toml)
+    cfg = demo_config("/opt/whisplay")
+    assert cfg.rotate == 90 and cfg.audio_device == "default" and cfg.brightness == 40
+    assert cfg.enabled and cfg.driver_dir == "/opt/whisplay"
