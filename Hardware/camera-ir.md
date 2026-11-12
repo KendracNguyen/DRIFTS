@@ -41,6 +41,10 @@ At night the face needs light the driver can't see. The two boards on hand:
 | Range | a few metres | 15–20 m |
 | For DRIFTS | **use this one** | **too big, too bright, wrong voltage.** The face is 60 cm away; it would need a 12 V boost converter or the car's 12 V. Keep it for the bench or Tokyo |
 
+**Our mount (rev 8):** the IR board sits on the **other side of the LCD from the
+camera, about 60 mm from the lens** (centre to centre), facing the driver, and is
+powered from its own charger port ([schematic.md §5d](schematic.md)).
+
 **How to fit the DORHEA board:**
 - **Start with one board**, beside the camera and a few cm off the lens axis
   (straight-on light shows up as bright spots in glasses).

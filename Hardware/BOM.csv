@@ -29,3 +29,8 @@ U2b,Raspberry Pi 5 (demo rig B),1,4-8 GB; 64-bit OS; Active Cooler,Raspberry Pi 
 U5c,Day/night camera (demo rig B),1,OV5647 auto IR-cut + IR LEDs; M12 lens,Arducam OV5647 Day-Night Vision,25,have,Needs Pi 5 camera cable 22-pin to 15-pin
 W1,Pi 5 camera cable,1,22-pin to 15-pin Standard-Mini,Raspberry Pi Camera Cable Standard-Mini,3,needed,For the Arducam on the Pi 5
 U11,Small USB speaker (Tokyo),1,USB audio class (plays over USB not just powered by it),HONKYOB USB Mini Speaker (Amazon B075M7FHM1),12,ordered,Tokyo voice - no GPIO used; a speaker with only a 3.5 mm plug will NOT work (the Pi 5 has no jack)
+J2,Car charger,1,2 USB ports; each 5 V 2.4 A or more (24 W),Anker PowerDrive 2 (24 W),15,needed,Port 1: splitter to the Pi and the ESP32; port 2: the IR board - schematic.md 5d
+W4,USB-C power splitter,1,USB-C female in; USB-C + micro-USB male out; charge only,CY USB-C female to USB-C + Micro USB splitter,8,have,Pi PWR IN + ESP32 USB-C from charger port 1
+W5,USB power pigtail,1,USB-A plug to 2 bare wires (red +5 V / black GND); 22-24 AWG,USB to 2-pin bare wire power cable,5,needed,Charger port 2 to the IR board
+S1,Inline switch (optional),1,rocker or slide; 2 A at 5 V,inline rocker switch,3,optional,On the IR board red wire
+HS2,IR board heatsink,1,14x14x3 mm stick-on aluminium or copper,heatsink with thermal tape,3,needed,On the back of the IR LED

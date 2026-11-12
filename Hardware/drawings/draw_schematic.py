@@ -16,7 +16,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Polygon, Rectangle
 
-REV = 7
+REV = 8
 W, H = 240, 214
 
 WIRE = "#1a6b1a"
@@ -123,13 +123,13 @@ def no_connect(x, y):
 
 # ---------------------------------------------------------------- title
 text(W / 2, 3, f"DRIFTS — Schematic (NewBrain architecture) · rev {REV}", size=16, ha="center", weight="bold")
-text(W / 2, 6.2, "Team 1 · ESP32-C6 dev kit + Raspberry Pi Zero 2 W · rev 7: the Pi is wired to the ESP32 "
-     "(UART, 3 wires) instead of BLE · driver screen, LED, voice and button on the Whisplay HAT · "
-     "generated drawing (not a KiCad file)",
+text(W / 2, 6.2, "Team 1 · ESP32-C6 dev kit + Raspberry Pi Zero 2 W · rev 8: split 5 V supply (Pi and ESP32 "
+     "each fed from the charger), 850 nm IR board on its own port, Camera Module 3 NoIR · UART Pi link (rev 7) · "
+     "Whisplay HAT · generated drawing (not a KiCad file)",
      size=8.5, ha="center", style="italic")
 
 # ---------------------------------------------------------------- power input
-frame(2, 10, 100, 30, "Power input (vehicle)")
+frame(2, 10, 100, 30, "Power input: raw 12 V option (the car build uses a charger, rev 8 block)")
 j1 = box(5, 14, 16, 20, "J1\n12V acc.", right=[("+12V", 20), ("GND", 30)], title_lines=2)
 wire(j1["+12V"], (26, 20))
 res_h(26, 20, "F1  2 A")
@@ -158,12 +158,13 @@ wire(u6["IN-"], (66, 30))
 gnd(66, 30)
 wire(u6["OUT+"], (98, 20))
 flag(98, 20, "+5V")
+text(98, 34.5, "(feeds +5V_PI and +5V_C6)", size=6.5, ha="center", style="italic")
 wire(u6["OUT-"], (98, 30))
 gnd(98, 30)
 
 # ---------------------------------------------------------------- vision + BLE
 frame(106, 10, 132, 30, "Vision, wired Pi link and wireless (off-board modules)")
-u5 = box(110, 16, 18, 20, "U5\nOV5647", right=[("CSI", 30)], title_lines=2)
+u5 = box(108, 14, 22, 22, "U5 Camera\nModule 3 NoIR\n(IMX708)", right=[("CSI", 30)], title_lines=3)
 u2 = box(146, 13, 30, 24, "U2 Pi Zero 2 W", left=[("5V", 18), ("GND", 24), ("CSI", 30)],
          right=[("GPIO15 RX · p10", 20), ("GPIO14 TX · p8", 26)])
 # rev 7: wired link to U1 (UART). R10 / R11 limit current if only one board has power.
@@ -178,7 +179,7 @@ netlabel(186, 26, "PI_TX")
 wire(u5["CSI"], u2["CSI"])
 text(137, 28.6, "CSI-2 ribbon", size=7, ha="center")
 wire(u2["5V"], (140, 18))
-flag(140, 18, "+5V")
+flag(140, 18, "+5V_PI")
 wire(u2["GND"], (136, 24))
 gnd(136, 24)
 u3 = box(196, 22, 22, 12, "U3 ELM327\nBLE OBD dongle", title_lines=2)
@@ -195,7 +196,7 @@ netlabel(113, 78, "C6_TX")
 wire(u1["GPIO20 RX"], (113, 84))
 netlabel(113, 84, "PI_TX")
 wire(u1["5V"], (88.5, 54))
-flag(88.5, 54, "+5V")
+flag(88.5, 54, "+5V_C6")
 # BLE link to the OBD dongle (the Pi is wired since rev 7)
 wire((106, 48), (207, 34), color=BLE, lw=2, ls=(0, (5, 3)))
 text(160, 41.5, "BLE", size=8, color=BLE, weight="bold")
@@ -237,7 +238,7 @@ for k in (3, 2, 1):
     ax.add_patch(Rectangle((165 + k * 1.2, 46 + k * 1.2), 20, 24, fc=FILL, ec=EDGE, lw=1.3, zorder=3))
 m = box(165, 46, 20, 24, "M1–M4\n(×4)", left=[("GND", 52), ("VCC", 58), ("IN", 64)], title_lines=2)
 wire(m["VCC"], (156, 58), (156, 50))
-flag(156, 50, "+5V")
+flag(156, 50, "+5V_C6")
 wire(m["GND"], (161, 52))
 gnd(161, 52, drop=1.4)
 
@@ -267,7 +268,7 @@ text(126, 126.5, "Off = both pins LOW (0 V across LS1), never duty 0. Q2/R3/R4 o
 # ---------------------------------------------------------------- decoupling
 frame(204, 44, 34, 40, "Decoupling")
 for x, lab, val, pol in ((210, "+3V3", "C3\n0.1µF\n(104)", False),
-                         (222, "+5V", "C4\n0.1µF\n(104)", False)):
+                         (222, "+5V_C6", "C4\n0.1µF\n(104)", False)):
     flag(x, 53, lab)
     wire((x, 53), (x, 57.4), color=EDGE, lw=1.4)
     cap_v(x, 58, val, polar=pol)
@@ -283,16 +284,42 @@ gnd(210, 77, drop=1)
 frame(2, 112, 116, 48, "Driver screen · PiSugar Whisplay HAT on U2 (40-pin header, no wires)")
 u12 = box(8, 118, 52, 36, "U12 PiSugar Whisplay HAT\nstacked on U2 Pi Zero 2 W",
           left=[("LCD 1.69in 240x280 · SPI0", 128), ("RGB LED · GPIO 25/24/23", 134), ("Button · GPIO 17", 140),
-                ("WM8960 audio · I2S + I2C1", 146)], title_lines=2)
+                ("ES8389 audio · I2S + I2C1", 146)], title_lines=2)
 text(64, 122, "ST7789P3 · SPI0 MOSI 10, SCLK 11, CE0 8", size=7)
 text(64, 125.6, "DC 27 · RST 4 · backlight 22 (LOW = on)", size=7)
 text(64, 129.2, "RGB LED LOW = lit · button HIGH = pressed", size=7)
-text(64, 132.8, "I2S 18/19/20/21 · I2C1 2/3 · 5V/GND from U2", size=7)
+text(64, 132.8, "I2S 18/19/20/21 · I2C1 2/3 · 5V/GND from U2 (ES8389 codec)", size=7)
 text(64, 136.4, "Speaker: onboard, or PH2.0 external (switch)", size=7)
 text(64, 141, "Shows U1's 1 Hz status (UART to U2): score,", size=7, weight="bold", color=EDGE)
 text(64, 144.4, "level, links. Voice: Voice/clips via aplay.", size=7, weight="bold", color=EDGE)
 text(64, 148.6, "Software: Raspberry/drifts/whisplay_ui.py", size=7, style="italic")
 text(64, 152, "Details: Hardware/whisplay-hat.md", size=7, style="italic")
+
+# ---------------------------------------------------------------- rev 8: split supply and the IR board
+frame(122, 134, 116, 28, "Car power (rev 8): 2-port charger, split supply, IR board on its own port")
+j2 = box(125, 139, 17, 19, "J2 car\ncharger\n2 × 5 V", right=[("P1 5V", 147), ("P2 5V", 152), ("GND", 156)],
+         title_lines=3)
+sp = box(160, 139, 17, 10, "CY splitter", left=[("C in", 144)], title_lines=1)
+wire(j2["P1 5V"], (152, 147), (152, 144), sp["C in"])
+text(154, 142.6, "USB-C", size=6.3)
+wire((177, 142), (183, 142))
+netlabel(183, 142, "+5V_PI  micro-USB PWR IN")
+wire((177, 146.5), (183, 146.5))
+netlabel(183, 146.5, "+5V_C6  ESP32 USB-C")
+# S1 optional switch on the red wire
+wire(j2["P2 5V"], (162, 152))
+dot(162, 152)
+dot(167, 152)
+ax.plot([162, 166.6], [152, 149.8], color=EDGE, lw=1.6, zorder=3)
+text(164.5, 147.6, "S1 (opt.)", size=6.3, ha="center")
+d3 = box(176, 150, 22, 10, "D3 IR board", left=[("+", 152), ("−", 156)], title_lines=1)
+wire((167, 152), d3["+"])
+wire(j2["GND"], d3["−"])
+text(150, 151, "red", size=6.3, color="#b00")
+text(150, 158.2, "black", size=6.3)
+text(200, 152.6, "DORHEA 3 W 850 nm,", size=6.5)
+text(200, 155.4, "light sensor + pot,", size=6.5)
+text(200, 158.2, "≤ 1 A · 60 mm from U5", size=6.5, weight="bold", color=EDGE)
 
 # ---------------------------------------------------------------- notes
 ax.plot([2, W - 2], [166, 166], color="#aaa", lw=1)
@@ -307,6 +334,9 @@ notes = [
         "3. Module VCC from +5V (the C6's 3.3 V LDO can't also start 4 motors).",
         "   3 V motors: lower DROWSY_VIB_DUTY (~150). C1 near the modules.",
         "4. U4 GY-521: AD0→GND = 0x68. Wire.begin(21, 22). Breakout has pull-ups.",
+        "16. D3 IR board (rev 8): 850 nm, up to ~1 A at 5 V, on charger port 2",
+        "   only (never U2's or U1's pins). Mount 60 mm from U5's lens with nylon",
+        "   screws; heatsink on its back; S1 optional. schematic.md 5d.",
     ],
     [
         "5. I2C runs at 100 kHz and carries only U4 (3.3 V: no level shifter).",
@@ -331,8 +361,9 @@ notes = [
         "   a phone over BLE. See Hardware/pinout.md.",
         "13. U12 Whisplay HAT: screen, RGB LED, speaker, button, driven by U2.",
         "   The alert (buzzer, motors) stays on U1 and works without U2.",
-        "14. Power: one 5 V 3 A USB supply into U2; U1 + motors take +5V from",
-        "   U2 pin 2/4, GND pin 6 (schematic.md 5c). U6 only for raw 12 V.",
+        "14. Power (rev 8): charger port 1 → splitter → U2 (+5V_PI) and U1 + motors",
+        "   (+5V_C6); port 2 → D3. Pi pin 2/4 no longer to U1; GND pin 6 kept",
+        "   for the UART. Bench: one supply via U2 pin 2/4 (5c). U6: raw 12 V.",
     ],
 ]
 for col, lines in enumerate(notes):
