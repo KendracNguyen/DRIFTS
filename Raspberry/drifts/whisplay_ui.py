@@ -1228,9 +1228,21 @@ def _label_font():
         return ImageFont.load_default()
 
 
+def demo_config(driver_dir: Optional[str] = None) -> WhisplayConfig:
+    """config.toml's [whisplay] for the demo tools: the mount's rotation, the sound
+    device and the brightness. enabled is forced on (it's a demo)."""
+    from drifts.config import load_config
+    cfg = load_config().whisplay
+    cfg.enabled = True
+    if driver_dir:
+        cfg.driver_dir = driver_dir
+    return cfg
+
+
 def demo(sim: bool, out_dir: Path, driver_dir: str) -> int:
-    """OK -> Level 1 -> Level 2 -> OK on the HAT (or as PNGs with --sim), example data."""
-    cfg = WhisplayConfig(enabled=True, driver_dir=driver_dir)
+    """OK -> Level 1 -> Level 2 -> OK on the HAT (or as PNGs with --sim), example data.
+    Uses config.toml's [whisplay] (rotate, audio_device, brightness), like the car app."""
+    cfg = demo_config(driver_dir)
     ui = WhisplayUI(cfg, sim=sim)
     script = [(0, None), (5, 92), (12, 66), (20, 34), (30, 88), (36, None)]
     t0 = time.monotonic()
@@ -1254,9 +1266,7 @@ def demo(sim: bool, out_dir: Path, driver_dir: str) -> int:
 
 def browse(sim: bool, driver_dir: str, seconds: Optional[float] = None) -> int:
     """Example OK state (DEMO) on the HAT; every button press is printed."""
-    from drifts.config import load_config
-    cfg = load_config().whisplay
-    cfg.driver_dir = driver_dir
+    cfg = demo_config(driver_dir)
     ui = WhisplayUI(cfg, sim=sim)
     print(f"Button: short={ui.actions['short']}  long={ui.actions['long']}  double={ui.actions['double']}"
           "  (change them under [whisplay] in config.toml).  Ctrl-C to stop.", flush=True)
@@ -1283,7 +1293,7 @@ def main(argv=None) -> int:
     ap.add_argument("--browse", action="store_true",
                     help="hold an example OK state so you can try the button on every screen (Ctrl-C to stop)")
     ap.add_argument("--out", default="whisplay_screens", help="PNG folder for --sim and --gallery")
-    ap.add_argument("--driver-dir", default=WhisplayConfig.driver_dir)
+    ap.add_argument("--driver-dir", default=None, help="PiSugar driver folder (default: [whisplay] driver_dir in config.toml)")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     if args.gallery:
