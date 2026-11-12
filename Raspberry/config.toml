@@ -46,21 +46,23 @@ cooldown_s = 10                      # wait before accepting another WAKE
 enabled = false
 driver_dir = "~/Whisplay/runtime"
 audio_device = "plughw:CARD=whisplaysound"
-brightness = 70        # 0-100
+brightness = 70        # 0-100 at first start; then the button's last level
+remember_brightness = true
 voice = true
 repeat_s = 60.0        # Level 2 warning repeats this often
 stale_s = 5.0          # ESP32 status older than this = connection lost
 # The screen changes by itself (score, calibration from the phone app, the
-# awake check); the driver uses the phone. The side button is for developers:
-# repeat_voice, calibrate, brightness, awake_check (show the awake screen), none.
-# During an alert or the awake check any press confirms "I'm awake"; that
-# can't be changed.
-button_short = "none"
+# awake check). The side button's short press sets the screen brightness
+# (10 -> 30 -> 50 -> 70 -> 100 %, remembered over restarts). Actions:
+# brightness, brightness_up, brightness_down, repeat_voice, calibrate,
+# awake_check (show the awake screen), none. During an alert or the awake
+# check any press confirms "I'm awake"; that can't be changed.
+button_short = "brightness"
 button_long = "repeat_voice"     # held >= long_s
 button_double = "calibrate"      # two presses within double_s ("none" = no wait after a press)
 long_s = 1.5
 double_s = 0.4
-joystick = false       # true on the "Joy" version (5-way joystick)
+joystick = false       # ours is the plain version (no joystick); true on the "Joy" version
 rotate = 0             # 180 if the screen is upside down in the mount
 awake_after_s = 20.0   # an alert this long asks "Say 'I am awake'" (0 = off)
 awake_window_s = 10.0  # how long it asks

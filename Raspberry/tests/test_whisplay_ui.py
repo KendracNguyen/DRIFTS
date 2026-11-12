@@ -252,7 +252,7 @@ def test_button_never_silences_the_alert():
     ui.tick(st(), 0.0)
     ui.tick(st(), 5.0)                                                       # past the boot screen
     ui.handle("short", st(), 5.1)
-    assert ui.presses[-1][2] == "none"                                       # driver presses do nothing
+    assert ui.presses[-1][2] == "brightness 100"                             # the default short press
     ui.handle("short", st(30, "LOW", alert=True), 6.0)                      # during an alert: acknowledge
     assert ui.voice.ack_until > 6.0 and ui.banner == "Acknowledged"
     ui.tick(st(30, "LOW", alert=True), 6.1)
@@ -337,11 +337,39 @@ def test_button_events_flow_through_tick():
     assert ui.presses[-1][1] == "short" and ui.brightness == 100
 
 
-def test_joystick_centre_is_the_button():
+def test_joystick_centre_is_the_button_up_down_is_brightness():
     ui = WhisplayUI(WhisplayConfig(enabled=True, voice=False, button_short="brightness"), board=SimBoard(), sim=True)
     ui.board._joy("down"); ui.board._joy("center")
     ui.tick(st(), 5.0)
-    assert [p[2] for p in ui.presses] == ["brightness 100"]
+    assert [p[2] for p in ui.presses] == ["brightness 50", "brightness 70"]
+    ui.board._joy("up"); ui.board._joy("left")
+    ui.tick(st(), 5.2)
+    assert ui.brightness == 100 and ui.board.backlight == 100
+
+
+def test_brightness_button_steps_and_is_remembered(tmp_path):
+    state = tmp_path / "whisplay_state.json"
+    cfg = WhisplayConfig(enabled=True, voice=False)                         # defaults: short press = brightness
+    ui = WhisplayUI(cfg, board=SimBoard(), sim=True, state_path=state)
+    assert ui.brightness == 70 and ui.board.backlight == 70                 # first start: config value
+    seen = []
+    for i in range(5):
+        ui.handle("short", st(), 5.0 + i)
+        seen.append(ui.brightness)
+    assert seen == [100, 10, 30, 50, 70]                                    # cycles round, 10 % for night
+    assert ui.banner == "Brightness 70%" and ui.board.backlight == 70
+    ui.handle("short", st(), 11.0)
+    again = WhisplayUI(cfg, board=SimBoard(), sim=True, state_path=state)   # restart: kept
+    assert again.brightness == 100 and again.board.backlight == 100
+    assert again.do("brightness_up", st(), 12.0) == "brightness 100"        # up / down stop at the ends
+    for _ in range(6):
+        again.do("brightness_down", st(), 13.0)
+    assert again.brightness == 10
+    ui.handle("short", st(30, "LOW", alert=True), 14.0)                     # during an alert: acknowledge,
+    assert ui.presses[-1][2] == "acknowledge" and ui.brightness == 100      # brightness unchanged
+    off = WhisplayUI(WhisplayConfig(remember_brightness=False), board=SimBoard(), sim=True, state_path=state)
+    assert off.brightness == 70
+    assert WhisplayUI(cfg, board=SimBoard(), sim=True).state_path is None    # simulation never writes
 
 
 def test_close_turns_the_hat_off():
