@@ -4,7 +4,11 @@ U2,Raspberry Pi Zero 2 W,1,Quad A53 512MB,Raspberry Pi Zero 2 W,15,have,Camera a
 U3,BLE OBD-II dongle,1,Bluetooth Low Energy NOT Classic,Veepeak OBDCheck BLE+,30,ordered,GATT FFE0/FFE1 or FFF0/FFF1/FFF2
 U3b,BLE OBD-II dongle spare,1,Bluetooth Low Energy NOT Classic,Vgate iCar Pro BLE 4.0,25,recommended,Different GATT layout 18F0/2AF0/2AF1 on purpose
 U4,MPU-6050 breakout,1,6-axis I2C 0x68 3.3V,GY-521,5,have,Check onboard 4.7k pullups
-U5,Camera module,1,640x480 CSI,OV5647,18,have,Connects to Pi not ESP32; fallback camera (NoIR + IR LEDs preferred for night)
+U5,Driver camera,1,IMX708 12MP autofocus; no IR-cut filter (sees 850 nm),Raspberry Pi Camera Module 3 NoIR,25,have,First model camera - Hardware/camera-ir.md; needs the Pi Zero 22-pin camera cable
+U5e,Camera module (spare),1,640x480 CSI,OV5647,18,have,Fallback camera
+W3,Pi Zero camera cable,1,22-pin to 15-pin,Raspberry Pi Zero camera cable,5,needed,The Camera Module 3's own cable does not fit the Zero
+D2,IR illuminator,1,850 nm 3 W board; light sensor; 3-5 V,DORHEA 3W 850nm IR board (2-pack),12,have,Night light for the face; power from the 5 V supply ahead of the Pi - Hardware/camera-ir.md
+D3,IR illuminator (not used),2,850 nm 48 LEDs; 12 V,ZORZA 12V 48-LED IR board,15,have,Too big and 12 V for the first model; bench or Tokyo
 U12,PiSugar Whisplay HAT,1,1.69in 240x280 LCD (ST7789P3 SPI) + WM8960 codec + speaker + 2 mics + RGB LED + button,PiSugar Whisplay HAT,,have,Driver screen voice LED and button on the Pi Zero - Hardware/whisplay-hat.md
 U5b,Raspberry Pi AI Camera,1,Sony IMX500 on-sensor AI; IR-cut filter (no IR),Raspberry Pi AI Camera,70,planned,Stage 2/3 driver camera - Docs/ai-camera-stage2.md; needs Zero 22-pin cable
 Q1,Logic-level N-MOSFET,1,Vgs-th under 2V Id over 1A,AO3400A or IRLZ44N,1,needed,Motor driver

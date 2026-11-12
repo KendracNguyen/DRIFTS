@@ -18,7 +18,8 @@ flowchart LR
   C6 --tone--> BUZZ[Piezo buzzer]
   C6 <--UART, 3 wires--> PI[Raspberry Pi Zero 2 W]
   C6 -.BLE.-> PHONE[Phone app]
-  PI --CSI--> CAM[OV5647 camera]
+  PI --CSI--> CAM[Camera Module 3 NoIR]
+  IR[850 nm IR board] -.light.-> CAM
 ```
 
 **There is no wired connection to the vehicle.** The OBD link is Bluetooth LE
@@ -74,7 +75,7 @@ cause. If anything is currently soldered to 25 or 26, move it before power-up.
 | U2 | Raspberry Pi Zero 2 W | 1 | Quad A53, 512 MB | Camera + CNN inference |
 | U3 | BLE ELM327 dongle | 2 | **Bluetooth LE**, not Classic | Veepeak OBDCheck BLE+ / Vgate iCar Pro BLE 4.0 |
 | U4 | MPU-6050 breakout | 1 | ±2 g, I2C 0x68, 3.3 V | Harsh-brake detection |
-| U5 | OV5647 camera | 1 | 640×480, CSI | Connects to Pi, not the C6 |
+| U5 | Camera Module 3 NoIR | 1 | IMX708, autofocus, no IR filter, CSI (Zero 22-pin cable) | Connects to Pi, not the C6; night light from the 850 nm IR board ([camera-ir.md](camera-ir.md)) |
 | Q1 | Logic-level N-MOSFET | 1 | V_GS(th) < 2 V, I_D > 1 A | AO3400A, 2N7002 (small loads), or IRLZ44N |
 | D1 | Flyback diode | 1 | 1N4148 or 1N4001 | **Mandatory** across the motor |
 | M1 | ERM vibration motors | 4 | ~3 V, 60–100 mA each | Seat haptics |

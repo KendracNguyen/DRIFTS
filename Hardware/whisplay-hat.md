@@ -28,7 +28,7 @@ Values PiSugar doesn't publish are marked *not published*.
 | Microphones | 2 onboard (not used by DRIFTS yet) |
 | RGB LED | 1, red/green/blue on separate GPIOs, brightness by software PWM; **LOW = lit** (the driver's "off" state is HIGH) |
 | Button | **1 push button**, **HIGH = pressed**, no pull-up needed (pull-down on the board) |
-| "Joy" variant | also has a **5-way joystick** (up/down/left/right/centre), active-low with internal pull-ups. Check which version you got |
+| "Joy" variant | also has a **5-way joystick** (up/down/left/right/centre), active-low with internal pull-ups. **Ours is the plain version** (no joystick) |
 | Power | from the Pi's 5 V / 3.3 V header pins; current *not published*. Budget about 0.1 A for the screen and up to about 0.5 A at loud audio |
 | Works with | Pi Zero / Zero 2 W / Pi 5 (official page) |
 
@@ -136,11 +136,11 @@ double press each run an action set in `config.toml` (`[whisplay]
 button_short / button_long / button_double`). Actions and setup:
 [`../Docs/whisplay-bringup.md`](../Docs/whisplay-bringup.md#the-side-button).
 
-It is a **developer** button: the driver doesn't need it.
+The driver uses it for **screen brightness**; the rest is for developers.
 
 | Press (defaults) | Action |
 | --- | --- |
-| **Short press** | nothing (`none`), so a stray press does nothing |
+| **Short press** | Screen brightness: 10 → 30 → 50 → 70 → 100 % and round, shown for 2 s and remembered over restarts |
 | **Any press during the awake check** | Answers "I am awake" (the backup until the voice reply exists) |
 | **Any short or double press during an alert** | **Acknowledge**: logged, the screen shows "Acknowledged", and the Level 2 voice repeat pauses for 60 s. This one can't be remapped |
 | **Long press (≥ 1.5 s)** | Repeat the last voice message |
@@ -157,7 +157,7 @@ Pi's voice repeat pauses.
  OBD ─BLE─► ESP32-C6 ──► buzzer, motors          │   (alert still works if the Pi is down)
                 ▲                                  ▼
                 └── EYE score, PING ◄── Pi Zero 2 W + Whisplay HAT ──► colour LCD, RGB LED, speaker, button
-                                    └── Arducam (CSI)
+                                    └── Camera Module 3 NoIR (CSI)
 ```
 - **The Pi now drives the screen and voice.** If the Pi is booting or has
   crashed, they stop. The ESP32's buzzer and motors still fire, so keep
@@ -189,8 +189,9 @@ loudness in the car, and the current draw (USB meter) when idle and while
 speaking.
 
 ## Open items
-- [ ] Which version arrived: plain or **Joy**, V1 or V2, WM8960 or ES8389? PiSugar warns that V1's button circuit carries 5 V. That only matters on two non-Pi boards (Orange Pi Zero 3W, Radxa Cubie A7Z), not on the Raspberry Pi.
+- [x] Version: **plain** (no joystick), **WM8960** codec (Amazon B0H4VGZZRK). `joystick = false`.
+- [x] Board revision: **V2** (V1's 5 V button circuit warning doesn't apply).
 - [ ] Onboard speaker loud enough over road noise, or an external 8 Ω speaker on the PH2.0 socket?
 - [ ] Enclosure cut-out for the 30 × 37 mm screen, mounted where the driver can glance at it.
-- [ ] Backlight dimming at night (fixed `brightness` for now).
+- [ ] Automatic night dimming (the button sets it by hand for now). Check on the board that 10 % is still readable at night and that dimming is smooth: older boards switch the backlight only on or off.
 - [ ] First run on the real HAT: check the screen orientation, the LED colours and the button.

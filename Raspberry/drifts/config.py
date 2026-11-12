@@ -38,6 +38,12 @@ class CameraConfig:
     width: int = 640
     height: int = 480
     fps: int = 10
+    # Camera Module 3 (IMX708) focus. "manual" holds lens_position: dioptres,
+    # 1 / distance in metres (1.7 = about 0.6 m, the driver's face). "continuous"
+    # lets it hunt (it can wander in dim IR light); "auto" focuses once at start.
+    # Cameras without autofocus ignore this.
+    focus: str = "manual"
+    lens_position: float = 1.7
 
 
 @dataclass
@@ -63,15 +69,16 @@ class WhisplayConfig:
     enabled: bool = False
     driver_dir: str = "~/Whisplay/runtime"     # PiSugar's driver (install_driver.sh)
     audio_device: str = "plughw:CARD=whisplaysound"
-    brightness: int = 70                       # 0-100
+    brightness: int = 70                       # 0-100, until the button sets another
+    remember_brightness: bool = True           # keep the button's level over restarts (logs/whisplay_state.json)
     voice: bool = True
     repeat_s: float = 60.0                     # Level 2 warning repeats this often
     stale_s: float = 5.0                       # ESP32 status older than this = link lost
-    # The side button is for developers on the bench; the driver uses the phone app.
-    # Actions: repeat_voice, calibrate, brightness, awake_check (show the awake
-    # screen), none. During an alert or the awake check any press confirms
-    # "I'm awake" (fixed).
-    button_short: str = "none"
+    # The side button. Short press: screen brightness (cycles 10/30/50/70/100 %,
+    # remembered). Other actions: brightness_up, brightness_down, repeat_voice,
+    # calibrate, awake_check (show the awake screen), none. During an alert or
+    # the awake check any press confirms "I'm awake" (fixed).
+    button_short: str = "brightness"
     button_long: str = "repeat_voice"
     button_double: str = "calibrate"
     long_s: float = 1.5                        # held this long = long press

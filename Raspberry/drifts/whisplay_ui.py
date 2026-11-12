@@ -32,8 +32,10 @@ What it does:
   voice   the clips in Voice/clips (Voice/phrases.json) on level changes,
           lost links, a finished calibration and the awake check, played on
           the HAT's speaker
-  button  for developers on the bench (config.toml [whisplay]): repeat_voice,
-          calibrate, brightness, awake_check (shows the awake screen) or none.
+  button  screen brightness (short press: 10 -> 30 -> 50 -> 70 -> 100 %,
+          remembered over restarts), plus developer actions (config.toml
+          [whisplay]): brightness_up / _down, repeat_voice, calibrate,
+          awake_check (shows the awake screen) or none.
           During an alert or the awake check any press confirms "I'm awake"
           (the backup until the voice reply is built). A press never silences
           the ESP32's buzzer or motors.
@@ -314,6 +316,17 @@ def header(c: Canvas, st: UiState) -> None:
         icon(c, name, x, 15, INK if ok else (120, 90, 96), 15)
         if not ok:
             c.line([(x - 8, 22), (x + 8, 8)], fill=RED, width=1.8)
+
+
+def header_bar(c: Canvas, text: str) -> None:
+    """The maroon top bar with a plain title (bring-up tools)."""
+    from PIL import Image
+    grad = Image.new("RGB", (2, 1))
+    grad.putpixel((0, 0), MAROON_DEEP)
+    grad.putpixel((1, 0), MAROON)
+    c.img.paste(grad.resize((W * S, 30 * S), Image.BILINEAR), (0, 0))
+    c.text(12, 15, "DRIFTS", 18, 700, INK, "lm")
+    c.text(228, 15, text, 13, 600, INK, "rm")
 
 
 def title(c: Canvas, text: str, y: float = 47, ico: Optional[str] = None) -> None:
@@ -737,7 +750,7 @@ class ButtonDecoder:
             return out
 
 
-ACTIONS = ("repeat_voice", "calibrate", "brightness", "awake_check", "none")
+ACTIONS = ("brightness", "brightness_up", "brightness_down", "repeat_voice", "calibrate", "awake_check", "none")
 # Older config.toml files: the page and assistant actions are gone with those screens.
 RETIRED = ("next_page", "prev_page", "ai")
 
@@ -853,14 +866,34 @@ def wifi_ssid() -> Optional[str]:
         return None
 
 
-BRIGHTNESS_STEPS = (30, 70, 100)
+BRIGHTNESS_STEPS = (10, 30, 50, 70, 100)      # % backlight; 10 is for night driving
+STATE_FILE = REPO / "Raspberry" / "logs" / "whisplay_state.json"   # the last brightness, kept over restarts
+
+
+def load_brightness(path: Optional[Path], default: int) -> int:
+    try:
+        v = int(json.loads(Path(path).read_text())["brightness"])
+        return max(5, min(100, v))
+    except (OSError, ValueError, KeyError, TypeError):
+        return default
+
+
+def save_brightness(path: Optional[Path], value: int) -> None:
+    if path is None:
+        return
+    try:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        Path(path).write_text(json.dumps({"brightness": value}))
+    except OSError as exc:
+        log.warning("[UI] could not save the brightness: %s", exc)
 
 
 class WhisplayUI:
     """The LCD, LED, speaker and button. The screen picks itself (view()): the
     driver sets things up in the phone app, not here."""
 
-    def __init__(self, cfg: WhisplayConfig, board=None, sim: bool = False, hooks: Optional[dict] = None):
+    def __init__(self, cfg: WhisplayConfig, board=None, sim: bool = False, hooks: Optional[dict] = None,
+                 state_path: Optional[Path] = None):
         self.cfg = cfg
         self.sim = sim
         self.actions = {"short": check_action(cfg.button_short), "long": check_action(cfg.button_long),
@@ -871,7 +904,9 @@ class WhisplayUI:
         self.button = ButtonDecoder(cfg.long_s, 0.0 if self.actions["double"] == "none" else cfg.double_s)
         # e.g. {"calibrate": pipeline.recalibrate}; later {"listen": <speech recogniser start>}
         self.hooks = dict(hooks or {})
-        self.brightness = cfg.brightness
+        # The brightness set with the button is remembered (not in simulation, unless a path is given)
+        self.state_path = state_path if state_path is not None else (None if sim else STATE_FILE)
+        self.brightness = load_brightness(self.state_path, cfg.brightness) if cfg.remember_brightness else cfg.brightness
         self.t0: Optional[float] = None
         self.banner: Optional[str] = None
         self.banner_until = 0.0
@@ -951,13 +986,27 @@ class WhisplayUI:
         if action == "awake_check":
             self.ask_awake(now)
             return "awake check"
-        if action == "brightness":
-            i = BRIGHTNESS_STEPS.index(self.brightness) if self.brightness in BRIGHTNESS_STEPS else -1
-            self.brightness = BRIGHTNESS_STEPS[(i + 1) % len(BRIGHTNESS_STEPS)]
-            self.board.set_backlight(self.brightness)
-            self._flash(f"Brightness {self.brightness}%", now)
-            return f"brightness {self.brightness}"
+        if action in ("brightness", "brightness_up", "brightness_down"):
+            return self.set_brightness(self._next_brightness(action), now)
         return "none"
+
+    def _next_brightness(self, action: str) -> int:
+        b, steps = self.brightness, BRIGHTNESS_STEPS
+        if action == "brightness_down":
+            return max([v for v in steps if v < b] or [steps[0]])
+        up = [v for v in steps if v > b]
+        if action == "brightness_up":
+            return up[0] if up else steps[-1]
+        return up[0] if up else steps[0]                 # "brightness": cycles round
+
+    def set_brightness(self, pct: int, now: float) -> str:
+        """Backlight to pct %, shown for 2 s ("Brightness 70%") and remembered."""
+        self.brightness = max(5, min(100, int(pct)))
+        self.board.set_backlight(self.brightness)
+        self._flash(f"Brightness {self.brightness}%", now)
+        if self.cfg.remember_brightness:
+            save_brightness(self.state_path, self.brightness)
+        return f"brightness {self.brightness}"
 
     def handle(self, event: Optional[str], st: UiState, now: float) -> None:
         if event is None:
@@ -981,6 +1030,13 @@ class WhisplayUI:
     def _joystick(self, direction: str, st: UiState, now: float) -> None:
         if direction == "center":
             self.handle("short", st, now)
+        elif direction in ("up", "down"):        # Joy version: up / down = brighter / dimmer
+            self.handle_action("brightness_up" if direction == "up" else "brightness_down", st, now)
+
+    def handle_action(self, action: str, st: UiState, now: float) -> None:
+        did = self.do(action, st, now)
+        self.presses.append((now, action, did))
+        del self.presses[:-50]
 
     # ------------------------------------------------------------ screen
     def _calib_rules(self, st: UiState, now: float) -> None:
