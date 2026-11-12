@@ -132,7 +132,7 @@ and `sudo systemctl restart drifts`.
    - Power the Pi off.
    - Press the HAT onto all 40 header pins, straight and fully down.
    - Set the speaker switch to **onboard**.
-   - Ours is the **plain** version (no joystick), **V2**, with the **WM8960** codec (Amazon B0H4VGZZRK).
+   - Ours is the **plain** version (no joystick), **V2**, with the **ES8389** audio codec (Amazon B0H4VGZZRK; the listing said WM8960, `aplay -l` says ES8389. The driver handles both).
 2. **Install the driver** (do any `apt full-upgrade` and reboot **first**: PiSugar's installer builds the
    sound driver only for the kernel that's running, so a later kernel update loses it; re-run
    `cd ~/Whisplay && sudo bash install_driver.sh` and reboot if that happens. `whisplay_check` says when):

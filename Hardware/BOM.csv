@@ -9,7 +9,7 @@ U5e,Camera module (spare),1,640x480 CSI,OV5647,18,have,Fallback camera
 W3,Pi Zero camera cable,1,22-pin to 15-pin,Raspberry Pi Zero camera cable,5,needed,The Camera Module 3's own cable does not fit the Zero
 D2,IR illuminator,1,850 nm 3 W board; light sensor; 3-5 V,DORHEA 3W 850nm IR board (2-pack),12,have,Night light for the face; power from the 5 V supply ahead of the Pi - Hardware/camera-ir.md
 D3,IR illuminator (not used),2,850 nm 48 LEDs; 12 V,ZORZA 12V 48-LED IR board,15,have,Too big and 12 V for the first model; bench or Tokyo
-U12,PiSugar Whisplay HAT,1,1.69in 240x280 LCD (ST7789P3 SPI) + WM8960 codec + speaker + 2 mics + RGB LED + button,PiSugar Whisplay HAT,,have,Driver screen voice LED and button on the Pi Zero - Hardware/whisplay-hat.md
+U12,PiSugar Whisplay HAT,1,1.69in 240x280 LCD (ST7789P3 SPI) + ES8389 codec (WM8960 on some) + speaker + 2 mics + RGB LED + button,PiSugar Whisplay HAT,,have,Driver screen voice LED and button on the Pi Zero - Hardware/whisplay-hat.md
 U5b,Raspberry Pi AI Camera,1,Sony IMX500 on-sensor AI; IR-cut filter (no IR),Raspberry Pi AI Camera,70,planned,Stage 2/3 driver camera - Docs/ai-camera-stage2.md; needs Zero 22-pin cable
 Q1,Logic-level N-MOSFET,1,Vgs-th under 2V Id over 1A,AO3400A or IRLZ44N,1,needed,Motor driver
 D1,Flyback diode,1,Fast switching,1N4148 or 1N4001,1,needed,MANDATORY across motor
