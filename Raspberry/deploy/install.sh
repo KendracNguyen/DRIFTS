@@ -110,6 +110,12 @@ if [ "${WHISPLAY:-0}" = "1" ]; then
   sudo apt-get install -y -qq python3-libgpiod python3-spidev
   .venv/bin/python -c "import gpiod, spidev" 2>/dev/null || .venv/bin/pip install -q spidev gpiod
   sudo usermod -aG gpio,spi,audio "$USER_NAME"
+  # The HAT button held 5 s powers the Pi off (drifts/whisplay_ui.py): allow
+  # exactly that one command without a password, nothing else.
+  SYSTEMCTL="$(command -v systemctl)"
+  echo "$USER_NAME ALL=(root) NOPASSWD: $SYSTEMCTL poweroff" | sudo tee /etc/sudoers.d/drifts-poweroff >/dev/null
+  sudo chmod 440 /etc/sudoers.d/drifts-poweroff
+  sudo visudo -cf /etc/sudoers.d/drifts-poweroff >/dev/null || sudo rm -f /etc/sudoers.d/drifts-poweroff
   # PiSugar's app launcher and AI chatbot take over the HAT: keep them off
   sudo systemctl disable --now whisplay-daemon.service chatbot.service 2>/dev/null || true
   echo "    Reboot, then:  .venv/bin/python -m drifts.whisplay_check --hw"

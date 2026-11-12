@@ -232,11 +232,25 @@ awake_window_s = 10.0
 | `awake_check` | shows the awake check now (to test the screen and the voice) |
 | `brightness` | 10 → 30 → 50 → 70 → 100 % → 10 … (remembered) |
 | `brightness_up` / `brightness_down` | one step brighter / dimmer, stopping at 100 % / 10 % (e.g. long = up, double = down) |
+| `shutdown` | **hold** only (`button_hold`, 5 s): powers the Pi off safely. Not during an alert or above 5 km/h |
 | `none` | nothing |
 
 The old page actions (`next_page`, `prev_page`, `page:<name>`, `ai`) are
 retired with those screens. An older `config.toml` that still has them starts
 normally and treats them as `none` (with a warning in the log).
+
+**Shutdown: hold the button 5 s** (`button_hold = "shutdown"`, `hold_s = 5.0`, the default):
+- From 1.5 s the screen counts down: "Hold to shut down: 3, 2, 1".
+- At 5 s it shows **Shutting down**, the voice says "DRIFTS is shutting down. Unplug when the
+  screen goes dark", and 3 s later the Pi runs `systemctl poweroff`. Unplug once the screen is dark
+  (about 10 s more).
+- **Refused during an alert, and above 5 km/h**: once the Pi stops, the ESP32's fail-safe drops an
+  alert after 3 s, so the screen says "Not during an alert" / "Stop the car first" instead.
+- With a hold mapped, the long press (1.5 s) fires when you let go rather than while held, so
+  holding on to shut down doesn't repeat the voice first.
+- It needs permission to power off: `WHISPLAY=1 bash deploy/install.sh` adds
+  `/etc/sudoers.d/drifts-poweroff` (that one command, no password). `whisplay_check` reports it.
+  `button_hold = "none"` turns the hold off.
 
 **Fixed safety rules**, whatever the mapping says:
 - **During the awake check**, any press answers "I am awake" (the backup until the voice reply exists).

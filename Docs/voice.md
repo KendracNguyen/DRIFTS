@@ -31,10 +31,11 @@ Never renumber a phrase; add new ones at the end.
 | 9 | CHECK_IN | "Are you okay? Press the button to confirm." | reserved (Tokyo) |
 | 10 | TEST | "This is a DRIFTS voice test." | tests |
 | 11 | AWAKE | "Are you awake? Please say: I am awake." | first model: the Level 3 check-in, when an alert has lasted 20 s (the LCD shows "Awake Check: say 'I am awake'") |
+| 12 | SHUTDOWN | "DRIFTS is shutting down. Unplug when the screen goes dark." | first model: the HAT button held 5 s (safe power-off) |
 
 Rules, the same on every system:
 - **One clip at a time.** A clip waiting to play is replaced only by a more
-  urgent one (AWAKE > LEVEL2 > LEVEL1 > the rest).
+  urgent one (AWAKE > LEVEL2 > LEVEL1 > the rest; SHUTDOWN plays at once).
 - **Repeats:** the Level 2 warning repeats every 60 s. On the first model a
   **button press acknowledges it**, which stops the voice repeats for 60 s
   but never silences the ESP32's buzzer or motors.

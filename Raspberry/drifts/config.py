@@ -82,6 +82,10 @@ class WhisplayConfig:
     button_long: str = "repeat_voice"
     button_double: str = "calibrate"
     long_s: float = 1.5                        # held this long = long press
+    # Held this long = the "hold" action: shutdown powers the Pi off safely
+    # (not during an alert or while moving). "none" turns it off.
+    button_hold: str = "shutdown"
+    hold_s: float = 5.0
     double_s: float = 0.4                      # second press within this = double press
     joystick: bool = False                     # "Joy" version: 5-way joystick pages through screens
     rotate: int = 0                            # degrees clockwise: 0, 90, 180, 270 (how the screen is mounted)

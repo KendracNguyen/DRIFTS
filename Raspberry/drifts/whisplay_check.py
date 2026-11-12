@@ -96,6 +96,17 @@ def sound_card_hint(modules: Path = Path("/lib/modules"), running: Optional[str]
     return f"not found: {fix}"
 
 
+def shutdown_allowed() -> Optional[bool]:
+    """May this user run 'systemctl poweroff' through sudo without a password? None: no sudo."""
+    if not shutil.which("sudo"):
+        return None
+    cmd = ["sudo", "-n", "-l", shutil.which("systemctl") or "/usr/bin/systemctl", "poweroff"]
+    try:
+        return subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
 def software_checks(rep: Report, cfg: WhisplayConfig) -> None:
     model = _read("/proc/device-tree/model")
     rep.add("Board", PASS if "Raspberry Pi" in model else WARN, model or "not a Raspberry Pi")
@@ -138,6 +149,12 @@ def software_checks(rep: Report, cfg: WhisplayConfig) -> None:
         rep.add("Button settings", PASS, f"short={acts[0]}  long={acts[1]}  double={acts[2]}")
     except ValueError as exc:
         rep.add("Button settings", FAIL, str(exc))
+    if check_action(cfg.button_hold) == "shutdown":
+        allowed = shutdown_allowed()
+        rep.add("Shutdown by button hold", PASS if allowed else WARN if allowed is None else FAIL,
+                f"hold {cfg.hold_s:.0f} s: powers off safely" if allowed else
+                "can't tell (no sudo here)" if allowed is None else
+                "not allowed yet: WHISPLAY=1 bash deploy/install.sh (adds /etc/sudoers.d/drifts-poweroff)")
     rep.add("[whisplay] enabled", PASS if cfg.enabled else WARN,
             "the car program drives the HAT" if cfg.enabled else "set enabled = true in config.toml after this check")
 

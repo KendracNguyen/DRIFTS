@@ -87,7 +87,7 @@ BOOT_S = 4.0
 S = 2                       # drawn at 2x, then scaled down: smooth arcs and text
 
 # Every screen. The UI picks one by itself (WhisplayUI.view); there are no pages to flip.
-VIEWS = ("welcome", "calibration", "score", "awake")
+VIEWS = ("welcome", "calibration", "score", "awake", "shutdown")
 DONE_S = 3.0                # "Calibration complete" stays this long
 
 
@@ -536,7 +536,18 @@ def view_awake(c: Canvas, st: UiState, ctx: dict, now: float = 0.0) -> None:
     footer(c, "Listening..." if aw.get("listening") else "Or press the side button", y=260)
 
 
-DRAW = {"welcome": view_welcome, "calibration": view_calibration, "score": view_score}
+def view_shutdown(c: Canvas, st: UiState, ctx: dict) -> None:
+    """Holding the button 5 s: the Pi powers off safely."""
+    cx, cy, r = 120, 100, 30
+    c.arc(cx, cy, r, -60, 240, ACCENT, 6)                     # the power symbol
+    c.line([(cx, cy - r - 6), (cx, cy - 4)], fill=ACCENT, width=6, joint=None)
+    c.text(120, 160, "Shutting down", 22, 700, INK, "mm")
+    c.text(120, 190, "Unplug when the screen", 13, 400, MUTED, "mm")
+    c.text(120, 208, "goes dark (about 10 s)", 13, 400, MUTED, "mm")
+
+
+DRAW = {"welcome": view_welcome, "calibration": view_calibration, "score": view_score,
+        "shutdown": view_shutdown}
 
 
 def render(st: UiState, now: float, page=0, booted: bool = True, banner: Optional[str] = None,
@@ -707,21 +718,25 @@ class Speaker:
 
 # ---------------------------------------------------------------- button
 class ButtonDecoder:
-    """Press / release times -> "short", "long" or "double".
+    """Press / release times -> "short", "long", "double" or "hold".
 
     long:   fires once the button has been held long_s (while still held, so
             the driver feels it trigger); the release then does nothing.
+            With hold_s set, long fires on release instead (held long_s to
+            hold_s), so holding on towards a hold doesn't fire it first.
+    hold:   held hold_s (e.g. 5 s for shutdown), fires while still held.
     double: a second press within double_s of a short press. With
             double_s = 0 there is no double press and a short press fires on
             release at once; otherwise it waits double_s first.
     Callbacks come from the driver's thread, so this is locked.
     """
 
-    def __init__(self, long_s: float = 1.5, double_s: float = 0.0):
+    def __init__(self, long_s: float = 1.5, double_s: float = 0.0, hold_s: Optional[float] = None):
         import threading
-        self.long_s, self.double_s = long_s, double_s
+        self.long_s, self.double_s, self.hold_s = long_s, double_s, hold_s
         self._down: Optional[float] = None
         self._long_fired = False
+        self._hold_fired = False
         self._short_at: Optional[float] = None       # a short press waiting for a possible second one
         self._out: list = []
         self._lock = threading.Lock()
@@ -735,7 +750,7 @@ class ButtonDecoder:
         with self._lock:
             if self._short_at is not None and now - self._short_at > self.double_s:
                 self._flush_short()                  # too late to be a double press
-            self._down, self._long_fired = now, False
+            self._down, self._long_fired, self._hold_fired = now, False, False
 
     def release(self, now: float) -> Optional[str]:
         """Returns the event this release completes (also queued for poll)."""
@@ -743,9 +758,12 @@ class ButtonDecoder:
             if self._down is None:
                 return None
             held, self._down = now - self._down, None
-            if self._long_fired:
+            if self._long_fired or self._hold_fired:
                 return None
-            if held >= self.long_s:
+            if self.hold_s and held >= self.hold_s:      # poll() missed it: still a hold
+                self._flush_short()
+                ev = "hold"
+            elif held >= self.long_s:
                 self._flush_short()
                 ev = "long"
             elif self._short_at is not None:         # second press inside the window
@@ -761,7 +779,12 @@ class ButtonDecoder:
     def poll(self, now: float) -> list:
         """Events ready now (a held long press, a short press whose double window ran out)."""
         with self._lock:
-            if self._down is not None and not self._long_fired and now - self._down >= self.long_s:
+            held = None if self._down is None else now - self._down
+            if held is not None and self.hold_s and not self._hold_fired and held >= self.hold_s:
+                self._flush_short()
+                self._hold_fired = True
+                self._out.append("hold")
+            if held is not None and not self.hold_s and not self._long_fired and held >= self.long_s:
                 self._flush_short()
                 self._long_fired = True
                 self._out.append("long")
@@ -770,8 +793,26 @@ class ButtonDecoder:
             out, self._out = self._out, []
             return out
 
+    def held_for(self, now: float) -> float:
+        """How long the button has been held down now (0 when it's up)."""
+        with self._lock:
+            return 0.0 if self._down is None or self._hold_fired else now - self._down
 
-ACTIONS = ("brightness", "brightness_up", "brightness_down", "repeat_voice", "calibrate", "awake_check", "none")
+
+ACTIONS = ("brightness", "brightness_up", "brightness_down", "repeat_voice", "calibrate", "awake_check",
+           "shutdown", "none")
+SHUTDOWN_S = 3.0          # "Shutting down" on screen (and the voice) before the Pi powers off
+MOVING_KMH = 5.0          # no shutdown above this speed (the ESP32's fail-safe would drop a later alert)
+
+
+def power_off() -> Optional[str]:
+    """sudo -n systemctl poweroff. None when it started, else why it couldn't."""
+    cmd = ["sudo", "-n", shutil.which("systemctl") or "systemctl", "poweroff"]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return str(exc)
+    return None if r.returncode == 0 else (r.stderr.strip() or f"exit {r.returncode}")
 # Older config.toml files: the page and assistant actions are gone with those screens.
 RETIRED = ("next_page", "prev_page", "ai")
 
@@ -936,11 +977,14 @@ class WhisplayUI:
         self.cfg = cfg
         self.sim = sim
         self.actions = {"short": check_action(cfg.button_short), "long": check_action(cfg.button_long),
-                        "double": check_action(cfg.button_double)}
+                        "double": check_action(cfg.button_double), "hold": check_action(cfg.button_hold)}
         self.board = board or (SimBoard() if sim else HatBoard(cfg.driver_dir, cfg.rotate, cfg.joystick))
         self.speaker = Speaker(cfg.audio_device, sim=sim)
         self.voice = VoiceDirector(repeat_s=cfg.repeat_s)
-        self.button = ButtonDecoder(cfg.long_s, 0.0 if self.actions["double"] == "none" else cfg.double_s)
+        self.button = ButtonDecoder(cfg.long_s, 0.0 if self.actions["double"] == "none" else cfg.double_s,
+                                    None if self.actions["hold"] == "none" else cfg.hold_s)
+        self.shutdown_at: Optional[float] = None   # set by the shutdown hold: power off at this time
+        self.shutdown_done = False
         # e.g. {"calibrate": pipeline.recalibrate}; later {"listen": <speech recogniser start>}
         self.hooks = dict(hooks or {})
         # The brightness set with the button is remembered (not in simulation, unless a path is given)
@@ -1025,6 +1069,8 @@ class WhisplayUI:
         if action == "awake_check":
             self.ask_awake(now)
             return "awake check"
+        if action == "shutdown":
+            return self.start_shutdown(st, now)
         if action in ("brightness", "brightness_up", "brightness_down"):
             return self.set_brightness(self._next_brightness(action), now)
         return "none"
@@ -1038,6 +1084,31 @@ class WhisplayUI:
             return up[0] if up else steps[-1]
         return up[0] if up else steps[0]                 # "brightness": cycles round
 
+    def start_shutdown(self, st: UiState, now: float) -> str:
+        """The 5 s hold: power the Pi off safely, unless it would drop an alert."""
+        if st.tier >= 2:
+            self._flash("Not during an alert", now)
+            return "shutdown refused: alert"
+        if st.speed is not None and st.speed > MOVING_KMH:
+            self._flash("Stop the car first", now)
+            return "shutdown refused: moving"
+        self.shutdown_at = now + SHUTDOWN_S
+        if self.cfg.voice:
+            self.speaker.play("SHUTDOWN", now)
+        log.info("[UI] Shutdown held: powering off in %.0f s", SHUTDOWN_S)
+        return "shutdown"
+
+    def _shutdown_rules(self, now: float) -> None:
+        if self.shutdown_at is None or self.shutdown_done or now < self.shutdown_at:
+            return
+        self.shutdown_done = True
+        fn = self.hooks.get("shutdown", power_off)
+        why = fn()
+        if why:                                    # not allowed (no sudo rule) or failed: back to normal
+            log.warning("[UI] Shutdown failed: %s. Allow it with: WHISPLAY=1 bash deploy/install.sh", why)
+            self.shutdown_at, self.shutdown_done = None, False
+            self._flash("Shutdown not allowed", now, 4.0)
+
     def set_brightness(self, pct: int, now: float) -> str:
         """Backlight to pct %, shown for 2 s ("Brightness 70%") and remembered."""
         self.brightness = max(5, min(100, int(pct)))
@@ -1050,7 +1121,7 @@ class WhisplayUI:
     def handle(self, event: Optional[str], st: UiState, now: float) -> None:
         if event is None:
             return
-        if self.awake_active(now) and event in ("short", "double", "long"):
+        if self.awake_active(now) and event in ("short", "double", "long", "hold"):
             self.confirm_awake(now, "button")   # backup for the voice reply
             did = "awake confirmed"
         elif st.tier >= 1 and event in ("short", "double"):
@@ -1097,6 +1168,8 @@ class WhisplayUI:
     def view(self, st: UiState, booted: bool, now: Optional[float] = None):
         """welcome while starting; the awake check; a calibration from the app; else the score."""
         now = time.monotonic() if now is None else now
+        if self.shutdown_at is not None:
+            return "shutdown"
         if not booted:
             return "welcome"
         if self.awake_active(now) or now < self.awake_ok_until:
@@ -1117,13 +1190,19 @@ class WhisplayUI:
         while self._joy:
             self._joystick(self._joy.pop(0), st, now)
         self._calib_rules(st, now)
-        if booted:
+        self._shutdown_rules(now)
+        if self.actions["hold"] == "shutdown" and self.shutdown_at is None:
+            held = self.button.held_for(now)
+            if held >= self.cfg.long_s and self.cfg.hold_s:   # counting down to the shutdown
+                self.banner = f"Hold to shut down: {max(1, math.ceil(self.cfg.hold_s - held))}"
+                self.banner_until = now + 0.3
+        if booted and self.shutdown_at is None:
             self._awake_rules(st, now)
-        if self.cfg.voice and booted:
+        if self.cfg.voice and booted and self.shutdown_at is None:
             name = self.voice.update(st, now, self.speaker.playing(now))
             if name:
                 self.speaker.play(name, now)
-        self.board.set_rgb(*led_color(st, now, booted))
+        self.board.set_rgb(*((60, 0, 0) if self.shutdown_at is not None else led_color(st, now, booted)))
         banner = self.banner if now < self.banner_until else None
         view = self.view(st, booted, now)
         ctx = self.context(now)
@@ -1200,6 +1279,7 @@ def gallery(out_dir: Path) -> Path:
         ("08_calibration_done", demo_state(92), "calibration", {"calib_done": "quick"}),
         ("09_awake_check", demo_state(30), "awake", {"awake": {"left": 7.0, "window": 10.0}}),
         ("10_awake_confirmed", demo_state(30), "awake", {"awake": {"confirmed": True}}),
+        ("11_shutting_down", demo_state(92), "shutdown", {}),
     ]
     imgs = []
     for name, st, view, extra in shots:

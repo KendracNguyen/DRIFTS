@@ -66,6 +66,8 @@ button_short = "brightness"
 button_long = "repeat_voice"     # held >= long_s
 button_double = "calibrate"      # two presses within double_s ("none" = no wait after a press)
 long_s = 1.5
+button_hold = "shutdown"         # held >= hold_s: power the Pi off safely ("none" = off). Not during an alert or while moving
+hold_s = 5.0
 double_s = 0.4
 joystick = false       # ours is the plain version (no joystick); true on the "Joy" version
 rotate = 0             # picture turned clockwise: 0, 90, 180 (upside down) or 270
