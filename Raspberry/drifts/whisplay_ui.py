@@ -406,12 +406,24 @@ def wrap(c: Canvas, text: str, width: float, size: int, weight: int = 400) -> li
 
 
 # ---------------------------------------------------------------- views
+BARS = ((255, 255, 255), (255, 255, 0), (0, 255, 0), (0, 255, 255), (255, 0, 255), (255, 0, 0), (0, 0, 255))
+WELCOME_RED = (232, 34, 48)
+
+
 def view_welcome(c: Canvas, st: UiState, ctx: dict) -> None:
-    icon(c, "car", 120, 90, INK, 54)
-    c.text(120, 140, "DRIFTS", 34, 700, INK, "mm")
-    c.text(120, 172, "Driver Fatigue", 14, 400, MUTED, "mm")
-    c.text(120, 190, "Detection System", 14, 400, MUTED, "mm")
-    pill(c, 40, 222, 200, 254, "Starting...", BUTTON, INK, size=15, weight=600)
+    """Start-up: the colour-bar test screen, as DRIFTS. Three squares fill in while it starts."""
+    c.text(120, 26, "DRIFTS", 26, 700, INK, "mm")
+    for x in (16, 224):                                           # red corner marks
+        c.rect(x - 5, 21, x + 5, 31, fill=WELCOME_RED)
+    bw = W / len(BARS)
+    for i, col in enumerate(BARS):
+        c.rect(i * bw, 50, (i + 1) * bw + 0.6, 182, fill=col)
+    c.text(120, 210, "Starting...", 22, 700, INK, "mm")
+    c.text(120, 236, "Driver Fatigue Detection System", 13, 400, INK, "mm")
+    step = int(ctx.get("boot_step") or 0)
+    for k in range(3):
+        x = 120 + (k - 1) * 22
+        c.rect(x - 6, 254, x + 6, 266, fill=WELCOME_RED if k <= step else (90, 90, 96))
 
 
 def _bar(c: Canvas, p: Optional[float], y: float = 232, label: Optional[str] = None) -> None:
@@ -559,7 +571,8 @@ def render(st: UiState, now: float, page=0, booted: bool = True, banner: Optiona
     if not booted:
         view = "welcome"
     c = Canvas()
-    header(c, st)
+    if view != "welcome":                     # the start-up screen has its own title, no header bar
+        header(c, st)
     if view == "awake":
         view_awake(c, st, ctx, now)
     else:
@@ -1206,6 +1219,8 @@ class WhisplayUI:
         banner = self.banner if now < self.banner_until else None
         view = self.view(st, booted, now)
         ctx = self.context(now)
+        if view == "welcome":                      # the three squares fill in over the start-up
+            ctx["boot_step"] = min(2, int((now - self.t0) / (BOOT_S / 3)))
         anim = int(now * 8) if view == "awake" else 0
         key = (view, banner, anim, repr({k: v for k, v in st.__dict__.items() if k != "t"}), repr(ctx))
         if view == "awake":
