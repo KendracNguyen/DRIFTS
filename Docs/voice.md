@@ -21,19 +21,20 @@ Never renumber a phrase; add new ones at the end.
 | # | Name | Said | When |
 | --- | --- | --- | --- |
 | 1 | READY | "DRIFTS ready. Drive safe." | a few seconds after start |
-| 2 | CALIBRATED | "Calibration complete." | Tokyo: road-pose calibration done |
+| 2 | CALIBRATED | "Calibration complete." | a calibration finished (Tokyo: road pose; first model: one started in the phone app) |
 | 3 | LEVEL1 | "You seem tired. Consider taking a break soon." | entering Intervention 1 (score 50-69) |
 | 4 | LEVEL2 | "Warning. Signs of drowsiness detected. Please pull over when safe." | entering Intervention 2 (< 50) or the drowsy alert; again every 60 s |
 | 5 | RECOVERED | "Alertness back to normal. Thank you." | back to OK |
 | 6 | OBD_LOST | "Vehicle data connection lost." | the OBD dongle stops for 5 s (it was there before) |
 | 7 | ESP_LOST | "Alert unit disconnected." | first model: the Pi loses the ESP32 for 5 s |
 | 8 | CAMERA_LOST | "Camera not detected." | Tokyo: no camera frames for 5 s |
-| 9 | CHECK_IN | "Are you okay? Press the button to confirm." | reserved for the Level 3 check-in |
+| 9 | CHECK_IN | "Are you okay? Press the button to confirm." | reserved (Tokyo) |
 | 10 | TEST | "This is a DRIFTS voice test." | tests |
+| 11 | AWAKE | "Are you awake? Please say: I am awake." | first model: the Level 3 check-in, when an alert has lasted 20 s (the LCD shows "Say 'I am awake'") |
 
 Rules, the same on every system:
 - **One clip at a time.** A clip waiting to play is replaced only by a more
-  urgent one (LEVEL2 > LEVEL1 > the rest).
+  urgent one (AWAKE > LEVEL2 > LEVEL1 > the rest).
 - **Repeats:** the Level 2 warning repeats every 60 s. On the first model a
   **button press acknowledges it**, which stops the voice repeats for 60 s
   but never silences the ESP32's buzzer or motors.

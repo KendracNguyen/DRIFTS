@@ -67,16 +67,20 @@ class WhisplayConfig:
     voice: bool = True
     repeat_s: float = 60.0                     # Level 2 warning repeats this often
     stale_s: float = 5.0                       # ESP32 status older than this = link lost
-    # The side button. Actions: next_page, prev_page, repeat_voice, calibrate, ai,
-    # brightness, page:<name> (score, driving, vision, devices, setup, ai), none.
-    # During an alert any short or double press acknowledges it (fixed).
-    button_short: str = "next_page"
+    # The side button is for developers on the bench; the driver uses the phone app.
+    # Actions: repeat_voice, calibrate, brightness, awake_check (show the awake
+    # screen), none. During an alert or the awake check any press confirms
+    # "I'm awake" (fixed).
+    button_short: str = "none"
     button_long: str = "repeat_voice"
     button_double: str = "calibrate"
     long_s: float = 1.5                        # held this long = long press
     double_s: float = 0.4                      # second press within this = double press
     joystick: bool = False                     # "Joy" version: 5-way joystick pages through screens
     rotate: int = 0                            # 0 or 180 if the screen is upside down in the mount
+    # Level 3 check-in: an alert lasting this long shows "Say 'I am awake'" (0 = off)
+    awake_after_s: float = 20.0
+    awake_window_s: float = 10.0               # how long the screen asks
 
 
 @dataclass

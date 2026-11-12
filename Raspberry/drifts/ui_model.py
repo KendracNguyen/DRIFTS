@@ -99,6 +99,12 @@ class UiState:
     pitch: Optional[float] = None       # degrees, + = looking down
     calibrated: Optional[bool] = None
     calib_progress: Optional[float] = None   # 0-1
+    # Calibration the driver started in the phone app (the LCD shows it; the
+    # automatic road-pose pass at start-up does not take over the screen).
+    calibrating: Optional[str] = None   # "quick", "profile" (9 poses) or "test" (accuracy test)
+    calib_prompt: Optional[str] = None  # the current pose, e.g. "Close your eyes"
+    calib_step: Optional[int] = None    # 1-based
+    calib_total: Optional[int] = None
     # Labelling
     demo: bool = False                  # example or simulated data: the screen says DEMO
     t: float = 0.0                      # wall-clock time of this state
@@ -162,6 +168,14 @@ def state_from_status(status: dict, linked: bool, fresh: bool = True, **extra) -
                    esp_linked=linked and fresh, fw=status.get("fw"), t=time.time(), **extra)
 
 
+def calib_fields(c: Optional[dict]) -> dict:
+    """UiState calibration fields from drifts.live's status["calib_ui"] (None = not calibrating)."""
+    if not c:
+        return {}
+    return {"calibrating": c.get("mode"), "calib_prompt": c.get("prompt"), "calib_step": c.get("step"),
+            "calib_total": c.get("total"), "calib_progress": c.get("progress")}
+
+
 def state_from_live(status: dict, stale_s: float = 5.0, now: Optional[float] = None) -> UiState:
     """UiState from drifts.live's /status.json (ESP32 link + camera pipeline)."""
     now = time.time() if now is None else now
@@ -180,7 +194,8 @@ def state_from_live(status: dict, stale_s: float = 5.0, now: Optional[float] = N
                            eyes=eyes, perclos=eye.get("perclos"), blink_rate=face.get("blink_rate"),
                            yaw=pose.get("yaw"), pitch=pose.get("pitch"),
                            calibrated=bool(pose.get("calibrated")) if pose_on else None,
-                           calib_progress=pose.get("calib_progress") if pose_on else None,
+                           **{"calib_progress": pose.get("calib_progress") if pose_on else None,
+                              **calib_fields(status.get("calib_ui"))},
                            demo=esp.get("link") == "simulated")
     st.t = now
     return st

@@ -50,13 +50,17 @@ brightness = 70        # 0-100
 voice = true
 repeat_s = 60.0        # Level 2 warning repeats this often
 stale_s = 5.0          # ESP32 status older than this = connection lost
-# Side button: next_page, prev_page, repeat_voice, calibrate, ai, brightness,
-# page:<score|driving|vision|devices|setup|ai>, none. During an alert any
-# short or double press acknowledges it; that can't be changed.
-button_short = "next_page"
+# The screen changes by itself (score, calibration from the phone app, the
+# awake check); the driver uses the phone. The side button is for developers:
+# repeat_voice, calibrate, brightness, awake_check (show the awake screen), none.
+# During an alert or the awake check any press confirms "I'm awake"; that
+# can't be changed.
+button_short = "none"
 button_long = "repeat_voice"     # held >= long_s
 button_double = "calibrate"      # two presses within double_s ("none" = no wait after a press)
 long_s = 1.5
 double_s = 0.4
 joystick = false       # true on the "Joy" version (5-way joystick)
 rotate = 0             # 180 if the screen is upside down in the mount
+awake_after_s = 20.0   # an alert this long asks "Say 'I am awake'" (0 = off)
+awake_window_s = 10.0  # how long it asks

@@ -147,24 +147,24 @@ DROWSY. To show the alert in the demo, use the alert test tool afterwards
 Same app on the Pi with the Pi camera, talking to the ESP32 over BLE.
 **Not yet tested on hardware:** treat as a stretch for tomorrow.
 
-From the laptop (PowerShell, in the repo's `Raspberry` folder):
+From the laptop (PowerShell, in the repo folder):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\deploy\deploy.ps1 -Install   # first time
-powershell -ExecutionPolicy Bypass -File .\deploy\deploy.ps1            # later updates
+powershell -ExecutionPolicy Bypass -File .\Raspberry\deploy\deploy.ps1 -Install   # first time
+powershell -ExecutionPolicy Bypass -File .\Raspberry\deploy\deploy.ps1            # later updates
 ```
 
 Then on the Pi (`ssh drifts@drifts.local`):
 
 ```bash
 sudo systemctl stop drifts          # frees the camera and the ESP32 link
-cd ~/drifts
+cd ~/drifts/Raspberry
 .venv/bin/python -m drifts.live --esp uart               # Pi camera + ESP32 (wired; --esp ble over Bluetooth)
 .venv/bin/python -m drifts.live --esp sim --video sim_images   # no camera, no ESP32
 ```
 
 For `--video`, copy sample frames first:
-`scp -r ..\Simuletic_DMS_Dataset\images drifts@drifts.local:~/drifts/sim_images`.
+`scp -r .\Simuletic_DMS_Dataset\images drifts@drifts.local:~/drifts/Raspberry/sim_images`.
 `sudo systemctl start drifts` puts the normal service back.
 
 From a phone on the same Wi-Fi: **http://<pi-address>:8080**
@@ -217,6 +217,6 @@ captures/
    (merge with `Simuletic_DMS_Dataset` by copying its `images/` and
    `labels/` in). Hold out one person's session for validation.
 3. **Export** `python training/export_ncnn.py --weights runs/best_model.pth --output-dir model`.
-4. **Deploy** the `.param` / `.bin` to the Pi (`deploy/deploy.ps1`).
+4. **Deploy** the `.param` / `.bin` to the Pi (`Raspberry/deploy/deploy.ps1`).
 5. **Next code step:** let `drifts.live` use `detector.py` (the trained
    model) instead of the Haar tracker when model files are present.

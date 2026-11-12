@@ -189,6 +189,7 @@ class Pipeline:
         self.whisplay = False                      # set when --whisplay drives the HAT
         from drifts.guided import Guided, load_profile
         self.guided = Guided(name=args.profile)
+        self.calib_asked: Optional[float] = None   # when the phone (or the dev button) asked for a quick calibration
         self.profile = load_profile(args.profile) if self.face_on else None
         if self.profile:
             self.apply_profile(self.profile)
@@ -242,6 +243,7 @@ class Pipeline:
 
     def recalibrate(self) -> None:
         """Driver looks at the road; the next ~3 s become the neutral pose."""
+        self.calib_asked = time.time()            # the LCD shows it (the start-up pass does not)
         self.cal.restart(self.args.calib_frames)
         if hasattr(self.camera, "calibrate"):
             self.camera.calibrate(self.args.calib_frames)
@@ -535,6 +537,7 @@ class Pipeline:
 
     def status(self) -> dict:
         st = self._status()
+        st["calib_ui"] = self.calib_ui(st, time.time())
         # The alertness band, label and colour, from the same rules as the LCD (drifts/ui_model.py)
         from drifts.ui_model import BANDS, COLORS, state_from_live
         ui = state_from_live(st)
@@ -550,9 +553,26 @@ class Pipeline:
         st["profile_info"] = ({k: pr.get(k) for k in ("name", "created", "ear_open", "ear_closed", "mar_closed",
                                                      "mar_open", "yawn_mar", "yaw_limit", "pitch_limit")}
                               if pr else None)
-        st["guided_capable"] = bool(self.face_on and hasattr(self.camera, "packet"))
+        st["guided_capable"] = bool(self.face_on and hasattr(self.camera, "apply_profile"))
         st["mirror"] = bool(self.args.mirror)
         return st
+
+    def calib_ui(self, st: dict, now: float) -> Optional[dict]:
+        """A calibration the driver started, for the LCD: None when there is none."""
+        g = self.guided
+        if g.active:
+            snap = g.snapshot(now)
+            return {"mode": "profile" if g.mode == "calibrate" else "test", "prompt": snap["prompt"],
+                    "step": snap["index"] + 1, "total": snap["total"], "progress": snap["hold"]}
+        if self.calib_asked is None:
+            return None
+        # Done once the road pose is taken again, or given up after 30 s.
+        if self.cal.done or now - self.calib_asked > 30:
+            self.calib_asked = None
+            return None
+        prog = len(self.cal._y) / max(1, self.cal.auto_samples)
+        return {"mode": "quick", "prompt": "Look at the road", "step": None, "total": None,
+                "progress": round(min(1.0, prog), 2)}
 
     def privacy(self) -> dict:
         """What the camera produces, for the phone's privacy panel: the numbers

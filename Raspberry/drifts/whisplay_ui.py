@@ -15,20 +15,28 @@ In the car it runs inside `python -m drifts` (drifts/app.py) when
 pipeline, `python -m drifts.live --face mesh --esp uart --whisplay` adds the
 eye, blink and head-pose readings.
 
+The screen is a status display: the driver does nothing on it. Everything
+the driver chooses happens in the phone app; the LCD follows.
+
 What it does:
-  screen  welcome screen, then the score in a ring gauge (green / yellow /
-          red by the ESP32's level, drifts/ui_model.py). The button cycles
-          score -> driving -> detection metrics -> devices -> setup -> Driver AI.
-          Calibration shows while the camera finds the road pose; the AI,
-          rest-stop and emergency screens say "offline" / "unavailable"
-          until those services exist.
+  screen  welcome while starting, then the alertness score on its own (a ring
+          gauge, green / yellow / red by the ESP32's level, drifts/ui_model.py).
+          It changes by itself:
+            calibration  while a calibration started in the phone app runs
+                         (quick road pose, the 9-pose profile or the accuracy
+                         test), then "Calibration complete" for 3 s
+            I am awake   when an alert has lasted awake_after_s: asks the driver
+                         to say "I am awake" (Level 3 check-in), awake_window_s
   LED     green = linked, yellow = Intervention 1, red 1 s/1 s = Intervention 2,
           red slow blink = connection lost, blue = starting
-  voice   the clips in Voice/clips (Voice/phrases.json) on level changes and
-          lost links, played on the HAT's speaker
-  button  short press: next page, or acknowledge an alert ("I'm awake");
-          long press (> 1.5 s): repeat the last message.
-          A press never silences the ESP32's buzzer or motors.
+  voice   the clips in Voice/clips (Voice/phrases.json) on level changes,
+          lost links, a finished calibration and the awake check, played on
+          the HAT's speaker
+  button  for developers on the bench (config.toml [whisplay]): repeat_voice,
+          calibrate, brightness, awake_check (shows the awake screen) or none.
+          During an alert or the awake check any press confirms "I'm awake"
+          (the backup until the voice reply is built). A press never silences
+          the ESP32's buzzer or motors.
 
 Pure parts (render, led_color, VoiceDirector, ButtonDecoder) are tested in
 tests/test_whisplay_ui.py without the HAT.
@@ -76,9 +84,9 @@ DARK_INK = (11, 11, 13)
 BOOT_S = 4.0
 S = 2                       # drawn at 2x, then scaled down: smooth arcs and text
 
-# Pages the button cycles through (an alert always returns to "score").
-PAGES = ("score", "driving", "vision", "devices", "setup", "ai")
-VIEWS = PAGES + ("welcome", "calibration", "rest_stop", "emergency")
+# Every screen. The UI picks one by itself (WhisplayUI.view); there are no pages to flip.
+VIEWS = ("welcome", "calibration", "score", "awake")
+DONE_S = 3.0                # "Calibration complete" stays this long
 
 
 # ---------------------------------------------------------------- LED
@@ -393,9 +401,45 @@ def view_welcome(c: Canvas, st: UiState, ctx: dict) -> None:
     pill(c, 40, 222, 200, 254, "Starting...", BUTTON, INK, size=15, weight=600)
 
 
+def _bar(c: Canvas, p: Optional[float], y: float = 232, label: Optional[str] = None) -> None:
+    p = max(0.0, min(1.0, p or 0.0))
+    c.rrect(18, y, 182, y + 14, 7, fill=(232, 232, 236))
+    if p > 0:
+        c.rrect(18, y, 18 + max(14, 164 * p), y + 14, 7, fill=ACCENT)
+    c.text(224, y + 7, label if label is not None else f"{p * 100:.0f}%", 14, 700, INK, "rm")
+
+
+def _check(c: Canvas, y: float, col=GREEN, r: float = 34) -> None:
+    c.circle(120, y, r, fill=col)
+    c.line([(120 - r * 0.42, y + r * 0.02), (120 - r * 0.1, y + r * 0.32), (120 + r * 0.44, y - r * 0.3)],
+           fill=DARK_INK, width=r * 0.17, joint=None)
+
+
 def view_calibration(c: Canvas, st: UiState, ctx: dict) -> None:
+    """A calibration the driver started in the phone app."""
+    mode = st.calibrating
+    if ctx.get("calib_done"):
+        _check(c, 108)
+        c.text(120, 168, "Calibration complete", 18, 700, INK, "mm")
+        c.text(120, 192, {"profile": "Your profile is saved", "test": "Results are on the phone"}
+               .get(ctx["calib_done"], "Road pose saved"), 13, 400, MUTED, "mm")
+        return
+    if mode in ("profile", "test"):
+        title(c, "Create Profile" if mode == "profile" else "Accuracy Test")
+        if st.calib_step and st.calib_total:
+            c.text(120, 70, f"Step {st.calib_step} of {st.calib_total}", 13, 500, MUTED, "mm")
+        lines = wrap(c, st.calib_prompt or "Follow the phone", 204, 22, 700)[:3]
+        y0 = 136 - (len(lines) - 1) * 14
+        for i, ln in enumerate(lines):
+            c.text(120, y0 + i * 28, ln, 22, 700, INK, "mm")
+        if st.face_found is False:
+            c.text(120, 206, "No face: look at the camera", 12, 500, YELLOW, "mm")
+        else:
+            c.text(120, 206, "Hold it" if mode == "profile" else "Keep doing this", 12, 500, MUTED, "mm")
+        _bar(c, st.calib_progress)
+        return
+    # quick: the road pose (also the start-up pass in the gallery)
     title(c, "Calibration")
-    # head and shoulders inside four corner guides
     icol = (150, 150, 158)
     c.circle(120, 96, 21, fill=icol)
     c.d.pieslice(c._p(78, 120, 162, 196), 180, 360, fill=icol)
@@ -403,20 +447,14 @@ def view_calibration(c: Canvas, st: UiState, ctx: dict) -> None:
     for sx, sy in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
         cx, cy = 120 + sx * 44, 108 + sy * 40
         c.line([(cx, cy - sy * 12), (cx, cy), (cx - sx * 12, cy)], fill=INK, width=2.4, joint=None)
-    c.text(120, 172, "Look forward and", 13, 500, INK, "mm")
-    c.text(120, 189, "keep a neutral posture.", 13, 500, INK, "mm")
+    c.text(120, 172, "Look at the road", 13, 500, INK, "mm")
+    c.text(120, 189, "and hold still.", 13, 500, INK, "mm")
     if st.face_found is False:
         status, col = "No face: look at the camera", YELLOW
-    elif (st.calib_progress or 0) >= 1.0 or st.calibrated:
-        status, col = "Calibration complete", GREEN
     else:
         status, col = "Face detected: hold position", MUTED
     c.text(120, 210, status, 11, 500, col, "mm")
-    p = max(0.0, min(1.0, st.calib_progress or 0.0))
-    c.rrect(18, 232, 182, 246, 7, fill=(232, 232, 236))
-    if p > 0:
-        c.rrect(18, 232, 18 + max(14, 164 * p), 246, 7, fill=ACCENT)
-    c.text(224, 239, f"{p * 100:.0f}%", 14, 700, INK, "rm")
+    _bar(c, st.calib_progress)
 
 
 def _score_rows(st: UiState) -> list:
@@ -461,143 +499,45 @@ def view_score(c: Canvas, st: UiState, ctx: dict) -> None:
         c.text(64, y, text, 14, 500, INK, "lm")
 
 
-def view_driving(c: Canvas, st: UiState, ctx: dict) -> None:
-    title(c, "Driving Status")
-    rows(c, [("gauge", "Speed", _fmt(st.speed, unit=" km/h"), None),
-             ("clock", "RPM", _fmt(st.rpm, "{:,.0f}"), None),
-             ("sliders", "Throttle", _fmt(st.throttle, unit="%"), None),
-             ("car", "Driving score", _fmt(st.driving), None)])
-    if not st.obd_ok:
-        footer(c, "OBD dongle not linked", RED)
-
-
-def view_vision(c: Canvas, st: UiState, ctx: dict) -> None:
-    title(c, "Detection Metrics")
-    rows(c, [("eye", "PERCLOS", _fmt(None if st.perclos is None else st.perclos * 100, "{:.1f}", "%"), None),
-             ("target", "Blink rate", _fmt(st.blink_rate, unit="/min"), None),
-             ("person", "Head yaw", _fmt(st.yaw, "{:+.0f}", "°"), None),
-             ("person", "Head pitch", _fmt(st.pitch, "{:+.0f}", "°"), None)])
-    if not st.vision:
-        footer(c, "No live camera data on this screen")
-    elif st.face_found is False:
-        footer(c, "No face in view", YELLOW)
-
-
-def view_devices(c: Canvas, st: UiState, ctx: dict) -> None:
-    title(c, "Device Status")
-    items = [("pi", "Raspberry Pi", True), ("chip", "ESP32", st.esp_linked), ("car", "OBD dongle", st.obd_ok),
-             ("camera", "Camera", st.camera_ok if st.vision else None), ("speaker", "Audio", ctx.get("audio_ok"))]
-    for i, (ico, label, ok) in enumerate(items):
-        y = 66 + i * 38 + 19
-        if i:
-            c.line([(14, y - 19), (226, y - 19)], fill=LINE, width=1)
-        icon(c, ico, 26, y, INK, 16)
-        c.text(44, y, label, 14, 500, INK, "lm")
-        badge(c, 226, y, ok)
-
-
-def view_setup(c: Canvas, st: UiState, ctx: dict) -> None:
-    title(c, "System Setup")
-    items = [("user", "User Profile"), ("wifi", "Wi-Fi Settings"), ("target", "Calibration"),
-             ("sliders", "Display & Alerts")]
-    for i, (ico, label) in enumerate(items):
-        y = 64 + i * 48 + 24
-        if i:
-            c.line([(14, y - 24), (226, y - 24)], fill=LINE, width=1)
-        icon(c, ico, 28, y, INK, 20)
-        c.text(50, y, label, 15, 500, INK, "lm")
-        icon(c, "chevron", 218, y, INK, 16)
-    footer(c, "Change these in the phone app", y=266)
-
-
-AI_STATES = ("offline", "idle", "listening", "processing", "responding", "error", "mic_unavailable")
-
-
-def view_ai(c: Canvas, st: UiState, ctx: dict, now: float = 0.0) -> None:
-    ai = ctx.get("ai") or {}
-    state = ai.get("state", "offline")
-    if state == "listening":
-        for i in range(9):
-            amp = 0.35 + 0.65 * abs(math.sin(now * 5 + i * 0.9)) if i not in (0, 8) else 0.3
-            hgt = 52 * amp
-            col = RED if i in (3, 4, 5) else ACCENT
-            c.rrect(120 + (i - 4) * 14 - 3, 104 - hgt / 2, 120 + (i - 4) * 14 + 3, 104 + hgt / 2, 3, fill=col)
-        c.text(120, 168, "Listening...", 20, 600, INK, "mm")
-        if ai.get("transcript"):
-            for i, ln in enumerate(wrap(c, f"“{ai['transcript']}”", 200, 13)[:2]):
-                c.text(120, 196 + i * 18, ln, 13, 400, MUTED, "mm")
-        footer(c, "Press the button to cancel")
+def view_awake(c: Canvas, st: UiState, ctx: dict, now: float = 0.0) -> None:
+    """The Level 3 check-in: the driver answers by voice ("I am awake")."""
+    aw = ctx.get("awake") or {}
+    if aw.get("confirmed"):
+        _check(c, 100)
+        c.text(120, 160, "Thank you", 20, 700, INK, "mm")
+        c.text(120, 186, "Please take a break soon.", 13, 400, MUTED, "mm")
         return
-    if state == "processing":
-        icon(c, "sparkle", 120, 96, INK, 40)
-        for i in range(3):
-            on = int(now * 3) % 3 == i
-            c.circle(104 + i * 16, 150, 4, fill=INK if on else TRACK)
-        c.text(120, 180, "Thinking...", 18, 600, INK, "mm")
-        return
-    if state == "responding":
-        icon(c, "chat", 120, 74, INK, 40)
-        c.text(120, 122, ai.get("title", ""), 20, 700, INK, "mm")
-        for i, ln in enumerate(wrap(c, ai.get("text", ""), 208, 14)[:4]):
-            c.text(120, 152 + i * 20, ln, 14, 400, INK, "mm")
-        return
-    # standby: idle / offline / error / mic unavailable
-    icon(c, "sparkle", 120, 80, INK, 40)
-    c.text(120, 126, "Driver AI", 22, 700, INK, "mm")
-    sub = {"idle": "Voice assistance ready", "offline": "Assistant offline", "error": "Something went wrong",
-           "mic_unavailable": "Microphone unavailable"}.get(state, "Assistant offline")
-    c.text(120, 152, sub, 13, 400, MUTED, "mm")
-    if state == "idle":
-        pill(c, 30, 192, 210, 226, "Tap to Talk", BUTTON, INK, "mic", 15, 600)
-    else:
-        pill(c, 30, 192, 210, 226, "Not available", SURFACE, MUTED, "mic", 14, 500)
-    footer(c, "Alerts work without the assistant")
+    pulse = 0.5 + 0.5 * math.sin(now * 4.0)
+    c.circle(120, 92, 40 + 6 * pulse, fill=mix(BG, RED, 0.18 + 0.1 * pulse))
+    c.circle(120, 92, 32, fill=RED)
+    icon(c, "mic", 120, 92, INK, 30, bg=RED)
+    c.text(120, 154, "Are you awake?", 15, 500, MUTED, "mm")
+    c.text(120, 184, "Say", 15, 500, INK, "mm")
+    c.text(120, 210, "“I am awake”", 24, 700, INK, "mm")
+    left = aw.get("left")
+    if left is not None and aw.get("window"):
+        frac = max(0.0, min(1.0, left / aw["window"]))
+        c.rrect(30, 236, 210, 242, 3, fill=TRACK)
+        if frac > 0:
+            c.rrect(30, 236, 30 + max(6, 180 * frac), 242, 3, fill=RED)
+    footer(c, "Listening..." if aw.get("listening") else "Or press the side button", y=260)
 
 
-def view_rest_stop(c: Canvas, st: UiState, ctx: dict) -> None:
-    icon(c, "pin", 120, 78, INK, 36)
-    c.text(120, 120, "Next Rest Stop", 17, 600, INK, "mm")
-    rest = ctx.get("rest_stop")
-    if not rest:
-        c.text(120, 160, "Location unavailable", 18, 700, INK, "mm")
-        c.text(120, 186, "No GPS on this system yet", 13, 400, MUTED, "mm")
-        return
-    c.text(120, 156, f"{rest['distance_mi']:.0f} mi · {rest['minutes']:.0f} min", 22, 700, INK, "mm")
-    c.text(120, 184, rest["name"], 14, 400, MUTED, "mm")
-    pill(c, 30, 210, 210, 242, "Navigate", BUTTON, INK, "pin", 15, 600)
-
-
-def view_emergency(c: Canvas, st: UiState, ctx: dict) -> None:
-    icon(c, "warning", 120, 80, RED, 38)
-    c.text(120, 122, "Emergency Assistance", 17, 700, INK, "mm")
-    contact = ctx.get("contact")
-    if not contact:
-        c.text(120, 160, "No trusted contact set", 15, 600, INK, "mm")
-        c.text(120, 184, "Add one in the phone app", 13, 400, MUTED, "mm")
-    else:
-        pill(c, 24, 150, 216, 184, "Contact Trusted Person", RED, INK, "phone", 14, 700)
-        c.text(120, 202, contact, 13, 400, MUTED, "mm")
-        c.text(120, 222, "Hold the button to confirm", 12, 400, MUTED, "mm")
-    footer(c, "Calls need the phone app link")
-
-
-DRAW = {"welcome": view_welcome, "calibration": view_calibration, "score": view_score, "driving": view_driving,
-        "vision": view_vision, "devices": view_devices, "setup": view_setup, "rest_stop": view_rest_stop,
-        "emergency": view_emergency}
+DRAW = {"welcome": view_welcome, "calibration": view_calibration, "score": view_score}
 
 
 def render(st: UiState, now: float, page=0, booted: bool = True, banner: Optional[str] = None,
            ctx: Optional[dict] = None):
-    """The 240 x 280 frame (a PIL image). page: an index into PAGES or a view name."""
+    """The 240 x 280 frame (a PIL image). page: a view name (VIEWS); a number means "score"."""
     ctx = dict(ctx or {})
     ctx["banner"] = banner
-    view = page if isinstance(page, str) else PAGES[page % len(PAGES)]
+    view = page if isinstance(page, str) else "score"
     if not booted:
         view = "welcome"
     c = Canvas()
     header(c, st)
-    if view == "ai":
-        view_ai(c, st, ctx, now)
+    if view == "awake":
+        view_awake(c, st, ctx, now)
     else:
         DRAW[view](c, st, ctx)
     if banner:
@@ -622,7 +562,7 @@ def rgb565(img) -> bytes:
 
 
 # ---------------------------------------------------------------- voice
-PRIORITY = {"LEVEL2": 4, "LEVEL1": 3}
+PRIORITY = {"AWAKE": 5, "LEVEL2": 4, "LEVEL1": 3}
 
 
 class VoiceDirector:
@@ -797,13 +737,18 @@ class ButtonDecoder:
             return out
 
 
-ACTIONS = ("next_page", "prev_page", "repeat_voice", "calibrate", "ai", "brightness", "none")
+ACTIONS = ("repeat_voice", "calibrate", "brightness", "awake_check", "none")
+# Older config.toml files: the page and assistant actions are gone with those screens.
+RETIRED = ("next_page", "prev_page", "ai")
 
 
 def check_action(name: str) -> str:
-    if name in ACTIONS or (name.startswith("page:") and name[5:] in PAGES):
+    if name in ACTIONS:
         return name
-    raise ValueError(f"[whisplay] button action {name!r}: use one of {', '.join(ACTIONS)} or page:<{'|'.join(PAGES)}>")
+    if name in RETIRED or name.startswith("page:"):
+        log.warning("[whisplay] button action %r is retired (the LCD has no pages now): using none", name)
+        return "none"
+    raise ValueError(f"[whisplay] button action {name!r}: use one of {', '.join(ACTIONS)}")
 
 
 # ---------------------------------------------------------------- hardware
@@ -912,7 +857,8 @@ BRIGHTNESS_STEPS = (30, 70, 100)
 
 
 class WhisplayUI:
-    PAGES = len(PAGES)
+    """The LCD, LED, speaker and button. The screen picks itself (view()): the
+    driver sets things up in the phone app, not here."""
 
     def __init__(self, cfg: WhisplayConfig, board=None, sim: bool = False, hooks: Optional[dict] = None):
         self.cfg = cfg
@@ -923,18 +869,25 @@ class WhisplayUI:
         self.speaker = Speaker(cfg.audio_device, sim=sim)
         self.voice = VoiceDirector(repeat_s=cfg.repeat_s)
         self.button = ButtonDecoder(cfg.long_s, 0.0 if self.actions["double"] == "none" else cfg.double_s)
-        self.hooks = dict(hooks or {})            # e.g. {"calibrate": pipeline.recalibrate}
-        self.page = 0
+        # e.g. {"calibrate": pipeline.recalibrate}; later {"listen": <speech recogniser start>}
+        self.hooks = dict(hooks or {})
         self.brightness = cfg.brightness
         self.t0: Optional[float] = None
         self.banner: Optional[str] = None
         self.banner_until = 0.0
-        self.ai = {"state": "offline"}          # no assistant service yet: shown as offline
         self.presses: list = []                 # (time, event, what it did): for the self-test and logs
         self._joy: list = []
-        self._wifi: tuple = (-1e9, None)
         self._key = None
         self._frame = None
+        # calibration: what ran last tick, and the "complete" screen
+        self._calib: Optional[str] = None
+        self._calib_done: Optional[str] = None
+        self._calib_done_until = 0.0
+        # the awake check (Level 3)
+        self._alert_since: Optional[float] = None
+        self._next_awake = 0.0                  # earliest time for the next automatic check
+        self.awake_until = 0.0                  # asking until
+        self.awake_ok_until = 0.0               # "Thank you" until
         self.board.set_backlight(self.brightness)
         self.board.on_button(lambda: self.button.press(time.monotonic()),
                              lambda: self.button.release(time.monotonic()))
@@ -944,20 +897,43 @@ class WhisplayUI:
     def _flash(self, text: str, now: float, s: float = 2.0) -> None:
         self.banner, self.banner_until = text, now + s
 
-    def _turn(self, step: int) -> None:
-        self.page = (self.page + step) % self.PAGES
+    # ------------------------------------------------------------ awake check
+    def ask_awake(self, now: float) -> None:
+        """Show "Say 'I am awake'" and say it. Called when an alert has lasted
+        awake_after_s, or by the dev button (awake_check)."""
+        self.awake_until = now + self.cfg.awake_window_s
+        self.awake_ok_until = 0.0
+        self.voice.queue("AWAKE")
+        fn = self.hooks.get("listen")
+        if fn is not None:
+            fn()                                # a speech recogniser, when there is one
+        log.info("[UI] Awake check: asking the driver")
 
+    def confirm_awake(self, now: float, how: str = "voice") -> None:
+        """The driver answered (by voice, or the button as a backup)."""
+        self.awake_until = 0.0
+        self.awake_ok_until = now + 2.5
+        self.voice.acknowledge(now)
+        log.info("[UI] Awake check: confirmed (%s)", how)
+
+    def awake_active(self, now: float) -> bool:
+        return now < self.awake_until
+
+    def _awake_rules(self, st: UiState, now: float) -> None:
+        if st.tier < 2:
+            self._alert_since, self.awake_until = None, 0.0
+            return
+        if self._alert_since is None:
+            self._alert_since = now
+            self._next_awake = now + self.cfg.awake_after_s
+        if (self.cfg.awake_after_s > 0 and not self.awake_active(now) and now >= self._next_awake
+                and now >= self.awake_ok_until):
+            self.ask_awake(now)
+            self._next_awake = now + self.cfg.awake_window_s + self.cfg.awake_after_s
+
+    # ------------------------------------------------------------ button
     def do(self, action: str, st: UiState, now: float) -> str:
-        """Runs one button action. Returns what happened (for the log)."""
-        if action == "next_page":
-            self._turn(1)
-            return f"page {PAGES[self.page]}"
-        if action == "prev_page":
-            self._turn(-1)
-            return f"page {PAGES[self.page]}"
-        if action.startswith("page:"):
-            self.page = PAGES.index(action[5:])
-            return f"page {PAGES[self.page]}"
+        """Runs one (developer) button action. Returns what happened (for the log)."""
         if action == "repeat_voice":
             if self.speaker.last:
                 self.speaker.play(self.speaker.last, now)
@@ -971,17 +947,10 @@ class WhisplayUI:
                 self._flash("Calibrate: needs the camera", now)
                 return "calibrate: no camera"
             fn()
-            self.page = 0
-            self._flash("Calibrating: look ahead", now)
             return "calibrate"
-        if action == "ai":
-            self.page = PAGES.index("ai")
-            fn = self.hooks.get("ai")
-            if fn is None:
-                self._flash("Assistant offline", now)
-                return "ai: offline"
-            fn()
-            return "ai"
+        if action == "awake_check":
+            self.ask_awake(now)
+            return "awake check"
         if action == "brightness":
             i = BRIGHTNESS_STEPS.index(self.brightness) if self.brightness in BRIGHTNESS_STEPS else -1
             self.brightness = BRIGHTNESS_STEPS[(i + 1) % len(BRIGHTNESS_STEPS)]
@@ -993,7 +962,10 @@ class WhisplayUI:
     def handle(self, event: Optional[str], st: UiState, now: float) -> None:
         if event is None:
             return
-        if st.tier >= 1 and event in ("short", "double"):
+        if self.awake_active(now) and event in ("short", "double", "long"):
+            self.confirm_awake(now, "button")   # backup for the voice reply
+            did = "awake confirmed"
+        elif st.tier >= 1 and event in ("short", "double"):
             # Safety: during an alert a press acknowledges ("I'm awake"). It pauses
             # the voice repeat only; the ESP32's buzzer and motors keep going.
             self.voice.acknowledge(now)
@@ -1009,24 +981,36 @@ class WhisplayUI:
     def _joystick(self, direction: str, st: UiState, now: float) -> None:
         if direction == "center":
             self.handle("short", st, now)
-        elif st.tier < 1:
-            self._turn(-1 if direction in ("up", "left") else 1)
+
+    # ------------------------------------------------------------ screen
+    def _calib_rules(self, st: UiState, now: float) -> None:
+        if self._calib and not st.calibrating:           # just finished (or was cancelled)
+            if self._calib != "test" and st.calibrated is not False:
+                self.voice.queue("CALIBRATED")
+            self._calib_done, self._calib_done_until = self._calib, now + DONE_S
+        self._calib = st.calibrating
 
     def context(self, now: float) -> dict:
-        if now - self._wifi[0] > 30 and not self.sim:
-            self._wifi = (now, wifi_ssid())
-        return {"audio_ok": None if self.sim else self.speaker.ok, "brightness": self.brightness,
-                "voice": self.cfg.voice, "wifi": self._wifi[1], "profile": "Default", "ai": self.ai}
+        aw = None
+        if self.awake_active(now):
+            aw = {"left": self.awake_until - now, "window": self.cfg.awake_window_s,
+                  "listening": "listen" in self.hooks}
+        elif now < self.awake_ok_until:
+            aw = {"confirmed": True}
+        return {"awake": aw, "calib_done": self._calib_done if now < self._calib_done_until else None}
 
-    def view(self, st: UiState, booted: bool):
-        """Which screen to show: welcome, calibration, or the button's page."""
+    def view(self, st: UiState, booted: bool, now: Optional[float] = None):
+        """welcome while starting; the awake check; a calibration from the app; else the score."""
+        now = time.monotonic() if now is None else now
         if not booted:
             return "welcome"
+        if self.awake_active(now) or now < self.awake_ok_until:
+            return "awake"
         if st.tier >= 1:
             return "score"                          # an alert always shows the score
-        if st.vision and st.calibrated is False and self.page == 0:
+        if st.calibrating or now < self._calib_done_until:
             return "calibration"
-        return PAGES[self.page]
+        return "score"
 
     def tick(self, st: UiState, now: float):
         """One update: button events, voice, LED, screen. Returns the frame."""
@@ -1037,18 +1021,21 @@ class WhisplayUI:
             self.handle(ev, st, now)
         while self._joy:
             self._joystick(self._joy.pop(0), st, now)
-        if st.tier >= 1 and self.page != 0:
-            self.page = 0
+        self._calib_rules(st, now)
+        if booted:
+            self._awake_rules(st, now)
         if self.cfg.voice and booted:
             name = self.voice.update(st, now, self.speaker.playing(now))
             if name:
                 self.speaker.play(name, now)
         self.board.set_rgb(*led_color(st, now, booted))
         banner = self.banner if now < self.banner_until else None
-        view = self.view(st, booted)
+        view = self.view(st, booted, now)
         ctx = self.context(now)
-        anim = int(now * 4) if view == "ai" and self.ai.get("state") in ("listening", "processing") else 0
+        anim = int(now * 8) if view == "awake" else 0
         key = (view, banner, anim, repr({k: v for k, v in st.__dict__.items() if k != "t"}), repr(ctx))
+        if view == "awake":
+            key = (view, banner, anim, round(ctx["awake"].get("left", 0) if ctx["awake"] else 0, 1))
         if key != self._key:                        # draw only when something on screen changed
             self._key, self._frame = key, render(st, now, view, True, banner, ctx)
             self.board.show(self._frame)
@@ -1105,29 +1092,23 @@ def gallery(out_dir: Path) -> Path:
     """Every screen as a PNG, plus one contact sheet (the design review image)."""
     from PIL import Image, ImageDraw
     out_dir.mkdir(parents=True, exist_ok=True)
-    ctx = {"audio_ok": True, "brightness": 70, "voice": True, "wifi": "DRIFTS_Network", "profile": "Default"}
+    calib = dict(calibrated=False, calib_progress=0.68)
     shots = [
         ("01_welcome", demo_state(92), "welcome", {}),
-        ("02_calibration", demo_state(92, calibrated=False, calib_progress=0.68), "calibration", {}),
-        ("03_score_normal", demo_state(92), "score", {}),
-        ("04_score_caution", demo_state(66), "score", {}),
-        ("05_score_high", demo_state(34), "score", {}),
-        ("06_score_unavailable", state_from_status({}, linked=False, fresh=False), "score", {}),
-        ("07_driving", demo_state(92), "driving", {}),
-        ("08_vision", demo_state(66), "vision", {}),
-        ("09_devices", demo_state(92), "devices", {}),
-        ("10_setup", demo_state(92), "setup", {}),
-        ("11_ai_offline", demo_state(92), "ai", {"ai": {"state": "offline"}}),
-        ("12_ai_idle", demo_state(92), "ai", {"ai": {"state": "idle"}}),
-        ("13_ai_listening", demo_state(92), "ai", {"ai": {"state": "listening", "transcript": "What's my score?"}}),
-        ("14_ai_response", demo_state(92), "ai", {"ai": {"state": "responding", "title": "Alertness: 92",
-                                                         "text": "You're alert and driving normally."}}),
-        ("15_rest_stop", demo_state(92), "rest_stop", {}),
-        ("16_emergency", demo_state(34), "emergency", {}),
+        ("02_score_normal", demo_state(92), "score", {}),
+        ("03_score_caution", demo_state(66), "score", {}),
+        ("04_score_high", demo_state(34), "score", {}),
+        ("05_score_unavailable", state_from_status({}, linked=False, fresh=False), "score", {}),
+        ("06_calibration", demo_state(92, calibrating="quick", **calib), "calibration", {}),
+        ("07_profile_step", demo_state(92, calibrating="profile", calib_prompt="Close your eyes", calib_step=2,
+                                       calib_total=9, calib_progress=0.55), "calibration", {}),
+        ("08_calibration_done", demo_state(92), "calibration", {"calib_done": "quick"}),
+        ("09_awake_check", demo_state(30), "awake", {"awake": {"left": 7.0, "window": 10.0}}),
+        ("10_awake_confirmed", demo_state(30), "awake", {"awake": {"confirmed": True}}),
     ]
     imgs = []
     for name, st, view, extra in shots:
-        img = render(st, 0.3, view, True, None, {**ctx, **extra})
+        img = render(st, 0.3, view, True, None, extra)
         img.save(out_dir / f"whisplay_{name}.png")
         imgs.append((name[3:].replace("_", " "), img))
     cols, pad, cap = 4, 16, 22

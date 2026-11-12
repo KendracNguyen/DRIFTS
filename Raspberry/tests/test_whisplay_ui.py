@@ -10,7 +10,7 @@ import pytest
 
 from drifts.config import WhisplayConfig, load_config
 from drifts.ui_model import (BANDS, CAUTION, HIGH, NORMAL, UNAVAILABLE, band_color, band_for, state_from_live)
-from drifts.whisplay_ui import (AI_STATES, PAGES, VIEWS, H, W, ButtonDecoder, SimBoard, VoiceDirector,
+from drifts.whisplay_ui import (VIEWS, H, W, ButtonDecoder, SimBoard, VoiceDirector,
                                 WhisplayUI, demo_state, font_name, gallery, led_color, render, rgb565,
                                 state_from_status)
 
@@ -68,17 +68,18 @@ def test_led_colours():
 
 def test_render_every_view_and_state():
     states = (st(), st(62, "CAUTION"), st(30, "LOW", alert=True), st(5, "LOW"), st(None, linked=False),
-              st(85, part=True), demo_state(92), demo_state(66), demo_state(None, calibrated=False, face_found=False))
+              st(85, part=True), demo_state(92), demo_state(66), demo_state(None, calibrated=False, face_found=False),
+              demo_state(92, calibrating="profile", calib_prompt="Turn your head to the left", calib_step=4,
+                         calib_total=9, calib_progress=0.3),
+              demo_state(92, calibrating="test", calib_prompt="Yawn", calib_step=1, calib_total=6))
+    ctxs = ({}, {"calib_done": "profile"}, {"awake": {"left": 4.0, "window": 10.0}},
+            {"awake": {"left": 4.0, "window": 10.0, "listening": True}}, {"awake": {"confirmed": True}})
     for state in states:
         for view in VIEWS:
-            assert render(state, 0.2, view).size == (W, H)
-        for page in range(len(PAGES)):
-            assert render(state, 0.2, page).size == (W, H)
-    for ai in AI_STATES:
-        assert render(st(), 0.2, "ai", ctx={"ai": {"state": ai, "title": "Alertness: 90", "text": "ok"}}).size == (W, H)
-    ctx = {"rest_stop": {"distance_mi": 12, "minutes": 11, "name": "Seguin Rest Area"}, "contact": "Primary contact"}
-    assert render(st(), 0.2, "rest_stop", ctx=ctx).size == (W, H)
-    assert render(st(), 0.2, "emergency", ctx=ctx).size == (W, H)
+            for ctx in ctxs:
+                assert render(state, 0.2, view, ctx=ctx).size == (W, H)
+    assert set(VIEWS) == {"welcome", "calibration", "score", "awake"}      # status only: no menus, no assistant
+    assert render(st(), 0.2, 3).size == (W, H)                            # an old page number shows the score
     assert render(st(), 0.2, booted=False).size == (W, H)
     assert len(rgb565(render(st(), 0.2))) == W * H * 2
 
@@ -90,7 +91,7 @@ def test_inter_font_when_installed():
 
 def test_gallery_writes_every_screen(tmp_path):
     sheet = gallery(tmp_path)
-    assert sheet.exists() and len(list(tmp_path.glob("whisplay_*.png"))) == 17
+    assert sheet.exists() and len(list(tmp_path.glob("whisplay_*.png"))) == 11
 
 
 def test_demo_data_is_labelled():
@@ -116,13 +117,82 @@ def test_state_from_live_status():
     assert sim.demo                                                         # simulated ESP32 = DEMO on screen
 
 
-def test_calibration_view_while_calibrating():
+def test_welcome_then_score_by_itself():
+    ui = WhisplayUI(WhisplayConfig(enabled=True, voice=False), board=SimBoard(), sim=True)
+    ui.tick(st(), 0.0)
+    assert ui.view(st(), booted=False, now=0.0) == "welcome"
+    ui.tick(st(), 5.0)
+    assert ui.view(st(), booted=True, now=5.0) == "score"                   # no button press needed
+    # the automatic road-pose pass at start-up does not take over the screen
+    assert ui.view(demo_state(92, calibrated=False, calib_progress=0.4), booted=True, now=5.0) == "score"
+
+
+def test_calibration_from_the_app_and_complete():
     ui = WhisplayUI(WhisplayConfig(enabled=True), board=SimBoard(), sim=True)
-    cal = demo_state(92, calibrated=False, calib_progress=0.4)
-    assert ui.view(cal, booted=False) == "welcome"
-    assert ui.view(cal, booted=True) == "calibration"
-    assert ui.view(demo_state(34, calibrated=False), booted=True) == "score"   # an alert beats calibration
-    assert ui.view(st(), booted=True) == "score"                               # car app: no camera data
+    ui.tick(st(), 0.0)
+    quick = demo_state(92, calibrating="quick", calibrated=False, calib_progress=0.4)
+    ui.tick(quick, 5.0)
+    assert ui.view(quick, booted=True, now=5.0) == "calibration"
+    assert ui.view(demo_state(34, calibrating="quick"), booted=True, now=5.0) == "score"  # an alert wins
+    done = demo_state(92, calibrated=True)
+    ui.tick(done, 6.0)                                                      # finished: "complete" for 3 s
+    assert ui.view(done, booted=True, now=6.5) == "calibration" and ui.context(6.5)["calib_done"] == "quick"
+    assert ui.voice.pending == "CALIBRATED" or ui.speaker.last == "CALIBRATED"
+    assert ui.view(done, booted=True, now=9.5) == "score"
+    prof = demo_state(92, calibrating="profile", calib_prompt="Close your eyes", calib_step=2, calib_total=9)
+    ui.tick(prof, 10.0)
+    assert ui.view(prof, booted=True, now=10.0) == "calibration"
+
+
+def test_calibration_status_from_the_pipeline(tmp_path):
+    from drifts.esp_link import SimLink
+    from drifts.live import Pipeline, build_parser
+    from test_privacy import FakeFaceCamera
+    args = build_parser().parse_args(["--esp", "sim", "--trips", str(tmp_path / "t.json"), "--profile", "nobody"])
+    p = Pipeline(FakeFaceCamera(), SimLink(), args)
+    p.cal.done = True
+    assert p.calib_ui({}, 100.0) is None                                    # nothing asked: nothing shown
+    p.recalibrate()
+    c = p.calib_ui({}, p.calib_asked + 1)
+    assert c["mode"] == "quick" and c["progress"] == 0.0
+    p.cal.done = True
+    assert p.calib_ui({}, p.calib_asked + 2) is None and p.calib_asked is None
+    p.start_guided("calibrate", "kendra")
+    c = p.calib_ui({}, 200.0)
+    assert c["mode"] == "profile" and c["step"] == 1 and c["total"] >= 9 and c["prompt"]
+    s = state_from_live({"esp": {}, "calib_ui": c, "pose": {"enabled": True, "calib_progress": 1.0}}, now=1.0)
+    assert s.calibrating == "profile" and s.calib_step == 1 and s.calib_prompt == c["prompt"]
+
+
+def test_awake_check_after_a_long_alert():
+    cfg = WhisplayConfig(enabled=True, awake_after_s=20.0, awake_window_s=10.0)
+    ui = WhisplayUI(cfg, board=SimBoard(), sim=True)
+    alert = st(30, "LOW", alert=True)
+    ui.tick(st(), 0.0)
+    ui.tick(alert, 5.0)                                                     # alert starts
+    ui.tick(alert, 20.0)
+    assert ui.view(alert, True, 20.0) == "score"                            # not yet
+    ui.tick(alert, 25.5)
+    assert ui.view(alert, True, 25.5) == "awake" and ui.voice.pending in (None, "AWAKE")
+    assert "AWAKE" in [n for _, n in ui.speaker.played] or ui.voice.pending == "AWAKE"
+    ui.handle("short", alert, 27.0)                                         # backup: the button confirms
+    assert ui.presses[-1][2] == "awake confirmed" and ui.context(27.5)["awake"] == {"confirmed": True}
+    assert ui.view(alert, True, 30.0) == "score"
+    ui.tick(st(), 31.0)                                                     # alert over: check resets
+    assert ui._alert_since is None
+
+
+def test_awake_check_from_a_voice_reply_and_dev_button():
+    heard = []
+    cfg = WhisplayConfig(enabled=True, voice=False, button_short="awake_check")
+    ui = WhisplayUI(cfg, board=SimBoard(), sim=True, hooks={"listen": lambda: heard.append(1)})
+    ui.tick(st(), 0.0)
+    ui.handle("short", st(), 5.0)                                           # dev button shows it on demand
+    assert ui.awake_active(5.1) and heard == [1] and ui.context(5.1)["awake"]["listening"]
+    ui.confirm_awake(6.0)                                                   # what a speech recogniser calls
+    assert not ui.awake_active(6.1) and ui.view(st(), True, 6.1) == "awake"  # "Thank you"
+    assert ui.view(st(), True, 9.0) == "score"
+    assert not ui.awake_active(5.0 + 10.1)
 
 
 def test_frame_redrawn_only_on_change():
@@ -177,16 +247,16 @@ def test_button_decoder():
     assert b.release(4.0) is None
 
 
-def test_button_never_silences_and_pages():
+def test_button_never_silences_the_alert():
     ui = WhisplayUI(WhisplayConfig(enabled=True), board=SimBoard(), sim=True)
     ui.tick(st(), 0.0)
     ui.tick(st(), 5.0)                                                       # past the boot screen
     ui.handle("short", st(), 5.1)
-    assert ui.page == 1
+    assert ui.presses[-1][2] == "none"                                       # driver presses do nothing
     ui.handle("short", st(30, "LOW", alert=True), 6.0)                      # during an alert: acknowledge
     assert ui.voice.ack_until > 6.0 and ui.banner == "Acknowledged"
     ui.tick(st(30, "LOW", alert=True), 6.1)
-    assert ui.page == 0                                                      # an alert shows the score page
+    assert ui.view(st(30, "LOW", alert=True), True, 6.1) == "score"
     assert ui.board.rgb in ((255, 0, 0), (0, 0, 0))                          # LED still flashing red
 
 
@@ -226,51 +296,52 @@ def test_button_short_long_double():
 
 def test_button_actions_are_configurable():
     from drifts.whisplay_ui import check_action
-    cfg = WhisplayConfig(enabled=True, voice=False, button_short="prev_page", button_long="brightness",
-                         button_double="page:devices")
+    cfg = WhisplayConfig(enabled=True, voice=False, button_short="repeat_voice", button_long="brightness",
+                         button_double="calibrate")
     calls = []
     ui = WhisplayUI(cfg, board=SimBoard(), sim=True, hooks={"calibrate": lambda: calls.append("cal")})
     ok = st()
     ui.handle("short", ok, 5.0)
-    assert PAGES[ui.page] == "ai"                                   # prev from score wraps to the last page
-    ui.handle("double", ok, 5.1)
-    assert PAGES[ui.page] == "devices"
+    assert ui.presses[-1][2] == "nothing to repeat"
     ui.handle("long", ok, 5.2)
     assert ui.brightness == 100 and ui.board.backlight == 100
-    assert ui.do("calibrate", ok, 5.3) == "calibrate" and calls == ["cal"]
-    assert ui.do("ai", ok, 5.4) == "ai: offline" and PAGES[ui.page] == "ai"
+    ui.handle("double", ok, 5.3)
+    assert calls == ["cal"]
     with pytest.raises(ValueError):
         check_action("explode")
-    with pytest.raises(ValueError):
-        WhisplayUI(WhisplayConfig(button_long="page:nowhere"), board=SimBoard(), sim=True)
+    # older config.toml files: page / assistant actions are retired, not errors
+    old = WhisplayUI(WhisplayConfig(button_short="next_page", button_long="page:devices", button_double="ai"),
+                     board=SimBoard(), sim=True)
+    assert set(old.actions.values()) == {"none"}
 
 
 def test_alert_press_always_acknowledges():
-    cfg = WhisplayConfig(enabled=True, voice=False, button_short="brightness", button_double="page:setup")
+    cfg = WhisplayConfig(enabled=True, voice=False, button_short="brightness", button_double="calibrate")
     ui = WhisplayUI(cfg, board=SimBoard(), sim=True)
     alert = st(30, "LOW", alert=True)
     ui.handle("double", alert, 10.0)
-    assert ui.presses[-1][2] == "acknowledge" and ui.brightness == cfg.brightness and ui.page == 0
+    assert ui.presses[-1][2] == "acknowledge" and ui.brightness == cfg.brightness
     ui.handle("short", alert, 11.0)
     assert ui.presses[-1][2] == "acknowledge"
 
 
 def test_button_events_flow_through_tick():
     board = SimBoard()
-    ui = WhisplayUI(WhisplayConfig(enabled=True, voice=False, double_s=0.4), board=board, sim=True)
+    ui = WhisplayUI(WhisplayConfig(enabled=True, voice=False, double_s=0.4, button_short="brightness"),
+                    board=board, sim=True)
     ui.tick(st(), 0.0)
     board._press(); board._release()                               # real callbacks, monotonic time
     import time as _t
     _t.sleep(0.5)
     ui.tick(st(), _t.monotonic())
-    assert ui.page == 1 and ui.presses[-1][1] == "short"
+    assert ui.presses[-1][1] == "short" and ui.brightness == 100
 
 
-def test_joystick_pages():
-    ui = WhisplayUI(WhisplayConfig(enabled=True, voice=False), board=SimBoard(), sim=True)
-    ui.board._joy("down"); ui.board._joy("down"); ui.board._joy("up")
+def test_joystick_centre_is_the_button():
+    ui = WhisplayUI(WhisplayConfig(enabled=True, voice=False, button_short="brightness"), board=SimBoard(), sim=True)
+    ui.board._joy("down"); ui.board._joy("center")
     ui.tick(st(), 5.0)
-    assert ui.page == 1
+    assert [p[2] for p in ui.presses] == ["brightness 100"]
 
 
 def test_close_turns_the_hat_off():
