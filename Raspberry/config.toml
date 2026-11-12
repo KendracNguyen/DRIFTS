@@ -73,3 +73,9 @@ joystick = false       # ours is the plain version (no joystick); true on the "J
 rotate = 0             # picture turned clockwise: 0, 90, 180 (upside down) or 270
 awake_after_s = 20.0   # an alert this long asks "Say 'I am awake'" (0 = off)
 awake_window_s = 10.0  # how long it asks
+# Start-up (with the camera): "Who's driving? Say your name" (drivers from the phone
+# app + Guest; a short press moves down the list, a long press picks), then the face
+# check and calibration with the camera on the LCD.
+select_driver = true
+select_timeout_s = 15.0  # no answer: whoever drove last (or Guest)
+face_check = true

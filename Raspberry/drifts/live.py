@@ -193,7 +193,26 @@ class Pipeline:
         self.profile = load_profile(args.profile) if self.face_on else None
         if self.profile:
             self.apply_profile(self.profile)
+        self.driver: Optional[str] = (self.profile or {}).get("name")     # who's driving (LCD Select Driver)
         self._wifi = (-1e9, None)
+
+    def set_driver(self, name: str) -> None:
+        """The LCD's Select Driver: load that driver's profile, or none for Guest."""
+        from drifts.drivers import GUEST
+        from drifts.guided import load_profile
+        self.driver = name
+        prof = None if name == GUEST else load_profile(name)
+        self.profile = prof
+        if prof:
+            self.apply_profile(prof)
+        elif hasattr(self.camera, "apply_profile"):
+            self.camera.apply_profile(None)                    # default thresholds
+        log.info("Driver: %s%s", name, "" if prof or name == GUEST else " (no profile: default thresholds)")
+
+    def frame_for_lcd(self):
+        """(the last analysed frame, its face landmarks) for the LCD's face check, or None."""
+        frame = getattr(self.camera, "last_frame", None)
+        return None if frame is None else (frame, getattr(self.camera, "landmarks", None))
 
     def start(self) -> None:
         threading.Thread(target=self._run, name="camera", daemon=True).start()
@@ -549,6 +568,7 @@ class Pipeline:
         st["whisplay"] = self.whisplay
         st["guided"] = self.guided.snapshot(time.time())
         st["profile"] = (self.profile or {}).get("name")
+        st["driver"] = self.driver
         pr = self.profile or {}
         st["profile_info"] = ({k: pr.get(k) for k in ("name", "created", "ear_open", "ear_closed", "mar_closed",
                                                      "mar_open", "yawn_mar", "yaw_limit", "pitch_limit")}
@@ -577,6 +597,7 @@ class Pipeline:
     def privacy(self) -> dict:
         """What the camera produces, for the phone's privacy panel: the numbers
         it measures, the face points it works from, what is sent and what is kept."""
+        from drifts.drivers import recordings
         f = dict(getattr(self.camera, "face", {}) or {}) if self.face_on else {}
         px = getattr(self.camera, "landmarks", None) if self.face_on else None
         w, h = getattr(self.camera, "frame_size", (0, 0)) if self.face_on else (0, 0)
@@ -593,6 +614,7 @@ class Pipeline:
             "frames_analysed": self.frames_analysed,
             "frames_saved": saved, "saved_dir": str(self.capture.root.resolve()) if saved else None,
             "uploads": 0,
+            "name_recordings": recordings(),                   # drivers' own name recordings (Driver Profile)
             "preview_open": time.time() < self.stream_until,
             "fps": self.eye.get("fps"), "time": time.time(),
         }
@@ -658,6 +680,13 @@ def make_handler(pipe: Pipeline):
                                             "eye": [r[2] for r in h], "rpm": [r[3] for r in h],
                                             "yaw": [r[4] for r in h]}).encode(),
                            "application/json")
+            elif path == "/drivers.json":
+                from drifts import drivers as dv
+                names = dv.list_drivers()
+                self._send(200, json.dumps({
+                    "drivers": [{"name": n, "recording": dv.has_recording(n), "known_word": name_is_known(n)}
+                                for n in names],
+                    "driver": pipe.driver, "last": dv.last_driver()}).encode(), "application/json")
             elif path == "/privacy.json":
                 self._send(200, json.dumps(pipe.privacy()).encode(), "application/json")
             elif path == "/trips.json":
@@ -750,6 +779,22 @@ def make_handler(pipe: Pipeline):
             elif u.path == "/eye_send":
                 pipe.send_eye = q.get("on", ["1"])[0] == "1"
                 self._send(200, b"ok", "text/plain")
+            elif u.path in ("/name/record", "/name/play", "/name/delete"):
+                from drifts import drivers as dv
+                name = dv.clean_name(q.get("name", [""])[0])
+                if not name or name not in dv.list_drivers():
+                    self._send(400, b"no such driver: create the profile first", "text/plain")
+                    return
+                if u.path == "/name/record":
+                    dev = load_config().whisplay.audio_device
+                    out = dv.record_name(name, dev)
+                    if out.get("ok"):
+                        out["known_word"] = name_is_known(name)
+                elif u.path == "/name/play":
+                    out = {"ok": play_wav(dv.name_clip(name), load_config().whisplay.audio_device)}
+                else:
+                    out = {"ok": dv.delete_name(name)}
+                self._send(200, json.dumps(out).encode(), "application/json")
             else:
                 self._send(400, b"bad request", "text/plain")
 
@@ -851,6 +896,37 @@ def build(args) -> Pipeline:
     return pipe
 
 
+def name_is_known(name: str) -> Optional[bool]:
+    """Can the speech model hear this name? None if there's no speech model here."""
+    try:
+        from drifts.name_listener import NameListener
+        nl = _listener()
+        return None if not nl.available() else not nl.unknown_words([name])
+    except Exception:
+        return None
+
+
+_LISTENER = []
+
+
+def _listener():
+    from drifts.name_listener import NameListener
+    if not _LISTENER:
+        _LISTENER.append(NameListener(device=load_config().whisplay.audio_device))
+    return _LISTENER[0]
+
+
+def play_wav(path: Path, device: str) -> bool:
+    import shutil
+    import subprocess
+    if not path.exists() or not shutil.which("aplay"):
+        return False
+    try:
+        return subprocess.run(["aplay", "-q", "-D", device, str(path)], timeout=10).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def start_whisplay(pipe: Pipeline, args):
     """The Whisplay screen, fed from /status.json's data (ESP32 link + face). Returns its stop event."""
     if not (getattr(args, "whisplay", False) or getattr(args, "whisplay_sim", False)):
@@ -858,8 +934,17 @@ def start_whisplay(pipe: Pipeline, args):
     try:
         from drifts.ui_model import state_from_live
         from drifts.whisplay_ui import WhisplayUI
-        ui = WhisplayUI(load_config().whisplay, sim=args.whisplay_sim,
-                        hooks={"calibrate": pipe.recalibrate})  # double press: re-take the road pose
+        from drifts.drivers import list_drivers
+        hooks = {"calibrate": pipe.recalibrate,               # double press, and the start-up's calibration
+                 "drivers": list_drivers, "choose_driver": pipe.set_driver}
+        if pipe.face_on:
+            hooks["frame"] = pipe.frame_for_lcd
+        nl = _listener()
+        if nl.available():
+            hooks["listener"] = nl
+        else:
+            log.info("Select Driver without voice (%s): the button picks", nl.why)
+        ui = WhisplayUI(load_config().whisplay, sim=args.whisplay_sim, hooks=hooks)
     except Exception as exc:              # no HAT or driver: the dashboard still runs
         log.warning("Whisplay HAT not available (%s): running without the screen", exc)
         return None
