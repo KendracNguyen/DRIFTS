@@ -89,8 +89,15 @@ class CvFaceLandmarker:
         with zipfile.ZipFile(str(task_path)) as z:
             det = np.frombuffer(z.read("face_detector.tflite"), np.uint8)
             lm = np.frombuffer(z.read("face_landmarks_detector.tflite"), np.uint8)
-        self.det = cv2.dnn.readNetFromTFLite(det)
-        self.lm = cv2.dnn.readNetFromTFLite(lm)
+        try:
+            self.det = cv2.dnn.readNetFromTFLite(det)
+            self.lm = cv2.dnn.readNetFromTFLite(lm)
+        except cv2.error as exc:
+            if "FlatBuffers" in str(exc):          # Debian / Raspberry Pi OS's python3-opencv
+                raise RuntimeError(f"this OpenCV ({cv2.__version__}, {cv2.__file__}) can't read TFLite models: "
+                                   "install the official build: .venv/bin/pip install "
+                                   "opencv-python-headless==4.10.0.84") from None
+            raise
         self.det_out = self.det.getUnconnectedOutLayersNames()
         self.lm_out = self.lm.getUnconnectedOutLayersNames()
         # OpenCV 4.8-4.12 read both outputs of each model; OpenCV 5's importer drops all but one.

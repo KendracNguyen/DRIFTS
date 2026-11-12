@@ -125,8 +125,7 @@ def software_checks(rep: Report, use_mesh: bool = True, cams: Optional[list] = "
                 CvFaceLandmarker(ensure_model(DEFAULT_MODEL))
                 rep.add("OpenCV runs the face models", PASS, f"OpenCV {cv2.__version__}")
             except Exception as exc:
-                rep.add("OpenCV runs the face models", FAIL,
-                        f"{exc}: needs OpenCV 4.8+ with TFLite (sudo apt install python3-opencv)")
+                rep.add("OpenCV runs the face models", FAIL, str(exc))
         else:
             aes = has_aes()
             try:
