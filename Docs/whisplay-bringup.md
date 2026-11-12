@@ -44,6 +44,8 @@ The driver never has to touch the screen. It changes by itself:
 | When | Shows |
 | --- | --- |
 | Starting (4 s) | **Welcome**: the DRIFTS artwork (steering wheel, alertness gauge, chequered flag; `drifts/assets/`), and the voice says **"Welcome to Drifts."** If the artwork file is missing: the colour-bar screen |
+| After the welcome (with the camera, `drifts.live --whisplay`) | **Select Driver**: "Who's driving? Say your name." The drivers from the phone app, and Guest. Saying a name picks it (offline speech, `drifts/name_listener.py`); a short press moves down the list, a long press picks; no answer in 15 s picks whoever drove last. Then "Hi," + **your own recording of your name** (Settings → Driver Profile → Record my name), and your profile is loaded |
+| Then | **Face check**: the camera on the LCD, mirrored, with an oval and hints ("Move left", "Come closer"). Once the face sits in the oval: **Look at the road**, the road pose is taken (about 3 s) |
 | Always, after that | **Score**: the alertness ring (green 70+, yellow 50–69, red below 50, grey with no data) and two lines under it |
 | The driver starts a calibration **in the phone app** (Settings → Calibration) | **Calibration**: quick road pose ("Look at the road"), or the 9-pose profile / accuracy test (the current pose in large text, step *n* of 9, a hold bar). Then **"Calibration complete"** for 3 s and the voice says so |
 | An alert has lasted 20 s (`awake_after_s`) | **"Awake Check: say 'I am awake'"** with a countdown, for 10 s (`awake_window_s`), and the voice asks. Then **"Thank you"** for 2.5 s once answered. It asks again 20 s later if the alert goes on |

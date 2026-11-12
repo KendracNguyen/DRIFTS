@@ -353,6 +353,11 @@ gap:10px;text-align:left;cursor:pointer;box-shadow:var(--shadow);color:var(--ink
   <div class="row"><span class="i" data-i="bell"></span><span class="l">Intervention 1 / 2</span><span class="v">below 70 / 50</span></div>
  </div>
  <div class="btns" style="grid-template-columns:1fr;margin-top:12px"><button class="b fill" onclick="show('s-calib');setTimeout(()=>$('pf-input').focus(),50)">Create or update profile</button></div>
+ <h2>Drivers on this car</h2>
+ <div class="card" id="drv-list"><div class="pad note">Loading...</div></div>
+ <div class="note" style="margin:8px 4px">At start-up the LCD asks "Who's driving? Say your name." Record your name once and DRIFTS
+  greets you in your own voice ("Hi," + your recording) when it recognises you. The recording (about 1 s) stays on the Pi,
+  is never uploaded, and is listed on the privacy page. Delete it here at any time.</div>
  <div class="note" style="margin:8px 4px">A profile holds your own eye, mouth and head measurements from the long calibration, saved on the Pi as Raspberry/profiles/&lt;name&gt;.json. The alert thresholds stay in the ESP32 firmware, so the car, this page and the LCD agree.</div>
 </section>
 
@@ -515,6 +520,7 @@ gap:10px;text-align:left;cursor:pointer;box-shadow:var(--shadow);color:var(--ink
   <div class="row"><span class="i" data-i="cal"></span><span class="l">Video or photos saved</span><span class="v"><span class="big0" id="pv-saved">0</span></span></div>
   <div class="row"><span class="i" data-i="wifi"></span><span class="l">Uploads to the internet</span><span class="v"><span class="big0">0</span></span></div>
   <div class="row"><span class="i" data-i="monitor"></span><span class="l">Live preview</span><span class="v" id="pv-preview">--</span></div>
+  <div class="row"><span class="i" data-i="mic"></span><span class="l">Name recordings (your voice)<br><small style="color:var(--muted);font-weight:400">Kept on the Pi; delete in Driver Profile</small></span><span class="v" id="pv-names">--</span></div>
  </div>
  <div class="card" style="margin-top:12px">
   <div class="row"><span class="l">Show camera preview on Home<br><small style="color:var(--muted);font-weight:400">Off: Home shows the points only, and no video is sent at all</small></span>
@@ -588,6 +594,24 @@ function tone(ms){const a=audio();if(!a)return;const o=a.createOscillator(),g=a.
  const t=a.currentTime;o.start(t);o.stop(t+ms/1000)}
 function buzz(ms){if(navigator.vibrate)navigator.vibrate(ms)}
 function testLocal(){tone(1000);buzz(1000)}
+async function loadDrivers(){let d;try{d=await (await fetch("/drivers.json",{cache:"no-store"})).json()}catch(e){return}
+ const box=$("drv-list");if(!d.drivers.length){box.innerHTML='<div class="pad note">No drivers yet: create a profile (Settings, Calibration, Create profile).</div>';return}
+ box.innerHTML=d.drivers.map(v=>{const nm=v.name[0].toUpperCase()+v.name.slice(1);
+  const warn=v.known_word===false?'<br><small style="color:var(--yellow-ink);font-weight:500">The voice model doesn\'t know this name: pick it with the button</small>':"";
+  return `<div class="row" style="flex-wrap:wrap;padding-top:8px;padding-bottom:8px"><span class="i" data-i="user"></span>
+  <span class="l">${nm}${d.driver===v.name?' <span class="pill" style="margin-left:4px">DRIVING</span>':""}<br>
+  <small style="color:var(--muted);font-weight:400" id="drv-st-${v.name}">${v.recording?"Name recorded":"No name recording"}</small>${warn}</span>
+  <span style="display:flex;gap:6px"><button class="b" style="padding:7px 10px" onclick="nameRec('${v.name}',this)">${v.recording?"Re-record":"Record my name"}</button>
+  ${v.recording?`<button class="b" style="padding:7px 10px" onclick="nameAct('play','${v.name}')">Play</button>
+  <button class="b" style="padding:7px 10px" onclick="nameAct('delete','${v.name}')">Delete</button>`:""}</span></div>`}).join("");
+ box.querySelectorAll("[data-i]").forEach(el=>el.innerHTML=svg(el.dataset.i,+(el.dataset.s||20)))}
+async function nameRec(n,btn){const st=$("drv-st-"+n);btn.disabled=true;
+ for(const k of [3,2,1]){st.textContent=`Get ready... ${k}`;await new Promise(r=>setTimeout(r,700))}
+ st.textContent="Say your name now (2 s)";let r={};
+ try{r=await (await fetch("/name/record?name="+encodeURIComponent(n),{method:"POST"})).json()}catch(e){r={why:"couldn't reach the Pi"}}
+ btn.disabled=false;if(r.ok){st.textContent=`Recorded (${r.seconds} s)`;setTimeout(loadDrivers,900)}else st.textContent=r.why||"Didn't work: try again"}
+async function nameAct(a,n){if(a==="delete"&&!confirm("Delete the recording of your name?"))return;
+ try{await fetch(`/name/${a}?name=${encodeURIComponent(n)}`,{method:"POST"})}catch(e){}if(a==="delete")loadDrivers()}
 async function beepEsp(){try{await fetch("/beep",{method:"POST"})}catch(e){}}
 let espLive=false;
 async function testEsp(what,btn){const sm=btn.querySelector("small"),was=sm.textContent;let ok=false;
@@ -622,7 +646,7 @@ function show(name){const tab=$("t-"+name);if(!tab)return;
  document.querySelectorAll("nav a").forEach(x=>x.classList.toggle("on",x.dataset.t===navName));
  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t===tab));
  $("fab").style.display=name==="ai"?"none":"";
- history.replaceState(null,"","#"+name);window.scrollTo(0,0);if(name==="history")loadHistory()}
+ history.replaceState(null,"","#"+name);window.scrollTo(0,0);if(name==="history")loadHistory();if(name==="s-profile")loadDrivers()}
 document.querySelectorAll("nav a").forEach(a=>a.onclick=()=>show(a.dataset.t));
 document.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>show(el.dataset.go));
 document.querySelectorAll(".dev").forEach(el=>el.onclick=()=>el.classList.toggle("open"));
@@ -869,7 +893,8 @@ async function privacyTick(){const onPage=$("t-privacy").classList.contains("on"
  $("pv-sent").textContent=(pv.sent||[]).length?pv.sent.slice(-6).map(x=>`${tf(x.t)}  ${x.msg}`).join("\n"):"(nothing sent yet)";
  $("pv-frames").textContent=pv.frames_analysed.toLocaleString();$("pv-saved").textContent=pv.frames_saved;
  $("pv-saved").style.color=pv.frames_saved?"var(--yellow-ink)":"";
- $("pv-preview").textContent=pv.preview_open?"open on a phone now":"off (no video sent)"}
+ $("pv-preview").textContent=pv.preview_open?"open on a phone now":"off (no video sent)";
+ const nr=pv.name_recordings||[];$("pv-names").textContent=nr.length?nr.map(n=>n[0].toUpperCase()+n.slice(1)).join(", "):"none"}
 setInterval(privacyTick,500);
 setInterval(tick,500);tick();
 

@@ -110,6 +110,20 @@ if [ "${WHISPLAY:-0}" = "1" ]; then
   sudo apt-get install -y -qq python3-libgpiod python3-spidev
   .venv/bin/python -c "import gpiod, spidev" 2>/dev/null || .venv/bin/pip install -q spidev gpiod
   sudo usermod -aG gpio,spi,audio "$USER_NAME"
+  # Select Driver by voice (drifts/name_listener.py): Vosk and its small English
+  # model (Apache 2.0, ~40 MB download, offline), and espeak-ng to say the names of
+  # drivers who haven't recorded theirs.
+  sudo apt-get install -y -qq espeak-ng unzip
+  .venv/bin/pip install -q --no-cache-dir vosk
+  if [ ! -d models/vosk-small-en/am ]; then
+    echo "==> Speech model for Select Driver (vosk-model-small-en-us-0.15)"
+    TMPZ="$(mktemp -d)"
+    curl -fsSL -o "$TMPZ/m.zip" https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip \
+      && unzip -q "$TMPZ/m.zip" -d "$TMPZ" && mkdir -p models \
+      && rm -rf models/vosk-small-en && mv "$TMPZ/vosk-model-small-en-us-0.15" models/vosk-small-en \
+      || echo "    Couldn't download it: Select Driver works with the button. Re-run the installer later."
+    rm -rf "$TMPZ"
+  fi
   # The HAT button held 5 s powers the Pi off (drifts/whisplay_ui.py): allow
   # exactly that one command without a password, nothing else.
   SYSTEMCTL="$(command -v systemctl)"

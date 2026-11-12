@@ -29,11 +29,23 @@ about what the camera is tracking?"** on Home.
 | Per drive | start time, length, average alertness score, number of alerts | `Raspberry/logs/trips.json` (History tab) |
 | If you calibrate | your open / closed EAR, yawn threshold, head-turn limits, road pose: numbers | `Raspberry/profiles/<name>.json` |
 | If you run the accuracy test | the per-prompt accuracy | `Raspberry/logs/accuracy_*.json` |
+| **Only if you record it** | **your name, in your voice** (about 1 s), played back when the LCD recognises you | `Raspberry/profiles/<name>_name.wav` (Driver Profile → Delete) |
 | **Only if you press it** | **Training Capture** (Settings) saves photos to teach the eye model | `Raspberry/captures/` |
 
 Training Capture is the one feature that saves pictures. It only saves when its
 buttons are pressed, and the privacy panel counts every saved photo ("Video or
 photos saved").
+
+## Choosing the driver by voice
+
+At start-up the LCD asks "Who's driving? Say your name." The speech recogniser
+(Vosk) runs on the Pi, offline, and only listens for the driver names and
+"guest". **What it hears is not saved.** The only recording kept is the one you
+choose to make in Settings → Driver Profile, so DRIFTS can greet you in your own
+voice; the privacy page lists it and Driver Profile deletes it.
+
+During the face check that follows, the camera picture shows **on the LCD only**,
+to help you sit in the frame, and is not saved or sent.
 
 ## The live preview
 

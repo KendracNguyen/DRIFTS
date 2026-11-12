@@ -24,3 +24,5 @@ Esp32/test/test_pi_uart
 
 # driver calibration profiles (personal face measurements)
 Raspberry/profiles/
+# the Select Driver speech model (downloaded by deploy/install.sh, ~70 MB)
+Raspberry/models/vosk-small-en/

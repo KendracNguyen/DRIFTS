@@ -50,6 +50,7 @@ import argparse
 import json
 import logging
 import math
+import shlex
 import shutil
 import subprocess
 import sys
@@ -87,7 +88,7 @@ BOOT_S = 4.0
 S = 2                       # drawn at 2x, then scaled down: smooth arcs and text
 
 # Every screen. The UI picks one by itself (WhisplayUI.view); there are no pages to flip.
-VIEWS = ("welcome", "calibration", "score", "awake", "shutdown")
+VIEWS = ("welcome", "calibration", "score", "awake", "shutdown", "select", "face")
 DONE_S = 3.0                # "Calibration complete" stays this long
 
 
@@ -583,6 +584,85 @@ def view_awake(c: Canvas, st: UiState, ctx: dict, now: float = 0.0) -> None:
     footer(c, "Listening..." if aw.get("listening") else "Or press the side button", y=260)
 
 
+SELECT_ART = ASSETS / "select_driver.png"      # the Select Driver artwork (square)
+_select_cache: dict = {}
+CARD, CARD_ON, PILL = (34, 4, 10), (24, 64, 34), (20, 2, 6)
+
+
+def select_background():
+    """The Select Driver artwork, square at the top, its maroon carried on below."""
+    if "img" not in _select_cache:
+        from PIL import Image
+        try:
+            art = Image.open(SELECT_ART).convert("RGB")
+            bg = Image.new("RGB", (W * S, H * S), art.getpixel((art.width // 2, art.height - 4)))
+            bg.paste(art.resize((W * S, W * S), Image.LANCZOS), (0, 0))
+            _select_cache["img"] = bg
+        except (OSError, ValueError):
+            _select_cache["img"] = None
+    return _select_cache["img"]
+
+
+def view_select(c: Canvas, st: UiState, ctx: dict) -> None:
+    """Who's driving: the drivers from the phone app, and Guest."""
+    sel = ctx.get("select") or {}
+    bg = select_background()
+    if bg is not None:
+        c.img.paste(bg, (0, 0))
+    else:
+        icon(c, "user", 120, 46, INK, 44)
+        c.text(120, 92, "SELECT DRIVER", 20, 700, INK, "mm")
+    names = sel.get("names") or ["Guest"]
+    hi, chosen = sel.get("highlight", 0), sel.get("chosen")
+    first = max(0, min(hi - 2, len(names) - 3))                 # three rows show; the highlight stays in view
+    for row, i in enumerate(range(first, min(len(names), first + 3))):
+        n = names[i]
+        y = 120 + row * 34
+        on = chosen == n
+        sel_row = i == hi and not chosen
+        c.rrect(34, y - 14, 206, y + 14, 10, fill=CARD_ON if on else CARD,
+                outline=INK if sel_row else None, width=1.5)
+        if on:
+            icon(c, "check", 54, y, GREEN, 16, bg=CARD_ON)
+        else:
+            icon(c, "user", 54, y, MUTED if n == "Guest" else INK, 15, bg=CARD)
+        c.text(72, y, n, 15, 700, INK if n != "Guest" or on else MUTED, "lm")
+    c.rrect(46, 236, 194, 264, 14, fill=PILL)
+    icon(c, "mic", 66, 250, RED, 16, bg=PILL)
+    c.text(82, 250, sel.get("status") or "", 13, 600, INK, "lm")
+
+
+def view_face(c: Canvas, st: UiState, ctx: dict) -> None:
+    """The camera, mirrored, with an oval to put the face in; then the calibration."""
+    from PIL import Image
+    face = ctx.get("face") or {}
+    frame = face.get("img")
+    if frame is not None:
+        h, w = frame.shape[:2]
+        ch = min(h, int(w * 200 / 240))
+        cw = int(ch * 240 / 200)
+        x0, y0 = (w - cw) // 2, (h - ch) // 2
+        crop = frame[y0:y0 + ch, x0:x0 + cw, ::-1]                # centre crop, BGR -> RGB
+        c.img.paste(Image.fromarray(crop.copy()).resize((W * S, 200 * S)).transpose(Image.FLIP_LEFT_RIGHT), (0, 0))
+    else:
+        c.rect(0, 0, 240, 200, fill=SURFACE)
+        icon(c, "camera", 120, 92, MUTED, 34)
+    ok = bool(face.get("ok")) or face.get("calibrating")
+    col = GREEN if ok else YELLOW
+    c.d.ellipse(c._p(120 - 46, 100 - 62, 120 + 46, 100 + 62), outline=col, width=3 * S)
+    c.rect(0, 200, 240, 280, fill=BG)
+    if face.get("calibrating"):
+        c.text(120, 222, "Look at the road", 16, 700, INK, "mm")
+        p = max(0.0, min(1.0, face.get("progress") or 0.0))
+        c.rrect(30, 246, 210, 258, 6, fill=TRACK)
+        if p > 0:
+            c.rrect(30, 246, 30 + max(12, 180 * p), 258, 6, fill=ACCENT)
+        return
+    icon(c, "check" if ok else "warning", 46, 226, col, 18)
+    c.text(64, 226, face.get("hint") or "Look at the camera", 16, 700, INK, "lm")
+    c.text(120, 256, "Keep your face in the oval", 12, 400, MUTED, "mm")
+
+
 def view_shutdown(c: Canvas, st: UiState, ctx: dict) -> None:
     """Holding the button 5 s: the Pi powers off safely."""
     cx, cy, r = 120, 100, 30
@@ -594,7 +674,7 @@ def view_shutdown(c: Canvas, st: UiState, ctx: dict) -> None:
 
 
 DRAW = {"welcome": view_welcome, "calibration": view_calibration, "score": view_score,
-        "shutdown": view_shutdown}
+        "shutdown": view_shutdown, "select": view_select, "face": view_face}
 
 
 def render(st: UiState, now: float, page=0, booted: bool = True, banner: Optional[str] = None,
@@ -606,7 +686,7 @@ def render(st: UiState, now: float, page=0, booted: bool = True, banner: Optiona
     if not booted:
         view = "welcome"
     c = Canvas()
-    if view != "welcome":                     # the start-up screen has its own title, no header bar
+    if view not in ("welcome", "select", "face"):   # full-screen: no header bar
         header(c, st)
     if view == "awake":
         view_awake(c, st, ctx, now)
@@ -742,6 +822,31 @@ class Speaker:
                 return True
             self._proc = None
         return now < self._until
+
+    def play_files(self, items: list, now: float) -> None:
+        """Several clips one after another, e.g. ["HI", Path(".../kendra_name.wav")].
+        A str is a phrase name from Voice/phrases.json, a Path a WAV file."""
+        files = [self.files.get(i) if isinstance(i, str) else Path(i) for i in items]
+        files = [f for f in files if f is not None and f.exists()]
+        self.last = items[0] if items and isinstance(items[0], str) else None
+        self.played.append((now, "+".join(i if isinstance(i, str) else Path(i).name for i in items)))
+        length = 0.0
+        for f in files:
+            try:
+                with wave.open(str(f), "rb") as w:
+                    length += w.getnframes() / w.getframerate()
+            except (OSError, wave.Error):
+                length += 1.0
+        self._until = now + length + 0.3
+        if self.sim or not self.ok or not files:
+            log.info("[VOICE] %s", self.played[-1][1])
+            return
+        cmd = " && ".join(f"aplay -q -D {shlex.quote(self.device)} {shlex.quote(str(f))}" for f in files)
+        try:
+            self._proc = subprocess.Popen(["sh", "-c", cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self._proc_clip = None
+        except OSError as exc:
+            log.warning("aplay failed: %s", exc)
 
     def _spawn(self, f: Path) -> None:
         try:
@@ -1061,6 +1166,15 @@ class WhisplayUI:
         self._next_awake = 0.0                  # earliest time for the next automatic check
         self.awake_until = 0.0                  # asking until
         self.awake_ok_until = 0.0               # "Thank you" until
+        # Who's driving, the face check and the calibration (drifts/startup.py): needs the
+        # camera pipeline's hooks (drivers, choose_driver; frame and calibrate for the face part)
+        self.startup = None
+        if cfg.select_driver and "drivers" in self.hooks and "choose_driver" in self.hooks:
+            from drifts.startup import StartupFlow
+            self.startup = StartupFlow(self.hooks["drivers"], self.hooks["choose_driver"], self.speaker,
+                                       listener=self.hooks.get("listener"), frame=self.hooks.get("frame"),
+                                       calibrate=self.hooks.get("calibrate"), timeout_s=cfg.select_timeout_s,
+                                       voice=cfg.voice, face_check=cfg.face_check)
         self.board.set_backlight(self.brightness)
         self.board.on_button(lambda: self.button.press(time.monotonic()),
                              lambda: self.button.release(time.monotonic()))
@@ -1176,6 +1290,9 @@ class WhisplayUI:
     def handle(self, event: Optional[str], st: UiState, now: float) -> None:
         if event is None:
             return
+        if self.startup is not None and self.startup.active and self.startup.button(event, now):
+            self.presses.append((now, event, "startup"))
+            return
         if self.awake_active(now) and event in ("short", "double", "long", "hold"):
             self.confirm_awake(now, "button")   # backup for the voice reply
             did = "awake confirmed"
@@ -1227,6 +1344,8 @@ class WhisplayUI:
             return "shutdown"
         if not booted:
             return "welcome"
+        if self.startup is not None and self.startup.active and st.tier < 2:
+            return self.startup.view() or "score"
         if self.awake_active(now) or now < self.awake_ok_until:
             return "awake"
         if st.tier >= 1:
@@ -1254,9 +1373,15 @@ class WhisplayUI:
             if held >= self.cfg.long_s and self.cfg.hold_s:   # counting down to the shutdown
                 self.banner = f"Hold to shut down: {max(1, math.ceil(self.cfg.hold_s - held))}"
                 self.banner_until = now + 0.3
+        if booted and self.startup is not None and self.shutdown_at is None:
+            if self.startup.phase == "off":
+                self.startup.begin(now)
+            elif self.startup.active:
+                self.startup.tick(st, now)
+        starting = self.startup is not None and self.startup.active
         if booted and self.shutdown_at is None:
             self._awake_rules(st, now)
-        if self.cfg.voice and booted and self.shutdown_at is None:
+        if self.cfg.voice and booted and self.shutdown_at is None and not starting:
             name = self.voice.update(st, now, self.speaker.playing(now))
             if name:
                 self.speaker.play(name, now)
@@ -1266,8 +1391,14 @@ class WhisplayUI:
         ctx = self.context(now)
         if view == "welcome":                      # the three squares fill in over the start-up
             ctx["boot_step"] = min(2, int((now - self.t0) / (BOOT_S / 3)))
+        if view in ("select", "face"):
+            ctx.update(self.startup.context())
         anim = int(now * 8) if view == "awake" else 0
-        key = (view, banner, anim, repr({k: v for k, v in st.__dict__.items() if k != "t"}), repr(ctx))
+        key = (view, banner, anim, repr({k: v for k, v in st.__dict__.items() if k != "t"}),
+               repr({k: v for k, v in ctx.items() if k != "face"}))
+        if view == "face":                         # a new camera picture: redraw
+            f = ctx.get("face") or {}
+            key = key + (id(f.get("img")), f.get("hint"), f.get("ok"), round(f.get("progress") or 0, 2))
         if view == "awake":
             key = (view, banner, anim, round(ctx["awake"].get("left", 0) if ctx["awake"] else 0, 1))
         if key != self._key:                        # draw only when something on screen changed
@@ -1277,6 +1408,8 @@ class WhisplayUI:
 
     def close(self) -> None:
         """Screen and LED off, driver released (on shutdown)."""
+        if self.startup is not None:
+            self.startup.stop()
         try:
             if hasattr(self.board, "close"):
                 self.board.close()
@@ -1322,6 +1455,21 @@ def demo_state(score: Optional[float], **kw) -> UiState:
     return state_from_status(base, linked=True, fresh=score is not None, **vis)
 
 
+def _sample_face():
+    """A camera frame for the gallery: a sample driver image if the repo has them, else grey."""
+    import numpy as np
+    sample = REPO / "Simuletic_DMS_Dataset" / "images" / "driver_no_sleep_f15.jpg"
+    try:
+        import cv2
+        img = cv2.imread(str(sample))
+        if img is not None:
+            h, w = img.shape[:2]
+            return img[int(h * 0.42):int(h * 0.92), :]           # the driver's face and shoulders
+    except ImportError:
+        pass
+    return np.full((480, 640, 3), 60, np.uint8)
+
+
 def gallery(out_dir: Path) -> Path:
     """Every screen as a PNG, plus one contact sheet (the design review image)."""
     from PIL import Image, ImageDraw
@@ -1340,6 +1488,13 @@ def gallery(out_dir: Path) -> Path:
         ("09_awake_check", demo_state(30), "awake", {"awake": {"left": 7.0, "window": 10.0}}),
         ("10_awake_confirmed", demo_state(30), "awake", {"awake": {"confirmed": True}}),
         ("11_shutting_down", demo_state(92), "shutdown", {}),
+        ("12_select_driver", demo_state(92), "select",
+         {"select": {"names": ["Kendra", "Trevor", "Guest"], "highlight": 0, "chosen": None, "status": "Listening..."}}),
+        ("13_driver_heard", demo_state(92), "select",
+         {"select": {"names": ["Kendra", "Trevor", "Guest"], "highlight": 0, "chosen": "Kendra", "status": "Hi, Kendra!"}}),
+        ("14_face_check", demo_state(92), "face", {"face": {"img": _sample_face(), "ok": False, "hint": "Move left"}}),
+        ("15_face_calibrating", demo_state(92), "face",
+         {"face": {"img": _sample_face(), "calibrating": True, "progress": 0.55}}),
     ]
     imgs = []
     for name, st, view, extra in shots:

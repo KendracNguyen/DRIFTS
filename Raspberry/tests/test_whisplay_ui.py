@@ -78,7 +78,7 @@ def test_render_every_view_and_state():
         for view in VIEWS:
             for ctx in ctxs:
                 assert render(state, 0.2, view, ctx=ctx).size == (W, H)
-    assert set(VIEWS) == {"welcome", "calibration", "score", "awake", "shutdown"}      # status only: no menus, no assistant
+    assert set(VIEWS) == {"welcome", "calibration", "score", "awake", "shutdown", "select", "face"}      # status only: no menus, no assistant
     assert render(st(), 0.2, 3).size == (W, H)                            # an old page number shows the score
     assert render(st(), 0.2, booted=False).size == (W, H)
     assert len(rgb565(render(st(), 0.2))) == W * H * 2
@@ -91,7 +91,7 @@ def test_inter_font_when_installed():
 
 def test_gallery_writes_every_screen(tmp_path):
     sheet = gallery(tmp_path)
-    assert sheet.exists() and len(list(tmp_path.glob("whisplay_*.png"))) == 12
+    assert sheet.exists() and len(list(tmp_path.glob("whisplay_*.png"))) == 16
 
 
 def test_demo_data_is_labelled():
