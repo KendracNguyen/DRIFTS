@@ -87,6 +87,12 @@ if [ "${MESH:-0}" = "1" ] || [ "${PI5:-0}" = "1" ]; then
   .venv/bin/pip install -q --no-cache-dir --no-deps "mediapipe>=1.0.0"
   .venv/bin/pip install -q --no-cache-dir absl-py flatbuffers certifi
   .venv/bin/python -c "from drifts.facemesh import ensure_model; print('    model:', ensure_model())"
+  # MediaPipe 1.x's ARM build needs the CPU's AES instructions; the Pi Zero 2 W,
+  # Pi 3 and Pi 4 don't have them. There DRIFTS runs the same face models on
+  # OpenCV (drifts/face_cv.py) automatically.
+  if [ "$(uname -m)" = "aarch64" ] && ! grep -qw aes /proc/cpuinfo; then
+    echo "    This CPU has no AES: the face mesh will run on OpenCV (same models), not MediaPipe"
+  fi
   echo "    Run:  .venv/bin/python -m drifts.live --face mesh --esp uart"
 fi
 

@@ -114,11 +114,26 @@ def software_checks(rep: Report, use_mesh: bool = True, cams: Optional[list] = "
                 "the drifts service is running and may hold the camera: sudo systemctl stop drifts" if busy else
                 "the drifts service is stopped")
     if use_mesh:
-        try:
-            importlib.import_module("mediapipe")
-            rep.add("MediaPipe", PASS)
-        except ImportError:
-            rep.add("MediaPipe", FAIL, "MESH=1 bash deploy/install.sh (or run with --no-mesh)")
+        from drifts.face_cv import has_aes, needs_opencv_engine
+        if needs_opencv_engine():
+            rep.add("Face engine", PASS, "OpenCV (this CPU has no AES, so MediaPipe 1.x can't run; "
+                    "the same face models run on OpenCV)")
+            try:
+                import cv2
+                from drifts.face_cv import CvFaceLandmarker
+                from drifts.facemesh import DEFAULT_MODEL, ensure_model
+                CvFaceLandmarker(ensure_model(DEFAULT_MODEL))
+                rep.add("OpenCV runs the face models", PASS, f"OpenCV {cv2.__version__}")
+            except Exception as exc:
+                rep.add("OpenCV runs the face models", FAIL,
+                        f"{exc}: needs OpenCV 4.8+ with TFLite (sudo apt install python3-opencv)")
+        else:
+            aes = has_aes()
+            try:
+                importlib.import_module("mediapipe")
+                rep.add("Face engine", PASS, "MediaPipe" + ("" if aes is None else " (CPU has AES)"))
+            except ImportError:
+                rep.add("Face engine", WARN, "MediaPipe not installed: using OpenCV (MESH=1 bash deploy/install.sh)")
         from drifts.facemesh import DEFAULT_MODEL
         rep.add("Face model", PASS if DEFAULT_MODEL.exists() else WARN,
                 str(DEFAULT_MODEL.name) if DEFAULT_MODEL.exists() else "downloads on first use (needs internet once)")
@@ -303,6 +318,8 @@ def main(argv=None) -> int:
     ap.add_argument("--lcd", action="store_true", help="show the picture on the Whisplay LCD (to aim the camera)")
     ap.add_argument("--lcd-sim", action="store_true", help="the LCD view without the HAT (saved as a PNG in --out)")
     ap.add_argument("--no-mesh", action="store_true", help="skip the face mesh (camera only)")
+    ap.add_argument("--face-engine", choices=["auto", "mediapipe", "opencv"], default="auto",
+                    help="auto: OpenCV on CPUs without AES (Pi Zero 2 W), else MediaPipe")
     ap.add_argument("--no-live", action="store_true", help="software checks only")
     ap.add_argument("--video", help="a video file or image folder instead of the camera (testing)")
     ap.add_argument("--snapshot", action="store_true", help="save one frame to --out (otherwise nothing is saved)")
@@ -326,8 +343,9 @@ def main(argv=None) -> int:
         if not args.no_mesh:
             try:
                 from drifts.facemesh import FaceMeshSource
-                face = FaceMeshSource(camera=None)
+                face = FaceMeshSource(camera=None, engine=args.face_engine)
                 face.start()
+                print(f"        face mesh engine: {face.engine_used}", flush=True)
             except Exception as exc:
                 rep.add("Face mesh starts", FAIL, str(exc))
                 face = None
