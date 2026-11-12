@@ -262,7 +262,7 @@ def test_button_never_silences_the_alert():
 
 def test_app_config_section():
     cfg = load_config(Path(__file__).resolve().parent.parent / "config.toml")
-    assert cfg.whisplay.enabled is False and cfg.whisplay.audio_device == "plughw:CARD=whisplaysound"
+    assert cfg.whisplay.enabled is False and cfg.whisplay.audio_device == "default"
     assert cfg.ble.status_char_uuid.startswith("DF720002")
 
 
@@ -417,3 +417,27 @@ def test_sound_card_hint_spots_a_kernel_update(tmp_path):
     msg = sound_card_hint(tmp_path, running="6.18.60+rpt-rpi-v8")
     assert "built for kernel 6.18.39+rpt-rpi-v8" in msg and "install_driver.sh" in msg
     assert sound_card_hint(tmp_path / "none", running="6.18.60").startswith("not found")
+
+
+def test_speaker_uses_the_default_device_and_falls_back(monkeypatch):
+    """The ES8389 codec refuses 22.05 kHz on plughw:; PiSugar's "default" resamples to 48 kHz."""
+    from drifts import whisplay_ui as wu
+    assert WhisplayConfig().audio_device == "default" and load_config().whisplay.audio_device == "default"
+    calls = []
+
+    class Proc:
+        def __init__(self, args, **kw):
+            calls.append(args[3])                                 # the -D device
+            self.rc = 1 if args[3].startswith("plughw") else 0
+
+        def poll(self):
+            return self.rc
+
+    monkeypatch.setattr(wu.subprocess, "Popen", Proc)
+    sp = wu.Speaker("plughw:CARD=whisplaysound")
+    sp.ok = True
+    sp.play("TEST", 0.0)
+    assert calls == ["plughw:CARD=whisplaysound"]
+    assert sp.playing(0.1) and sp.device == "default" and calls[-1] == "default"   # retried on "default"
+    sp.play("READY", 5.0)
+    assert calls[-1] == "default"                                 # and stays there

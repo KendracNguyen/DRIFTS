@@ -50,7 +50,7 @@ cooldown_s = 10                      # wait before accepting another WAKE
 # Install PiSugar's driver first (Hardware/whisplay-hat.md), then set true.
 enabled = false
 driver_dir = "~/Whisplay/runtime"
-audio_device = "plughw:CARD=whisplaysound"
+audio_device = "default"   # PiSugar's asound.conf sends it to the HAT at 48 kHz (plughw: fails on the ES8389 codec)
 brightness = 70        # 0-100 at first start; then the button's last level
 remember_brightness = true
 voice = true

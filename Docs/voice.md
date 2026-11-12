@@ -58,7 +58,7 @@ This writes `Voice/clips/NN_NAME.wav`, which both Pis play as is.
   The sound card is `whisplaysound`.
 - **Quick test:**
   ```bash
-  aplay -D plughw:CARD=whisplaysound ~/drifts/Voice/clips/10_TEST.wav
+  aplay -D default ~/drifts/Voice/clips/10_TEST.wav     # "default" = the HAT via PiSugar's asound.conf (48 kHz)
   ```
 - **Full test:** `python -m drifts.whisplay_ui --demo` runs OK → Level 1 →
   Level 2 → OK in 36 s, with screen, LED and voice, without the ESP32.
