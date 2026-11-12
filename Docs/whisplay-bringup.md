@@ -20,7 +20,7 @@ The hardware datasheet is in [`../Hardware/whisplay-hat.md`](../Hardware/whispla
 | Awake check (Level 3): an alert lasting 20 s asks "Say 'I am awake'" | `WhisplayUI.ask_awake()` / `confirm_awake()` | simulated; the voice reply itself is phase 4 |
 | **Side button:** short press = brightness (10 / 30 / 50 / 70 / 100 %, remembered); long / double for developers; each mapped in `config.toml` | `ButtonDecoder`, `WhisplayUI.do()`, `set_brightness()` | simulated (31 Whisplay unit tests in all) |
 | Joy version: 5-way joystick (centre = the button, up / down = brightness). **Ours is the plain version** | `joystick = true` | simulated |
-| Screen rotation (mount upside down) | `rotate = 180` | simulated |
+| Screen rotation: `rotate` = 0, 90, 180 or 270 degrees clockwise. At 90 / 270 the screens are scaled to fit the sideways 280 × 240 view (~14 % smaller) | `rotate = 90`, `orient()` | simulated; 90 confirmed wanted on our mount |
 | Clean shutdown: screen and LED off | `WhisplayUI.close()` | simulated |
 | Bring-up self-test | `python -m drifts.whisplay_check --hw` | simulated |
 | Installer: PiSugar driver, gpiod, spidev, groups, font | `WHISPLAY=1 bash deploy/install.sh` | not run on a Pi yet |
@@ -133,7 +133,9 @@ and `sudo systemctl restart drifts`.
    - Press the HAT onto all 40 header pins, straight and fully down.
    - Set the speaker switch to **onboard**.
    - Ours is the **plain** version (no joystick), **V2**, with the **WM8960** codec (Amazon B0H4VGZZRK).
-2. **Install the driver:**
+2. **Install the driver** (do any `apt full-upgrade` and reboot **first**: PiSugar's installer builds the
+   sound driver only for the kernel that's running, so a later kernel update loses it; re-run
+   `cd ~/Whisplay && sudo bash install_driver.sh` and reboot if that happens. `whisplay_check` says when):
    ```bash
    cd ~/drifts/Raspberry && WHISPLAY=1 bash deploy/install.sh
    sudo reboot
@@ -155,7 +157,7 @@ and `sudo systemctl restart drifts`.
 
    | Step | What you should see | If not |
    | --- | --- | --- |
-   | Screen | colour bars, grey steps, a red dot in each corner, TOP at the top | blank: HAT not seated. Upside down: `rotate = 180` |
+   | Screen | colour bars, grey steps, a red dot in each corner, TOP at the top | blank: HAT not seated. Turned: `rotate = 90 / 180 / 270` (clockwise) under `[whisplay]` |
    | Backlight | dims to 10 % and back | on/off only: older board, fine |
    | RGB LED | red, green, blue, white | note what showed instead |
    | Speaker | "This is a DRIFTS voice test" | speaker switch; `amixer -c whisplaysound sset speaker 90%` |
