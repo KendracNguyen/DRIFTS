@@ -24,6 +24,11 @@ heartbeat_s = 1.0
 width = 640
 height = 480
 fps = 10                             # capture rate (inference will be slower)
+# Raspberry Pi Camera Module 3 NoIR (IMX708, autofocus). Focus held at the
+# driver's face: lens_position is 1 / distance in metres (1.7 = ~0.6 m).
+# "continuous" can hunt in dim IR light; "auto" focuses once at start.
+focus = "manual"
+lens_position = 1.7
 
 [detector]
 model_param = "model/mobilenetv2_dms.param"

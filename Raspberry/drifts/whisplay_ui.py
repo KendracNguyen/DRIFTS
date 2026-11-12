@@ -318,6 +318,17 @@ def header(c: Canvas, st: UiState) -> None:
             c.line([(x - 8, 22), (x + 8, 8)], fill=RED, width=1.8)
 
 
+def header_bar(c: Canvas, text: str) -> None:
+    """The maroon top bar with a plain title (bring-up tools)."""
+    from PIL import Image
+    grad = Image.new("RGB", (2, 1))
+    grad.putpixel((0, 0), MAROON_DEEP)
+    grad.putpixel((1, 0), MAROON)
+    c.img.paste(grad.resize((W * S, 30 * S), Image.BILINEAR), (0, 0))
+    c.text(12, 15, "DRIFTS", 18, 700, INK, "lm")
+    c.text(228, 15, text, 13, 600, INK, "rm")
+
+
 def title(c: Canvas, text: str, y: float = 47, ico: Optional[str] = None) -> None:
     if ico:
         tw = c.width(text, 17, 600)

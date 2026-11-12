@@ -157,7 +157,7 @@ Pi's voice repeat pauses.
  OBD ─BLE─► ESP32-C6 ──► buzzer, motors          │   (alert still works if the Pi is down)
                 ▲                                  ▼
                 └── EYE score, PING ◄── Pi Zero 2 W + Whisplay HAT ──► colour LCD, RGB LED, speaker, button
-                                    └── Arducam (CSI)
+                                    └── Camera Module 3 NoIR (CSI)
 ```
 - **The Pi now drives the screen and voice.** If the Pi is booting or has
   crashed, they stop. The ESP32's buzzer and motors still fire, so keep
@@ -190,7 +190,7 @@ speaking.
 
 ## Open items
 - [x] Version: **plain** (no joystick), **WM8960** codec (Amazon B0H4VGZZRK). `joystick = false`.
-- [ ] V1 or V2 (printed on the board)? PiSugar warns that V1's button circuit carries 5 V. That only matters on two non-Pi boards (Orange Pi Zero 3W, Radxa Cubie A7Z), not on the Raspberry Pi.
+- [x] Board revision: **V2** (V1's 5 V button circuit warning doesn't apply).
 - [ ] Onboard speaker loud enough over road noise, or an external 8 Ω speaker on the PH2.0 socket?
 - [ ] Enclosure cut-out for the 30 × 37 mm screen, mounted where the driver can glance at it.
 - [ ] Automatic night dimming (the button sets it by hand for now). Check on the board that 10 % is still readable at night and that dimming is smooth: older boards switch the backlight only on or off.

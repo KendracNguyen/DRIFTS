@@ -82,7 +82,7 @@ Playwright from `drifts.live --esp sim --video Simuletic_DMS_Dataset/images`.
    - Hostname `drifts`, user `drifts` and a password.
    - Your Wi-Fi (the phone's hotspot works for the car).
    - **Enable SSH**.
-2. **Connect the camera** (Pi off): the Zero's narrow 22-pin ribbon, contacts towards the board.
+2. **Connect the camera** (Pi off): the **Camera Module 3 NoIR** on a Pi Zero camera cable (narrow 22-pin end in the Pi; the camera's own cable doesn't fit). Contacts towards the board at both ends. See [`../Hardware/camera-ir.md`](../Hardware/camera-ir.md).
 3. **Boot, then check SSH** from the laptop: `ssh drifts@drifts.local`.
 4. **Copy DRIFTS and install** (on the laptop, PowerShell, in the `DRIFTS-repo` folder). One of these:
    ```powershell
@@ -106,13 +106,18 @@ Playwright from `drifts.live --esp sim --video Simuletic_DMS_Dataset/images`.
 6. **Camera check** (no HAT needed):
    ```bash
    sudo systemctl stop drifts                 # the service holds the camera
-   rpicam-hello --list-cameras                # the camera is listed
    cd ~/drifts/Raspberry
+   rpicam-hello --list-cameras                # lists imx708_noir
+   .venv/bin/python -m drifts.camera_check    # 20 s: camera, NoIR, frame rate, face found, focus, light
+   ```
+   Every line should be PASS (the [checks are explained here](../Hardware/camera-ir.md#camera_check-the-bring-up-test)).
+   **Frame rate (with face mesh)** is the first measurement for the Pi Zero face-mesh goal.
+7. **Camera and phone together:**
+   ```bash
    .venv/bin/python -m drifts.live --face mesh --esp sim
    ```
    Open **http://drifts.local:8080** on the phone (same Wi-Fi):
    - The camera card shows your face with the outline (eyes green when open, red when closed).
-   - **Devices → Raspberry Pi** shows the frame rate. Note it: it is the first measurement for the Pi Zero face-mesh goal.
    - **Settings → Calibration → Quick calibrate**: the calibration runs.
    - Stop with Ctrl-C, then `sudo systemctl start drifts`.
 
@@ -127,7 +132,7 @@ and `sudo systemctl restart drifts`.
    - Power the Pi off.
    - Press the HAT onto all 40 header pins, straight and fully down.
    - Set the speaker switch to **onboard**.
-   - Ours is the **plain** version (no joystick) with the **WM8960** codec (Amazon B0H4VGZZRK). Check whether the board says V1 or V2 and note it in `Hardware/whisplay-hat.md`.
+   - Ours is the **plain** version (no joystick), **V2**, with the **WM8960** codec (Amazon B0H4VGZZRK).
 2. **Install the driver:**
    ```bash
    cd ~/drifts/Raspberry && WHISPLAY=1 bash deploy/install.sh
@@ -169,7 +174,11 @@ and `sudo systemctl restart drifts`.
    - Run `sudo systemctl restart drifts`.
    - Welcome, then the score, a few seconds after the ESP32's first status line.
    - Unplug the OBD dongle: the LED blinks red and, after 5 s, the voice says the OBD link was lost.
-7. **With the camera and the phone** (the full first model):
+7. **Aim the camera with the LCD:** `.venv/bin/python -m drifts.camera_check --lcd`
+   shows the picture on the HAT's screen (mirrored, with the face outline and
+   "Face found"), so you can set the camera in the car without the phone. At
+   night, try the IR board: `--seconds 120`. See [`../Hardware/camera-ir.md`](../Hardware/camera-ir.md).
+8. **With the camera and the phone** (the full first model):
    ```bash
    sudo systemctl stop drifts
    .venv/bin/python -m drifts.live --face mesh --esp uart --whisplay
@@ -252,7 +261,7 @@ version, so this stays `false`.
 | **0: software** ✅ | Status screens, LED, voice, developer button, self-test, installer, docs | — | done |
 | **1: bring-up** | Day 1 above. Record the version, orientation, LED order, speaker loudness and mic level | the HAT | `whisplay_check --hw` all PASS, report committed |
 | **2: in the car** | `enabled = true`, ESP32 v21 over the UART wire. Measure the height with the HAT, loudness over road noise, and the current when idle and speaking (USB meter). Set the brightness for day/night | phase 1, the car | a drive with every level shown and heard; numbers in `whisplay-hat.md` |
-| **3: camera on the Zero** | `drifts.live --face mesh --whisplay` on the Pi Zero. Measure fps and CPU with the screen running; the screen only redraws on change, ~10 ms a frame on a laptop | phase 1, Arducam | fps noted; decide whether the Zero runs the mesh or keeps the Haar tracker |
+| **3: camera on the Zero** | `drifts.live --face mesh --whisplay` on the Pi Zero. Measure fps and CPU with the screen running; the screen only redraws on change, ~10 ms a frame on a laptop | phase 1, Camera Module 3 NoIR (`camera_check`) | fps noted; decide whether the Zero runs the mesh or keeps the Haar tracker |
 | **4: "I am awake" by voice** | During the awake check, record from the HAT's mics and listen for "I am awake" (one fixed phrase, offline). Plug it in with `hooks={"listen": ...}` and `confirm_awake()`. The Driver AI assistant stays in the phone app, not on the LCD | phase 1; a speech-to-text choice (below) | the phrase is heard in the car over road noise; a miss falls back to the button |
 | **5: phone app** | ✅ 4 tabs (Home, History, Devices, Settings) in the mockup's design, band colours from `ui_model.py`, real trip history. The Driver AI Assistant opens from a chat button in the corner | — | assistant answers with phase 4 |
 | **6: rest stop and emergency** | In the phone app only. Real data only: the phone's location for rest stops, contacts from the app, confirmed calls. Opt-in "notify a contact after sustained high fatigue" with a cancel period | phase 5 | the app's placeholders show real data |

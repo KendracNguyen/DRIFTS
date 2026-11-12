@@ -24,6 +24,23 @@ class Camera:
         self._picam2 = None
         self._cv_cap = None
         self._is_running = False
+        self.model: Optional[str] = None      # the sensor libcamera reports, e.g. "imx708_noir"
+
+    def _apply_focus(self) -> Optional[str]:
+        """Camera Module 3: hold the focus at the driver (or auto / continuous). None if no autofocus."""
+        ctrls = getattr(self._picam2, "camera_controls", {}) or {}
+        if "AfMode" not in ctrls:
+            return None
+        mode = (getattr(self.cfg, "focus", "manual") or "manual").lower()
+        if mode == "continuous":
+            self._picam2.set_controls({"AfMode": 2})                          # libcamera AfModeContinuous
+            return "continuous"
+        if mode == "auto":
+            self._picam2.set_controls({"AfMode": 1, "AfTrigger": 0})          # one autofocus scan
+            return "auto"
+        pos = float(getattr(self.cfg, "lens_position", 1.7))
+        self._picam2.set_controls({"AfMode": 0, "LensPosition": pos})         # manual, dioptres
+        return f"manual {pos:.1f} dioptres (~{100 / pos:.0f} cm)" if pos > 0 else "manual infinity"
 
     def start(self) -> None:
         """Initialize camera sensor and start capture stream."""
@@ -44,8 +61,14 @@ class Camera:
             )
             self._picam2.configure(video_config)
             self._picam2.start()
+            self.model = (getattr(self._picam2, "camera_properties", {}) or {}).get("Model")
+            try:
+                focus = self._apply_focus()
+            except Exception as exc:               # never stop the camera over focus
+                focus = f"not set ({exc})"
             self._is_running = True
-            log.info("picamera2 started successfully.")
+            log.info("picamera2 started: %s%s", self.model or "camera",
+                     f", focus {focus}" if focus else " (fixed focus)")
             return
         except Exception as exc:
             log.debug("picamera2 not available: %s. Trying OpenCV fallback...", exc)

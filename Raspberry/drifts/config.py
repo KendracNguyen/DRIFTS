@@ -38,6 +38,12 @@ class CameraConfig:
     width: int = 640
     height: int = 480
     fps: int = 10
+    # Camera Module 3 (IMX708) focus. "manual" holds lens_position: dioptres,
+    # 1 / distance in metres (1.7 = about 0.6 m, the driver's face). "continuous"
+    # lets it hunt (it can wander in dim IR light); "auto" focuses once at start.
+    # Cameras without autofocus ignore this.
+    focus: str = "manual"
+    lens_position: float = 1.7
 
 
 @dataclass

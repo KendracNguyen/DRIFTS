@@ -218,6 +218,8 @@ Pi's 5V header pin.
   the Pi's micro-USB (rated ~2.5 A). Use a **5 V 3 A** supply and a short, thick
   cable. C1 at the motors stops their start-up current from dipping the Pi
   into undervoltage.
+- **The IR board is not on this budget.** Its 3 W LED (0.6–1 A) is fed from the
+  5 V supply ahead of the Pi, not from the Pi's pins: [camera-ir.md](camera-ir.md).
 - **Motor VCC on 5V, not 3V3:** the ESP32 board's 3.3 V regulator (~500–600 mA,
   shared with the ESP32's own Bluetooth peaks) can't also start four motors. If
   the motors are 3 V parts, lower `DROWSY_VIB_DUTY` in `config.h` (~150).
