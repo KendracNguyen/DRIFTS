@@ -23,8 +23,8 @@ Values PiSugar doesn't publish are marked *not published*.
 | Active area | about **30 × 37 mm** (retailer figure) |
 | Display controller | **ST7789P3**, 4-wire SPI (mode 0); PiSugar's driver runs it at up to **100 MHz** on the Pi |
 | Backlight | GPIO controlled: brightness by software PWM (newer boards) or on/off (older); **LOW = on** |
-| Audio codec | **WM8960** (I2S audio + I2C control) on the listed board; PiSugar's unified driver also supports an **ES8389** variant. 48 kHz; ALSA card name `whisplaysound` either way |
-| Speaker | **Onboard mono speaker**, plus a **PH2.0 2-pin socket** for an external speaker, with a switch between them. Power *not published*; the WM8960's class-D amplifier is typically up to about 1 W into 8 Ω |
+| Audio codec | **ES8389 on ours** (`aplay -l`: "Whisplay HiFi ES8389"), although the listing said WM8960. Both exist; PiSugar's unified driver supports both (I2S audio + I2C control), 48 kHz, ALSA card name `whisplaysound` either way |
+| Speaker | **Onboard mono speaker**, plus a **PH2.0 2-pin socket** for an external speaker, with a switch between them. Power *not published*; typically up to about 1 W into 8 Ω |
 | Microphones | 2 onboard (not used by DRIFTS yet) |
 | RGB LED | 1, red/green/blue on separate GPIOs, brightness by software PWM; **LOW = lit** (the driver's "off" state is HIGH) |
 | Button | **1 push button**, **HIGH = pressed**, no pull-up needed (pull-down on the board) |
@@ -52,8 +52,8 @@ Values PiSugar doesn't publish are marked *not published*.
 | 35 | GPIO 19 | I2S LRCLK (audio) | out |
 | 38 | GPIO 20 | I2S data in (microphones) | in |
 | 40 | GPIO 21 | I2S data out (speaker) | out |
-| 3 | GPIO 2 | I2C1 SDA (WM8960 control) | bidir |
-| 5 | GPIO 3 | I2C1 SCL (WM8960 control) | out |
+| 3 | GPIO 2 | I2C1 SDA (audio codec control) | bidir |
+| 5 | GPIO 3 | I2C1 SCL (audio codec control) | out |
 | 2, 4 / 6, 9 … | 5V / GND | power | |
 | 1, 17 | 3V3 | power | |
 | *Joy variant:* 32, 33, 31, 29, 37 | GPIO 12, 13, 6, 5, 26 | joystick up, right, down, left, centre (active-low) | in |
@@ -189,7 +189,8 @@ loudness in the car, and the current draw (USB meter) when idle and while
 speaking.
 
 ## Open items
-- [x] Version: **plain** (no joystick), **WM8960** codec (Amazon B0H4VGZZRK). `joystick = false`.
+- [x] Version: **plain** (no joystick), **ES8389** codec (Amazon B0H4VGZZRK listed WM8960; the driver reports ES8389). `joystick = false`.
+- [x] Mount: turned **90° clockwise** (`rotate = 90`).
 - [x] Board revision: **V2** (V1's 5 V button circuit warning doesn't apply).
 - [ ] Onboard speaker loud enough over road noise, or an external 8 Ω speaker on the PH2.0 socket?
 - [ ] Enclosure cut-out for the 30 × 37 mm screen, mounted where the driver can glance at it.
