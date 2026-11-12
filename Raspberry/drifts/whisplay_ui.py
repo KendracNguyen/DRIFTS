@@ -810,10 +810,30 @@ def hat_conflicts() -> list:
     return found
 
 
+def orient(img, rotate: int):
+    """The 240 x 280 frame turned for the mount. rotate: degrees clockwise (0, 90, 180, 270).
+
+    The panel is 240 x 280 portrait. At 90 / 270 it is read sideways (280 wide x
+    240 tall), so the frame is scaled to fit that (about 14 % smaller), centred
+    on the background colour, then turned onto the panel."""
+    from PIL import Image
+    rotate %= 360
+    if rotate == 0:
+        return img
+    if rotate == 180:
+        return img.rotate(180)
+    land = Image.new("RGB", (H, W), BG)                      # what the driver sees: 280 x 240
+    small = img.resize((round(W * W / H), W), Image.LANCZOS)  # 206 x 240
+    land.paste(small, ((H - small.width) // 2, 0))
+    return land.rotate(-rotate, expand=True)                 # PIL turns anticlockwise: -rotate is clockwise
+
+
 class HatBoard:
     """PiSugar's WhisplayBoard (github.com/PiSugar/Whisplay, runtime/whisplay.py)."""
 
     def __init__(self, driver_dir: str, rotate: int = 0, joystick: bool = False):
+        if rotate % 90:
+            raise ValueError(f"[whisplay] rotate = {rotate}: use 0, 90, 180 or 270 (degrees clockwise)")
         others = hat_conflicts()
         if others:
             raise RuntimeError("the Whisplay HAT is in use by " + " and ".join(others) +
@@ -824,9 +844,7 @@ class HatBoard:
         self.rotate = rotate % 360
 
     def show(self, img) -> None:
-        if self.rotate:
-            img = img.rotate(self.rotate)
-        self.b.draw_image(0, 0, W, H, rgb565(img))
+        self.b.draw_image(0, 0, W, H, rgb565(orient(img, self.rotate)))
 
     def set_rgb(self, r, g, b) -> None:
         self.b.set_rgb(r, g, b)

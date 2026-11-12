@@ -386,3 +386,34 @@ def test_bringup_check_runs_simulated(tmp_path):
         line = next(l for l in report.splitlines() if name in l)
         assert line.startswith("PASS"), line
     assert len(list(tmp_path.glob("whisplay_check_*.png"))) >= 6
+
+
+# ---------------------------------------------------------------- mounting and the sound driver
+def test_rotation_turns_the_picture_clockwise():
+    from PIL import Image
+    from drifts.whisplay_ui import orient
+    img = Image.new("RGB", (W, H), (0, 0, 0))
+    img.paste((255, 0, 0), (0, H - 20, W, H))                         # a red strip along the bottom
+    assert orient(img, 0) is img
+    up = orient(img, 180)
+    assert up.size == (W, H) and up.getpixel((W // 2, 5)) == (255, 0, 0)          # bottom -> top
+    cw = orient(img, 90)
+    assert cw.size == (W, H)                                          # still the panel's 240 x 280
+    assert cw.getpixel((5, H // 2))[0] > 200                          # 90 clockwise: bottom -> left side
+    assert cw.getpixel((W - 5, H // 2))[0] < 50
+    ccw = orient(img, 270)
+    assert ccw.getpixel((W - 5, H // 2))[0] > 200                     # 270: bottom -> right side
+    import pytest as _p
+    from drifts.whisplay_ui import HatBoard
+    with _p.raises(ValueError):
+        HatBoard.__init__(HatBoard.__new__(HatBoard), "/nowhere", rotate=45)   # checked before the driver loads
+
+
+def test_sound_card_hint_spots_a_kernel_update(tmp_path):
+    from drifts.whisplay_check import DRIVER_KO, sound_card_hint
+    d = tmp_path / "6.18.39+rpt-rpi-v8" / "kernel" / "sound" / "soc" / "codecs"
+    d.mkdir(parents=True)
+    (d / DRIVER_KO).write_bytes(b"")
+    msg = sound_card_hint(tmp_path, running="6.18.60+rpt-rpi-v8")
+    assert "built for kernel 6.18.39+rpt-rpi-v8" in msg and "install_driver.sh" in msg
+    assert sound_card_hint(tmp_path / "none", running="6.18.60").startswith("not found")

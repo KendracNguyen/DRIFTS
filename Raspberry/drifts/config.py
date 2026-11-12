@@ -84,7 +84,7 @@ class WhisplayConfig:
     long_s: float = 1.5                        # held this long = long press
     double_s: float = 0.4                      # second press within this = double press
     joystick: bool = False                     # "Joy" version: 5-way joystick pages through screens
-    rotate: int = 0                            # 0 or 180 if the screen is upside down in the mount
+    rotate: int = 0                            # degrees clockwise: 0, 90, 180, 270 (how the screen is mounted)
     # Level 3 check-in: an alert lasting this long shows "Say 'I am awake'" (0 = off)
     awake_after_s: float = 20.0
     awake_window_s: float = 10.0               # how long the screen asks

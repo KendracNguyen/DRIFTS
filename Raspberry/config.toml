@@ -68,6 +68,6 @@ button_double = "calibrate"      # two presses within double_s ("none" = no wait
 long_s = 1.5
 double_s = 0.4
 joystick = false       # ours is the plain version (no joystick); true on the "Joy" version
-rotate = 0             # 180 if the screen is upside down in the mount
+rotate = 0             # picture turned clockwise: 0, 90, 180 (upside down) or 270
 awake_after_s = 20.0   # an alert this long asks "Say 'I am awake'" (0 = off)
 awake_window_s = 10.0  # how long it asks

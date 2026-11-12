@@ -80,6 +80,22 @@ def sound_card() -> Optional[str]:
     return None
 
 
+DRIVER_KO = "snd-soc-whisplay-soundcard.ko"
+
+
+def sound_card_hint(modules: Path = Path("/lib/modules"), running: Optional[str] = None) -> str:
+    """Why there's no sound card. PiSugar's installer builds the driver only for the
+    kernel running at the time, so a kernel update (apt full-upgrade) loses it."""
+    running = running or os.uname().release
+    built = sorted(p.parts[-6] for p in modules.glob(f"*/kernel/sound/soc/codecs/{DRIVER_KO}")) \
+        if modules.exists() else []
+    fix = "cd ~/Whisplay && sudo bash install_driver.sh (answer y), then sudo reboot"
+    if built and running not in built:
+        return (f"the driver was built for kernel {', '.join(built)} but {running} is running "
+                f"(a kernel update): {fix}")
+    return f"not found: {fix}"
+
+
 def software_checks(rep: Report, cfg: WhisplayConfig) -> None:
     model = _read("/proc/device-tree/model")
     rep.add("Board", PASS if "Raspberry Pi" in model else WARN, model or "not a Raspberry Pi")
@@ -98,7 +114,7 @@ def software_checks(rep: Report, cfg: WhisplayConfig) -> None:
         except ImportError:
             rep.add(f"Python module {mod}", FAIL if mod in ("spidev", "gpiod", "PIL") else WARN, fix)
     card = sound_card()
-    rep.add("Sound card", PASS if card else FAIL, card or "not found: run PiSugar's install_driver.sh and reboot")
+    rep.add("Sound card", PASS if card else FAIL, card or sound_card_hint())
     try:
         names = {grp.getgrgid(g).gr_name for g in os.getgroups()}
     except (KeyError, OSError):
@@ -227,7 +243,8 @@ def hardware_checks(rep: Report, cfg: WhisplayConfig, board, ask: Callable, sim:
     print("\n  Screen: colour bars, grey steps, a red dot in each corner, TOP at the top.")
     time.sleep(0 if sim else 1)
     _verdict(ask("Do you see the bars, the four dots and TOP the right way up?"), "Screen", rep,
-             "no picture: check the HAT is fully seated; upside down: set rotate = 180 in config.toml")
+             "no picture: check the HAT is fully seated; turned: set rotate = 90 / 180 / 270 (clockwise) "
+             "under [whisplay] in config.toml")
 
     print("\n  Backlight: 100 % -> 10 % -> 100 %.")
     for pct in (100, 60, 30, 10, 30, 60, 100):
