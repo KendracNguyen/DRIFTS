@@ -92,6 +92,9 @@ if [ "${MESH:-0}" = "1" ] || [ "${PI5:-0}" = "1" ]; then
   # OpenCV (drifts/face_cv.py) automatically.
   if [ "$(uname -m)" = "aarch64" ] && ! grep -qw aes /proc/cpuinfo; then
     echo "    This CPU has no AES: the face mesh will run on OpenCV (same models), not MediaPipe"
+    # Debian's python3-opencv is built without FlatBuffers, so it can't read
+    # TFLite models. The official wheel can (4.10.0.84: the version tested).
+    .venv/bin/pip install -q --no-cache-dir "opencv-python-headless==4.10.0.84"
   fi
   echo "    Run:  .venv/bin/python -m drifts.live --face mesh --esp uart"
 fi
