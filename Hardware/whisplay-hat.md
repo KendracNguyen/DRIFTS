@@ -145,6 +145,7 @@ The driver uses it for **screen brightness**; the rest is for developers.
 | **Any short or double press during an alert** | **Acknowledge**: logged, the screen shows "Acknowledged", and the Level 2 voice repeat pauses for 60 s. This one can't be remapped |
 | **Long press (≥ 1.5 s)** | Repeat the last voice message |
 | **Double press** | Re-take the road pose (calibration), with the camera pipeline |
+| **Hold 5 s** | **Shut the Pi down safely** (countdown, "Shutting down" screen and voice, then `systemctl poweroff`). Refused during an alert and while moving |
 
 **Safety rule:** no button press stops an alert while the driver is still
 scored as drowsy. The ESP32's buzzer and motors keep running; only the

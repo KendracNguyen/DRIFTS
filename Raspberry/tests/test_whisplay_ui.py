@@ -78,7 +78,7 @@ def test_render_every_view_and_state():
         for view in VIEWS:
             for ctx in ctxs:
                 assert render(state, 0.2, view, ctx=ctx).size == (W, H)
-    assert set(VIEWS) == {"welcome", "calibration", "score", "awake"}      # status only: no menus, no assistant
+    assert set(VIEWS) == {"welcome", "calibration", "score", "awake", "shutdown"}      # status only: no menus, no assistant
     assert render(st(), 0.2, 3).size == (W, H)                            # an old page number shows the score
     assert render(st(), 0.2, booted=False).size == (W, H)
     assert len(rgb565(render(st(), 0.2))) == W * H * 2
@@ -91,7 +91,7 @@ def test_inter_font_when_installed():
 
 def test_gallery_writes_every_screen(tmp_path):
     sheet = gallery(tmp_path)
-    assert sheet.exists() and len(list(tmp_path.glob("whisplay_*.png"))) == 11
+    assert sheet.exists() and len(list(tmp_path.glob("whisplay_*.png"))) == 12
 
 
 def test_demo_data_is_labelled():
@@ -312,7 +312,7 @@ def test_button_actions_are_configurable():
     # older config.toml files: page / assistant actions are retired, not errors
     old = WhisplayUI(WhisplayConfig(button_short="next_page", button_long="page:devices", button_double="ai"),
                      board=SimBoard(), sim=True)
-    assert set(old.actions.values()) == {"none"}
+    assert {old.actions[k] for k in ("short", "long", "double")} == {"none"}
 
 
 def test_alert_press_always_acknowledges():
@@ -453,3 +453,68 @@ def test_demo_uses_the_mount_settings(tmp_path, monkeypatch):
     cfg = demo_config("/opt/whisplay")
     assert cfg.rotate == 90 and cfg.audio_device == "default" and cfg.brightness == 40
     assert cfg.enabled and cfg.driver_dir == "/opt/whisplay"
+
+
+# ---------------------------------------------------------------- shutdown by holding the button
+def test_button_hold_event():
+    b = ButtonDecoder(long_s=1.5, double_s=0.0, hold_s=5.0)
+    b.press(0.0)
+    assert b.poll(2.0) == [] and b.held_for(2.0) == 2.0              # long waits for the release
+    assert b.poll(5.1) == ["hold"]                                   # fires while still held
+    assert b.release(6.0) is None and b.poll(6.1) == [] and b.held_for(6.1) == 0.0
+    b.press(10.0)
+    assert b.release(12.0) == "long"                                 # 1.5-5 s: a long press, on release
+    b.press(20.0)
+    assert b.release(20.2) == "short"
+    nb = ButtonDecoder(long_s=1.5)                                   # no hold: long fires while held, as before
+    nb.press(0.0)
+    assert nb.poll(1.6) == ["long"]
+
+
+def _ui(**kw):
+    calls = []
+    cfg = WhisplayConfig(enabled=True, voice=False, **kw)
+    ui = WhisplayUI(cfg, board=SimBoard(), sim=True, hooks={"shutdown": lambda: calls.append("off")})
+    return ui, calls
+
+
+def test_hold_five_seconds_shuts_down_safely():
+    ui, calls = _ui()
+    ok = st(90.0, spd=0)
+    ui.tick(ok, 0.0)
+    ui.button.press(10.0)
+    ui.tick(ok, 12.0)
+    assert ui.banner == "Hold to shut down: 3"                       # counting down while held
+    ui.tick(ok, 15.1)                                                # 5 s: shutting down
+    assert ui.view(ok, True, 15.2) == "shutdown" and ui.board.rgb == (60, 0, 0) and calls == []
+    ui.tick(ok, 18.2)                                                # after SHUTDOWN_S: powered off
+    assert calls == ["off"] and ui.shutdown_done
+    ui.tick(ok, 20.0)
+    assert calls == ["off"]                                          # only once
+
+
+def test_no_shutdown_during_an_alert_or_while_moving():
+    ui, calls = _ui()
+    alert = st(30, "LOW", alert=True)
+    assert ui.do("shutdown", alert, 1.0) == "shutdown refused: alert" and ui.banner == "Not during an alert"
+    assert ui.do("shutdown", st(90.0, spd=60), 2.0) == "shutdown refused: moving"
+    assert ui.shutdown_at is None
+    ui.tick(st(90.0), 10.0)
+    assert calls == []
+
+
+def test_failed_shutdown_returns_to_normal():
+    cfg = WhisplayConfig(enabled=True, voice=False)
+    ui = WhisplayUI(cfg, board=SimBoard(), sim=True, hooks={"shutdown": lambda: "sudo: a password is required"})
+    ui.do("shutdown", st(), 1.0)
+    ui.tick(st(), 5.0)
+    assert ui.shutdown_at is None and ui.banner == "Shutdown not allowed"
+    assert ui.view(st(), True, 5.1) == "score"
+
+
+def test_hold_can_be_turned_off():
+    ui, calls = _ui(button_hold="none")
+    assert ui.button.hold_s is None
+    ui.button.press(0.0)
+    ui.tick(st(), 6.0)
+    assert ui.shutdown_at is None and calls == []
