@@ -86,7 +86,7 @@ class FaceMeshSource:
     backend = "mesh"
 
     def __init__(self, camera=None, model: Optional[str] = None, ir: str = "auto", yaw_sign: int = 1,
-                 glasses: str = "auto", landmarker=None, delegate: str = "cpu"):
+                 glasses: str = "auto", landmarker=None, delegate: str = "cpu", engine: str = "auto"):
         self.camera, self.model_path, self.ir, self.yaw_sign = camera, model, ir, yaw_sign
         self._lm = landmarker                      # injectable for tests
         self.eyes = fs.EyeTracker()
@@ -114,6 +114,9 @@ class FaceMeshSource:
         self.last_frame = None
         self._ts_ms = 0
         self.delegate, self.delegate_used = delegate, "CPU"
+        # "mediapipe", or "opencv" (drifts/face_cv.py: the same models on OpenCV, for CPUs
+        # without AES like the Pi Zero 2 W, where MediaPipe 1.x crashes). "auto" picks.
+        self.engine, self.engine_used = engine, None
         self.blend: dict = {}                      # the 52 blendshape scores of the last frame
         self.frame_size = (0, 0)                   # (w, h) of the frame the landmarks are in
         self.frame_id = 0
@@ -121,7 +124,13 @@ class FaceMeshSource:
 
     # ------------------------------------------------------------------ setup
     def start(self) -> None:
+        if self._lm is None and self._wants_opencv():
+            from drifts.face_cv import CvFaceLandmarker
+            model = ensure_model(Path(self.model_path) if self.model_path else DEFAULT_MODEL)
+            self._lm, self.engine_used, self.delegate_used = CvFaceLandmarker(model), "opencv", "CPU (OpenCV)"
+            log.info("Face mesh on OpenCV (this CPU has no AES: MediaPipe 1.x can't run here)")
         if self._lm is None:
+            self.engine_used = "mediapipe"
             import mediapipe as mp
             from mediapipe.tasks.python import BaseOptions, vision
             model = ensure_model(Path(self.model_path) if self.model_path else DEFAULT_MODEL)
@@ -141,6 +150,14 @@ class FaceMeshSource:
             self._mp = mp
         if self.camera is not None:
             self.camera.start()
+
+    def _wants_opencv(self) -> bool:
+        if self.engine == "opencv":
+            return True
+        if self.engine == "mediapipe":
+            return False
+        from drifts.face_cv import needs_opencv_engine
+        return needs_opencv_engine()
 
     def calibrate(self, frames: int = 30) -> None:
         """Restart the iris calibration: the next `frames` open-eye frames
@@ -177,6 +194,9 @@ class FaceMeshSource:
 
     def _detect(self, rgb):
         """(landmarks as (478, 2) pixels or None, 4x4 matrix or None)."""
+        if self.engine_used == "opencv":
+            self.blend = {}                        # the OpenCV engine has no blendshapes
+            return self._lm.detect(rgb)
         self._ts_ms = max(self._ts_ms + 1, int(time.monotonic() * 1000))
         res = self._lm.detect_for_video(self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=rgb),
                                         self._ts_ms)
@@ -282,6 +302,7 @@ class FaceMeshSource:
             "calibrated_eyes": self.eyes.fixed is not None,
             "blend": {k: round(v, 3) for k, v in self.blend.items()},
             "jaw_open": self.blend.get("jawOpen"), "delegate": self.delegate_used,
+            "engine": self.engine_used,
         }
         return self.face
 

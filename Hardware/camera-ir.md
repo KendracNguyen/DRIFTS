@@ -79,6 +79,7 @@ cd ~/drifts/Raspberry
 | Check | What it means |
 | --- | --- |
 | Camera detected / NoIR | `imx708_noir`. None found: Pi off, re-seat the ribbon (contacts towards the board, both ends) |
+| Face engine | **OpenCV** on the Pi Zero 2 W: MediaPipe 1.x's ARM build needs the CPU's AES instructions, which the Zero's Cortex-A53 doesn't have ("compiled with aes enabled ... Illegal instruction"). DRIFTS runs the same face models on OpenCV instead (`drifts/face_cv.py`), chosen automatically; `--face-engine opencv|mediapipe` forces one |
 | Frame rate (with face mesh) | 5+ fps PASS, 2–5 WARN. This is the number for the Pi Zero face-mesh goal |
 | Picture | mean light level: under 25 is dim (IR on at night), under 8 is black |
 | Day / IR | grey picture = IR / night: the night detector switches DRIFTS' IR enhancement on |

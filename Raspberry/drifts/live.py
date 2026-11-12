@@ -767,6 +767,9 @@ def build_parser(prog: str = "python -m drifts.live") -> argparse.ArgumentParser
     p.add_argument("--profile", default="default",
                    help="driver profile: Raspberry/profiles/<name>.json from the phone app's guided "
                         "calibration (--face mesh), or the dms-face profile (--face mediapipe)")
+    p.add_argument("--face-engine", choices=["auto", "mediapipe", "opencv"], default="auto",
+                   help="--face mesh runs on MediaPipe, or on OpenCV (same models; for CPUs without AES such as "
+                        "the Pi Zero 2 W, where MediaPipe 1.x crashes). auto picks")
     p.add_argument("--face-delegate", choices=["cpu", "gpu"], default="cpu",
                    help="MediaPipe delegate for --face mesh (gpu: Linux / macOS; falls back to the CPU)")
     p.add_argument("--ir", choices=["auto", "on", "off"], default="auto",
@@ -815,7 +818,8 @@ def build(args) -> Pipeline:
         if args.face == "mesh":
             from drifts.facemesh import FaceMeshSource
             camera = FaceMeshSource(camera=camera, model=args.face_model, ir=args.ir, yaw_sign=args.yaw_sign,
-                                    glasses=args.glasses, delegate=args.face_delegate)
+                                    glasses=args.glasses, delegate=args.face_delegate,
+                                    engine=args.face_engine)
         elif args.face == "mediapipe":
             from drifts.face_mediapipe import DEFAULT_DMS_DIR, Pi5FaceSource
             camera = Pi5FaceSource(dms_dir=args.dms_dir or DEFAULT_DMS_DIR, profile=args.profile,
