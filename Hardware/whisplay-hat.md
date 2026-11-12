@@ -102,7 +102,7 @@ everything else in the phone app (no menus, no assistant on the LCD).
 | **Welcome** | DRIFTS, "Starting..." | first 4 s |
 | **Score** | ring gauge, label, two readings: eyes and pose (OK), blinks and yaw (caution), intervention (high). Without the camera: driving score, speed, OBD | always, after the welcome |
 | **Calibration** | quick: head guide, "Look at the road and hold still", progress. Profile / accuracy test: the current pose in large text, step *n* of 9, hold bar. Then "Calibration complete" for 3 s | while a calibration started **in the phone app** runs |
-| **Are you awake?** | mic, "Say 'I am awake'", 10 s countdown; then "Thank you" | an alert has lasted 20 s (Level 3 check-in) |
+| **Awake Check** | mic, "Say 'I am awake'", 10 s countdown; then "Thank you" | an alert has lasted 20 s (Level 3 check-in) |
 
 An alert always shows the score (or the awake check), never a calibration.
 

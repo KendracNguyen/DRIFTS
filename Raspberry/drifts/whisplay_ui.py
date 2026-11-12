@@ -511,7 +511,7 @@ def view_awake(c: Canvas, st: UiState, ctx: dict, now: float = 0.0) -> None:
     c.circle(120, 92, 40 + 6 * pulse, fill=mix(BG, RED, 0.18 + 0.1 * pulse))
     c.circle(120, 92, 32, fill=RED)
     icon(c, "mic", 120, 92, INK, 30, bg=RED)
-    c.text(120, 154, "Are you awake?", 15, 500, MUTED, "mm")
+    c.text(120, 154, "Awake Check", 17, 600, INK, "mm")
     c.text(120, 184, "Say", 15, 500, INK, "mm")
     c.text(120, 210, "“I am awake”", 24, 700, INK, "mm")
     left = aw.get("left")

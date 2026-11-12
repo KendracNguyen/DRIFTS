@@ -46,7 +46,7 @@ The driver never has to touch the screen. It changes by itself:
 | Starting (4 s) | **Welcome**: DRIFTS, "Starting..." |
 | Always, after that | **Score**: the alertness ring (green 70+, yellow 50–69, red below 50, grey with no data) and two lines under it |
 | The driver starts a calibration **in the phone app** (Settings → Calibration) | **Calibration**: quick road pose ("Look at the road"), or the 9-pose profile / accuracy test (the current pose in large text, step *n* of 9, a hold bar). Then **"Calibration complete"** for 3 s and the voice says so |
-| An alert has lasted 20 s (`awake_after_s`) | **"Are you awake? Say 'I am awake'"** with a countdown, for 10 s (`awake_window_s`), and the voice asks. Then **"Thank you"** for 2.5 s once answered. It asks again 20 s later if the alert goes on |
+| An alert has lasted 20 s (`awake_after_s`) | **"Awake Check: say 'I am awake'"** with a countdown, for 10 s (`awake_window_s`), and the voice asks. Then **"Thank you"** for 2.5 s once answered. It asks again 20 s later if the alert goes on |
 
 An alert always wins over a calibration. The automatic road-pose pass at
 start-up does **not** take over the screen: only a calibration the driver asked
@@ -180,7 +180,7 @@ and `sudo systemctl restart drifts`.
    | Phone: Settings → Calibration → **Quick calibrate** | "Look at the road", the bar fills, then "Calibration complete" and the voice |
    | Phone: **Create profile** | each pose in large text, step 1 of 9 … 9 of 9, then complete |
    | Close your eyes until the score turns red | red ring, LED red 1 s / 1 s, buzzer and motors |
-   | Keep them closed 20 s more | "Are you awake? Say 'I am awake'" and the voice asks; press the button: "Thank you" |
+   | Keep them closed 20 s more | "Awake Check: say 'I am awake'" and the voice asks; press the button: "Thank you" |
    | Open your eyes | back to green, "Alertness back to normal" |
 
 ---

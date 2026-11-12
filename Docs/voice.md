@@ -30,7 +30,7 @@ Never renumber a phrase; add new ones at the end.
 | 8 | CAMERA_LOST | "Camera not detected." | Tokyo: no camera frames for 5 s |
 | 9 | CHECK_IN | "Are you okay? Press the button to confirm." | reserved (Tokyo) |
 | 10 | TEST | "This is a DRIFTS voice test." | tests |
-| 11 | AWAKE | "Are you awake? Please say: I am awake." | first model: the Level 3 check-in, when an alert has lasted 20 s (the LCD shows "Say 'I am awake'") |
+| 11 | AWAKE | "Are you awake? Please say: I am awake." | first model: the Level 3 check-in, when an alert has lasted 20 s (the LCD shows "Awake Check: say 'I am awake'") |
 
 Rules, the same on every system:
 - **One clip at a time.** A clip waiting to play is replaced only by a more
