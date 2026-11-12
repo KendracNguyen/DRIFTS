@@ -68,7 +68,7 @@ class WhisplayConfig:
     """PiSugar Whisplay HAT: screen, RGB LED, speaker, button (drifts/whisplay_ui.py)."""
     enabled: bool = False
     driver_dir: str = "~/Whisplay/runtime"     # PiSugar's driver (install_driver.sh)
-    audio_device: str = "plughw:CARD=whisplaysound"
+    audio_device: str = "default"              # PiSugar's asound.conf: the HAT at 48 kHz (plughw: fails on the ES8389)
     brightness: int = 70                       # 0-100, until the button sets another
     remember_brightness: bool = True           # keep the button's level over restarts (logs/whisplay_state.json)
     voice: bool = True

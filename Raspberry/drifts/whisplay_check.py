@@ -233,6 +233,7 @@ def record_level(device: str, seconds: float, path: Path) -> Optional[float]:
 def hardware_checks(rep: Report, cfg: WhisplayConfig, board, ask: Callable, sim: bool, out: Path,
                     button_s: float = 25.0, press_script: Optional[list] = None) -> None:
     shots = {}
+    audio = {"dev": cfg.audio_device}          # the sound device that works (the speaker test may switch it)
 
     def show(name, img):
         board.show(img)
@@ -271,9 +272,19 @@ def hardware_checks(rep: Report, cfg: WhisplayConfig, board, ask: Callable, sim:
     elif not clip.exists() or not shutil.which("aplay"):
         rep.add("Speaker", FAIL, "clip or aplay missing")
     else:
-        r = subprocess.run(["aplay", "-q", "-D", cfg.audio_device, str(clip)], timeout=20)
+        dev = cfg.audio_device
+        r = subprocess.run(["aplay", "-q", "-D", dev, str(clip)], timeout=20)
+        if r.returncode and dev != "default":
+            print(f"        aplay -D {dev} failed: trying the default device (PiSugar's asound.conf, 48 kHz)")
+            dev = "default"
+            r = subprocess.run(["aplay", "-q", "-D", dev, str(clip)], timeout=20)
+            if not r.returncode:
+                rep.add("Speaker device", WARN, f'{cfg.audio_device} fails, "default" works: set audio_device = '
+                        '"default" under [whisplay] in config.toml (DRIFTS also switches by itself)')
+        audio["dev"] = dev
         if r.returncode:
-            rep.add("Speaker", FAIL, f"aplay -D {cfg.audio_device} failed: check `aplay -l`")
+            rep.add("Speaker", FAIL, f"aplay -D {dev} failed: check `aplay -l` and /etc/asound.conf "
+                    "(re-run PiSugar's install_driver.sh)")
         else:
             _verdict(ask("Did you hear the test sentence clearly?"), "Speaker", rep,
                      "silent: speaker switch on the HAT set to onboard? amixer -c whisplaysound sset speaker 90%")
@@ -283,7 +294,7 @@ def hardware_checks(rep: Report, cfg: WhisplayConfig, board, ask: Callable, sim:
     if sim:
         rep.add("Microphone", SKIP, "simulated")
     else:
-        dev = cfg.audio_device
+        dev = audio["dev"]
         level = record_level(dev, 3, out / "whisplay_check_mic.wav")
         if level is None:
             rep.add("Microphone", FAIL, f"arecord -D {dev} failed")

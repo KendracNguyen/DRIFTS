@@ -646,10 +646,18 @@ class VoiceDirector:
         return name
 
 
-class Speaker:
-    """Plays Voice/clips/NN_NAME.wav with aplay on the HAT's sound card."""
+FALLBACK_DEVICE = "default"   # PiSugar's /etc/asound.conf: the HAT, resampled to 48 kHz stereo, shared (dmix)
 
-    def __init__(self, device: str = "plughw:CARD=whisplaysound", clips: Path = CLIPS, sim: bool = False):
+
+class Speaker:
+    """Plays Voice/clips/NN_NAME.wav with aplay on the HAT's sound card.
+
+    The device is "default": PiSugar's installer points it at the HAT and
+    converts to 48 kHz stereo. Opening the card directly (plughw:) fails on the
+    ES8389 codec, which only runs 48 kHz-family rates and our clips are 22.05 kHz.
+    If the configured device fails, it switches to "default" and says so."""
+
+    def __init__(self, device: str = FALLBACK_DEVICE, clips: Path = CLIPS, sim: bool = False):
         self.device, self.sim = device, sim
         names = {p["name"]: p["id"] for p in json.loads(PHRASES.read_text())["phrases"]}
         self.files = {n: clips / f"{i:02d}_{n}.wav" for n, i in names.items()}
@@ -657,12 +665,29 @@ class Speaker:
         self.last: Optional[str] = None
         self.played: list = []
         self._proc = None
+        self._proc_clip: Optional[Path] = None
         self._until = 0.0
 
     def playing(self, now: float) -> bool:
-        if self._proc is not None and self._proc.poll() is None:
-            return True
+        if self._proc is not None:
+            rc = self._proc.poll()
+            if rc is None:
+                return True
+            if rc != 0 and self.device != FALLBACK_DEVICE and self._proc_clip is not None:
+                log.warning("[VOICE] aplay -D %s failed: switching to %s", self.device, FALLBACK_DEVICE)
+                self.device = FALLBACK_DEVICE
+                self._spawn(self._proc_clip)               # say it again on the working device
+                return True
+            self._proc = None
         return now < self._until
+
+    def _spawn(self, f: Path) -> None:
+        try:
+            self._proc = subprocess.Popen(["aplay", "-q", "-D", self.device, str(f)],
+                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self._proc_clip = f
+        except OSError as exc:
+            log.warning("aplay failed: %s", exc)
 
     def play(self, name: str, now: float) -> None:
         f = self.files.get(name)
@@ -677,11 +702,7 @@ class Speaker:
         if self.sim or not self.ok or f is None or not f.exists():
             log.info("[VOICE] %s%s", name, "" if self.sim else " (not played: aplay or clip missing)")
             return
-        try:
-            self._proc = subprocess.Popen(["aplay", "-q", "-D", self.device, str(f)],
-                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except OSError as exc:
-            log.warning("aplay failed: %s", exc)
+        self._spawn(f)
 
 
 # ---------------------------------------------------------------- button

@@ -166,7 +166,7 @@ Pi's voice repeat pauses.
   UART to the Pi (and over BLE to a phone), so the Pi's link also carries the
   screen's data.
 - **Voice clips:** the WAVs in `Voice/clips/`, played by
-  `aplay -D plughw:CARD=whisplaysound`, with the rules in
+  `aplay -D default` (PiSugar's `/etc/asound.conf` sends it to the HAT at 48 kHz; `plughw:` fails on the ES8389 codec with our 22.05 kHz clips), with the rules in
   [`Docs/voice.md`](../Docs/voice.md).
 - **Pi Zero load:** the screen updates about once a second and audio is
   occasional, so it should add only tens of MB and a little CPU. Measure it,
