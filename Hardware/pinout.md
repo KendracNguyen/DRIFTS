@@ -9,7 +9,7 @@ Every wire, as of **ESP32 firmware v21** and **schematic rev 7**:
 
 ![DRIFTS ESP32-C6 pinout](pinout.svg)
 
-Whole-system drawing: [`drawings/DRIFTS_Schematic_rev7.pdf`](drawings/DRIFTS_Schematic_rev7.pdf)
+Whole-system drawing: [`drawings/DRIFTS_Schematic_rev8.pdf`](drawings/DRIFTS_Schematic_rev8.pdf)
 (PNG alongside). Both drawings are generated:
 `python Hardware/drawings/draw_schematic.py` and `python Hardware/drawings/draw_pinout.py`.
 

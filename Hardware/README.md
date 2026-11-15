@@ -249,7 +249,7 @@ pedals and airbag deployment paths.
 | `README.md` | This document |
 | `schematic.md` | Driver circuits, power tree, connector detail |
 | `BOM.csv` | Bill of materials |
-| `drawings/DRIFTS_Schematic_rev7.pdf` | **Full system schematic, rev 7** (Pi wired to the ESP32 over UART; Whisplay HAT on the Pi Zero). Regenerate with `python Hardware/drawings/draw_schematic.py` |
+| `drawings/DRIFTS_Schematic_rev8.pdf` | **Full system schematic, rev 8** (split 5 V supply from a 2-port car charger; 850 nm IR board on its own port; Camera Module 3 NoIR; Pi wired to the ESP32 over UART; Whisplay HAT). Regenerate with `python Hardware/drawings/draw_schematic.py` |
 | `whisplay-hat.md` | **PiSugar Whisplay HAT** (Pi Zero): the driver screen, RGB LED, voice and button. Datasheet, pinout, screens, button actions |
 | `pinout.md` / `pinout.svg` | **Wiring diagram** and pin-by-pin table (ESP32 + Pi Zero HAT). Regenerate the SVG with `python Hardware/drawings/draw_pinout.py` |
 | `pinout.csv` | Pin map as data, for diffing against `config.h` |
