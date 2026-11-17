@@ -1,9 +1,10 @@
 # Scenario trials: simulated vs real
 
 One heat map, two panels: **simulated** trials (left) and **real** trials
-measured on the Pi (right). Rows are the signals DRIFTS scores; columns are
-the scenarios; each box is one trial, so a row of boxes shows how repeatable
-the response is.
+measured on the Pi (right). Rows are the scenarios, grouped Face / Vehicle;
+columns are trials 1-N. Each box is that trial's 0-100 score for the signal
+the scenario tests (named under each row), so a row of boxes shows how
+repeatable the response is; ▲ marks a trial in which the alert fired.
 
 ![scenario trials](scenario_trials.png)
 
