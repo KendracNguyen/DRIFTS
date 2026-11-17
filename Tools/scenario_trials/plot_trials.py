@@ -30,7 +30,8 @@ ROWS = [("normal", "Normal (alert)", "overall_fatigue", "overall fatigue", "Face
         ("obd_variability", "OBD variability", "obd", "RPM / speed / throttle", "Vehicle"),
         ("combined", "COMBINED FATIGUE", "overall_fatigue", "overall fatigue", "Fused")]
 GCOL = {"Face": NAVY, "Vehicle": BROWN, "Fused": INK}
-cmap = LinearSegmentedColormap.from_list("w", ["#FBF0DC", "#F6D58A", "#EB9A45", "#D2602B", "#A82822", "#7A1015"])
+cmap = LinearSegmentedColormap.from_list("lvl", [(0.0, "#CFE7C8"), (0.30, "#E6EFC0"), (0.40, "#FBE8A6"), (0.50, "#F9CFA4"),
+    (0.65, "#F1A3A3"), (0.85, "#C9505F"), (1.0, "#8A0022")])
 
 
 def load(name):
@@ -85,6 +86,10 @@ def main(out="scenario_trials.png"):
     cax = fig.add_axes([0.30, 0.055, 0.15, 0.026])
     cb = fig.colorbar(plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0, 100)), cax=cax, orientation="horizontal")
     cb.outline.set_visible(False); cb.set_ticks([])
+    for xv in (30, 50):
+        cax.axvline(xv, color="white", lw=2)
+    for xv, t, c in ((15, "OK", "#2B4A2B"), (40, "Caution", "#5A4500"), (75, "Alert", "#4A0716")):
+        cax.text(xv, 0.5, t, ha="center", va="center", fontsize=11.5, fontweight="bold", color=c)
     fig.text(0.457, 0.058, "0 → 100 fatigue score", fontsize=14, color="#333333")
     fig.lines.append(plt.Line2D([0.60], [0.069], marker="^", ms=10, color="white", mec=RED, mew=1.2, transform=fig.transFigure))
     fig.text(0.611, 0.058, "alert fired in that trial", fontsize=14, color=RED)
