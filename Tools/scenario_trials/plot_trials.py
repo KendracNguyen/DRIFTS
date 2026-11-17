@@ -1,26 +1,30 @@
-"""Heat map of scenario trials: simulated (left) and real (right) side by side.
-Rows = signals, columns = scenarios, one box per trial (repeatability).
+"""Heat map of scenario trials, simulated (left) and real (right).
+Rows = signals, columns = scenarios, one box per trial; each box is the
+signal's 0-100 fatigue contribution, ▲ = an alert fired in that trial.
 
     python Tools/scenario_trials/plot_trials.py            # -> scenario_trials.png
-Reads sim_trials.csv (scenarios_sim.py) and real_trials.csv (trial_logger.py)
-if it exists; missing real trials are drawn as 'to be measured'.
+Reads sim_trials.csv (scenarios_sim.py) and real_trials.csv (trial_logger.py).
 """
 import csv, sys
 from pathlib import Path
 import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib import font_manager as fm
 
+for f in fm.findSystemFonts():
+    if "LiberationSans" in f:
+        fm.fontManager.addfont(f)
+plt.rcParams["font.family"] = ["Liberation Sans", "DejaVu Sans"]
 HERE = Path(__file__).resolve().parent
-SCEN = [("normal", "Normal\n(alert)"), ("yawning", "Yawning"), ("eyes_closing", "Eyes\nclosing"), ("head_turn", "Head turn\n(off-road)"),
+SCEN = [("normal", "Normal"), ("yawning", "Yawning"), ("eyes_closing", "Eyes\nclosing"), ("head_turn", "Head turn\n(off-road)"),
         ("head_nods", "Head\nnods"), ("steering_weave", "Steering\nweave"), ("harsh_braking", "Harsh\nbraking"),
         ("obd_variability", "OBD\nvariability"), ("combined", "Combined\nfatigue")]
-ROWS = [("perclos", "PERCLOS (EAR)"), ("blink", "Blink duration"), ("gaze", "Gaze off-road (eyes)"), ("yaw", "Head turn (yaw)"),
-        ("pitch", "Head nod (pitch)"), ("mar", "Mouth open (MAR)"), ("yawn", "Yawn"),
-        ("steer", "Steering weave"), ("brake", "Harsh braking"), ("obd", "OBD variability"),
-        ("eye_fatigue", "Eye fatigue"), ("driving_fatigue", "Driving fatigue"), ("overall_fatigue", "OVERALL FATIGUE"), ("alert", "Alert fired")]
-NAVY, BROWN, INK, MUTED, RED = "#1F3E6E", "#6B4A12", "#2B1A20", "#6E5A61", "#7A1015"
-plt.rcParams["font.family"] = "DejaVu Sans"
+NAVY, BROWN, INK, GREY, RED = "#1F3E6E", "#6B4A12", "#1A1A1A", "#555555", "#7A1015"
+ROWS = [("perclos", "PERCLOS (EAR)", NAVY), ("blink", "Blink duration", NAVY), ("gaze", "Gaze off-road", NAVY),
+        ("yaw", "Head turn (yaw)", NAVY), ("pitch", "Head nod (pitch)", NAVY), ("yawn", "Yawn (MAR)", NAVY),
+        ("steer", "Steering weave", BROWN), ("brake", "Harsh braking", BROWN), ("obd", "OBD variability", BROWN),
+        ("eye_fatigue", "Eye fatigue", INK), ("driving_fatigue", "Driving fatigue", INK), ("overall_fatigue", "OVERALL FATIGUE", INK)]
 cmap = LinearSegmentedColormap.from_list("w", ["#FBF0DC", "#F6D58A", "#EB9A45", "#D2602B", "#A82822", "#7A1015"])
 
 
@@ -29,58 +33,57 @@ def load(name):
     return list(csv.DictReader(open(p))) if p.exists() else []
 
 
-def main(out="scenario_trials.png", n=None):
+def main(out="scenario_trials.png"):
     sim, real = load("sim_trials.csv"), load("real_trials.csv")
-    n = n or max(int(r["trial"]) for r in sim)
-    G = 1.2                                            # gap between scenario groups (in boxes)
+    n = max(int(r["trial"]) for r in sim)
+    G = 1.0
     width = len(SCEN) * n + (len(SCEN) - 1) * G
-    ys, y = [], 0.0
-    for i in range(len(ROWS)):
-        if i in (7, 10): y += 0.5
-        if i == 13: y += 0.35
-        ys.append(y); y += 1
-    fig = plt.figure(figsize=(22, 9.0), dpi=200)
-    axs = [fig.add_axes([0.12, 0.215, 0.40, 0.67]), fig.add_axes([0.555, 0.215, 0.40, 0.67])]
-    for ax, data, title in ((axs[0], sim, f"SIMULATED: DRIFTS code, {n} trials per scenario"),
-                            (axs[1], real, f"REAL: measured on the Pi ({len(real)} of {len(SCEN) * n} trials recorded)")):
+    ys, hs, y = [], [], 0.0
+    for i, (k, _, _) in enumerate(ROWS):
+        if i == 9: y += 0.45
+        if k == "overall_fatigue": y += 0.3
+        h = 1.25 if k == "overall_fatigue" else 1.0
+        ys.append(y); hs.append(h); y += h
+    fig = plt.figure(figsize=(22, 8.2), dpi=200)
+    fig.text(0.025, 0.93, "DRIFTS: Scenario Trials, Simulated vs Real", fontsize=26, fontweight="bold", color=NAVY)
+    fig.text(0.025, 0.885, f"Normalized fatigue contribution per signal (0–100). Each box is one trial ({n} per scenario): "
+             "40 s normal, then 30 s of the scenario. Alert score = 0.70 × Eye score + 0.30 × Driving score.", fontsize=14, color="#444444")
+    axs = [fig.add_axes([0.13, 0.20, 0.395, 0.60]), fig.add_axes([0.545, 0.20, 0.395, 0.60])]
+    for ax, data, title in ((axs[0], sim, "SIMULATED (DRIFTS code)"), (axs[1], real, f"REAL (measured on the Pi: {len(real)} of {len(SCEN) * n})")):
         for si, (key, _) in enumerate(SCEN):
             x0 = si * (n + G)
             for t in range(n):
                 rec = next((r for r in data if r["scenario"] == key and int(r["trial"]) == t + 1), None)
-                for (col, _), yy in zip(ROWS, ys):
-                    if rec is None or rec.get(col, "") == "":
-                        ax.add_patch(plt.Rectangle((x0 + t + 0.06, yy + 0.06), 0.88, 0.88, facecolor="#F1EEEE", edgecolor="#D9D2D4", hatch="///", lw=0.4))
-                        continue
-                    v = float(rec[col])
-                    face = (RED if v >= 0.5 else "#EFE7E2") if col == "alert" else cmap(v / 100)
-                    ax.add_patch(plt.Rectangle((x0 + t + 0.06, yy + 0.06), 0.88, 0.88, color=face, lw=0))
-        ax.set_xlim(-0.3, width + 0.3); ax.set_ylim(y + 0.1, -0.2)
-        ax.set_xticks([si * (n + G) + n / 2 for si in range(len(SCEN))]); ax.set_xticklabels([s[1] for s in SCEN], fontsize=12.5, color=INK)
-        ax.tick_params(length=0)
+                for (col, _, _), yy, h in zip(ROWS, ys, hs):
+                    v = None if rec is None or rec.get(col, "") == "" else float(rec[col])
+                    ax.add_patch(plt.Rectangle((x0 + t + 0.03, yy + 0.03), 0.94, h - 0.06,
+                                               color="#EEEAEA" if v is None else cmap(v / 100), lw=0))
+                if rec is not None and rec.get("alert") == "1":
+                    ax.plot(x0 + t + 0.5, y + 0.55, marker="^", ms=8, color=RED, clip_on=False)
+        ax.set_xlim(0, width); ax.set_ylim(y + 0.95, -0.1)
+        ax.set_xticks([si * (n + G) + n / 2 for si in range(len(SCEN))])
+        ax.set_xticklabels([s[1] for s in SCEN], fontsize=13.5, color="#333333")
+        ax.tick_params(axis="x", length=0, pad=4); ax.tick_params(axis="y", length=0)
         for s in ax.spines.values(): s.set_visible(False)
-        ax.set_title(title, fontsize=15, fontweight="bold", color=NAVY, loc="left", pad=10)
-        ax.plot([-0.3, width + 0.3], [ys[10] - 0.27, ys[10] - 0.27], color=INK, lw=1.1)
+        ax.plot([0, width], [ys[9] - 0.22, ys[9] - 0.22], color="#444444", lw=1.3)
+        ax.set_title(title, fontsize=16, fontweight="bold", color=NAVY, loc="center", pad=8)
         if not data:
-            ax.text(width / 2, y / 2, "To be measured\n(Tools/scenario_trials/trial_logger.py)", ha="center", va="center",
-                    fontsize=17, color=MUTED, fontweight="bold", bbox=dict(boxstyle="round,pad=0.6", fc="white", ec="#D9D2D4"))
-    axs[0].set_yticks([yy + 0.5 for yy in ys]); axs[0].set_yticklabels([r[1] for r in ROWS], fontsize=13)
-    for i, lab in enumerate(axs[0].get_yticklabels()):
-        lab.set_color(NAVY if i < 7 else BROWN if i < 10 else INK)
-        if i >= 10: lab.set_fontweight("bold")
+            ax.text(width / 2, y / 2, "Real trials to be recorded\nwith trial_logger.py", ha="center", va="center", fontsize=17, color=GREY)
+    axs[0].set_yticks([yy + h / 2 for yy, h in zip(ys, hs)]); axs[0].set_yticklabels([r[1] for r in ROWS], fontsize=15)
+    for lab, r in zip(axs[0].get_yticklabels(), ROWS):
+        lab.set_color(r[2]); lab.set_fontweight("bold" if r[2] == INK else "normal")
     axs[1].set_yticks([])
-    for txt, a, b, col in (("Face", 0, 6, NAVY), ("Vehicle", 7, 9, BROWN), ("Fused", 10, 13, INK)):
-        axs[1].text(width + 1.2, (ys[a] + ys[b] + 1) / 2, txt, va="center", fontsize=14, fontweight="bold", color=col)
-    fig.text(0.12, 0.955, "DRIFTS scenario trials: which signals respond, and how repeatably", fontsize=20, fontweight="bold", color=NAVY)
-    cax = fig.add_axes([0.12, 0.075, 0.2, 0.022])
+    for txt, a, b, col in (("Face", 0, 5, NAVY), ("Vehicle", 6, 8, BROWN), ("Fused", 9, 11, INK)):
+        axs[1].text(width + 0.8, (ys[a] + ys[b] + hs[b]) / 2, txt, va="center", fontsize=15, fontweight="bold", color=col)
+    cax = fig.add_axes([0.13, 0.065, 0.13, 0.026])
     cb = fig.colorbar(plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0, 100)), cax=cax, orientation="horizontal")
-    cb.outline.set_visible(False); cb.set_ticks([0, 50, 100]); cb.ax.tick_params(labelsize=11, colors=MUTED)
-    fig.text(0.12, 0.108, "Fatigue contribution 0–100 (fused rows: 100 − score), mean over the 30 s scenario", fontsize=12, color=INK)
-    fig.patches.append(plt.Rectangle((0.555, 0.078), 0.012, 0.022, color=RED, transform=fig.transFigure))
-    fig.text(0.571, 0.080, "alert fired (buzzer + seat)", fontsize=12, color=INK)
-    fig.patches.append(plt.Rectangle((0.70, 0.078), 0.012, 0.022, facecolor="#F1EEEE", edgecolor="#D9D2D4", hatch="///", transform=fig.transFigure))
-    fig.text(0.716, 0.080, "not measured yet", fontsize=12, color=INK)
-    fig.text(0.12, 0.012, "Each box = one trial: 40 s normal, then 30 s of the scenario (timing and intensity varied per trial). "
-             "Simulated trials run the Pi face pipeline and the ESP32 alert score code with a scripted driver.", fontsize=11, color=MUTED, style="italic")
+    cb.outline.set_visible(False); cb.set_ticks([])
+    fig.text(0.267, 0.068, "0 → 100 normalized fatigue contribution", fontsize=14, color="#333333")
+    fig.text(0.525, 0.068, "▲ alert issued (score < 50, or camera DROWSY)", fontsize=14, color=RED)
+    fig.patches.append(plt.Rectangle((0.775, 0.066), 0.012, 0.026, color="#EEEAEA", transform=fig.transFigure))
+    fig.text(0.792, 0.068, "not recorded yet", fontsize=14, color="#333333")
+    fig.text(0.025, 0.015, "Simulated trials: a scripted driver run through the DRIFTS code (Pi face pipeline, ESP32 weave detector and alert score), "
+             "timing and intensity varied per trial. Fused rows show 100 − score.", fontsize=12.5, color=GREY, style="italic")
     fig.savefig(HERE / out, facecolor="white")
     print("wrote", HERE / out)
 
