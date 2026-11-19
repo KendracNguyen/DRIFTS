@@ -40,6 +40,7 @@ EMPTY = {
     "alert": None, "updated": None,
     "lcd1": None, "lcd2": None,   # screen text: only Tokyo's own LCD sets these (esp_override)
     "drv_score": None,   # ESP32 driving score 0-100 (steering, brakes, OBD variation)
+    "steer": None, "g": None, "yaw": None,   # steering reversals (60 s), longitudinal g, yaw rate deg/s
 }
 
 _STATUS_RE = re.compile(
@@ -79,9 +80,11 @@ def parse_phone_json(text: str) -> dict:
     except (ValueError, TypeError):
         return {}
     out = {}
-    for k in ("rpm", "spd", "thr", "hz", "score"):
-        if isinstance(d.get(k), (int, float)):
+    for k in ("rpm", "spd", "thr", "hz", "score", "g", "yaw"):
+        if isinstance(d.get(k), (int, float)) and not isinstance(d.get(k), bool):
             out[k] = float(d[k])
+    if isinstance(d.get("steer"), int) and not isinstance(d.get("steer"), bool):
+        out["steer"] = d["steer"]           # steering reversals in the last 60 s (gyro)
     if isinstance(d.get("dscore"), (int, float)):       # firmware v16+
         out["drv_score"] = float(d["dscore"])
     for k in ("obd", "lvl"):

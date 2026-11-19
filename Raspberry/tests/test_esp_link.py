@@ -54,7 +54,9 @@ def test_phone_json():
           '"part":false}')
     d = parse_phone_json(js)
     assert d == {"rpm": 812.0, "spd": 37.0, "thr": 15.2, "hz": 4.6, "score": 63.0,
+                 "g": 0.01, "yaw": 0.3, "steer": 0,
                  "obd": "polling", "lvl": "CAUTION", "part": False, "alert": False}
+    assert parse_phone_json('{"steer":4,"g":-0.41}') == {"steer": 4, "g": -0.41}
 
 
 def test_phone_json_garbage():
