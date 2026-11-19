@@ -59,3 +59,57 @@ def enhance_ir(frame):
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     lab[..., 0] = clahe.apply(lab[..., 0])
     return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
+
+# ---------------------------------------------------------------- simulated night (no IR board needed)
+def simulate_night(frame, mode: str = "ir", side: str = "right", rng=None):
+    """Turn a daylight colour frame into what the Camera Module 3 NoIR sees in a dark car.
+
+    mode "ir":   lit by the 850 nm board 60 mm to one side of the lens: near-monochrome with a
+                 faint purple cast, the light falling off away from the board and with depth,
+                 smooth skin, sensor noise.
+    mode "dark": no IR light: a very dark, noisy frame (the face is usually lost).
+    side:        which side of the picture the board is on ("right" / "left").
+    An approximation for demos and testing, not a model of the sensor."""
+    import cv2
+    import numpy as np
+    rng = rng if rng is not None else np.random.default_rng()
+    h, w = frame.shape[:2]
+    lum = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
+    if mode == "dark":
+        out = lum * 0.07 + rng.normal(0.0, 0.03, lum.shape).astype(np.float32)
+        out = np.clip(out, 0, 1)
+        return cv2.cvtColor((out * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
+    key = (h, w, side)
+    if _FALLOFF.get("key") != key:                       # the light pattern only depends on the frame size
+        yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+        cx = w * (0.62 if side == "right" else 0.38)
+        board = np.exp(-((xx - cx) ** 2 + (yy - h * 0.45) ** 2) / (2 * (0.40 * w) ** 2))
+        centre = np.exp(-((xx - w / 2) ** 2 / (2 * (0.30 * w) ** 2) + (yy - h * 0.45) ** 2 / (2 * (0.38 * h) ** 2)))
+        _FALLOFF.update(key=key, map=(0.20 + 0.95 * board) * (0.35 + 0.65 * centre))
+    ir = cv2.GaussianBlur(lum, (0, 0), 1.3) ** 0.8 * _FALLOFF["map"]
+    ir += rng.normal(0.0, 0.02, ir.shape).astype(np.float32)
+    ir = np.clip(ir, 0, 1)
+    out = np.dstack([ir * 1.04, ir * 0.96, ir * 1.03])   # BGR: a faint purple, as a NoIR sensor shows
+    return (np.clip(out, 0, 1) * 255).astype(np.uint8)
+
+
+_FALLOFF: dict = {}
+
+
+class SimNightCamera:
+    """Wraps any camera (grab() -> BGR frame) and returns simulate_night() frames, so the whole
+    app (night detector, IR enhancement, face mesh, scores, phone view) sees a night picture.
+    drifts.live --sim-night ir|dark"""
+
+    def __init__(self, inner, mode: str = "ir", side: str = "right"):
+        self.inner, self.mode, self.side = inner, mode, side
+
+    def grab(self):
+        frame = self.inner.grab()
+        if frame is None or getattr(frame, "ndim", 0) != 3:
+            return frame
+        return simulate_night(frame, self.mode, self.side)
+
+    def __getattr__(self, name):                         # everything else: the real camera
+        return getattr(self.inner, name)

@@ -838,6 +838,11 @@ def build_parser(prog: str = "python -m drifts.live") -> argparse.ArgumentParser
                    help="MediaPipe delegate for --face mesh (gpu: Linux / macOS; falls back to the CPU)")
     p.add_argument("--ir", choices=["auto", "on", "off"], default="auto",
                    help="IR contrast enhancement: auto = when the image looks like night/IR")
+    p.add_argument("--sim-night", choices=["off", "ir", "dark"], default="off",
+                   help="simulate the NoIR camera at night on any camera (e.g. a laptop webcam): "
+                        "ir = lit by the 850 nm board, dark = no IR light")
+    p.add_argument("--sim-night-side", choices=["right", "left"], default="right",
+                   help="side of the picture the simulated IR board lights from")
     p.add_argument("--yaw-sign", type=int, choices=[-1, 1], default=1, help="flip if yaw reads backwards")
     p.add_argument("--gaze-dev", type=float, default=0.16, help="iris deviation counted as off road")
     p.add_argument("--rig-name", default=None, help="label for the comparison page")
@@ -879,6 +884,10 @@ def build(args) -> Pipeline:
             camera = VideoSource(args.video, fps=args.video_fps)
         else:
             camera = Camera(cfg.camera, device=args.camera, use_picamera=not args.no_picamera)
+        if getattr(args, "sim_night", "off") != "off":
+            from drifts.night import SimNightCamera
+            camera = SimNightCamera(camera, mode=args.sim_night, side=args.sim_night_side)
+            log.info("Simulated night vision: %s (IR board on the %s)", args.sim_night, args.sim_night_side)
         if args.face == "mesh":
             from drifts.facemesh import FaceMeshSource
             camera = FaceMeshSource(camera=camera, model=args.face_model, ir=args.ir, yaw_sign=args.yaw_sign,
