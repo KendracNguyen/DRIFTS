@@ -54,3 +54,23 @@ variability are the firmware's ratios to its trigger levels (6 reversals / 60 s,
 1.5 and shown 0–100; fused rows are 100 − the score; "Alert fired" is whether
 the buzzer and seat started during the scenario. Real steering and braking come
 from the ESP32's telemetry (`steer`, `g`), read once a second.
+
+## Real repeatability heat maps (laptop camera or the Pi)
+
+`heat_recorder.py` records the face rows of the poster's heat maps from the running app:
+Test 1-4, each 40 s warm-up then ten 6 s boxes from baseline to fatigue, with a prompt for
+each box. `plot_heat.py` draws them (tagged MEASURED; tests not yet recorded are grey).
+
+```bash
+# terminal 1, from the repo's Raspberry folder (laptop webcam)
+python -m drifts.live --face mesh --camera 0 --esp sim --mirror --http-port 8090
+#   for the glasses row add: --glasses on   (wear glasses or sunglasses)
+
+# terminal 2, from the repo folder: one run per test (1-4) per row
+python Tools/scenario_trials/heat_recorder.py --row eyes --test 1 --url http://localhost:8090
+python Tools/scenario_trials/plot_heat.py      # -> Tools/scenario_trials/heat_<row>.png
+```
+
+Rows: `head` (nods / droop), `eyes` (EAR, PERCLOS, blinks), `yawns` (MAR), `glasses`
+(head turn off-road with glasses on). Each box is the mean 0-100 drowsiness part of that
+signal over the 6 s; ▲ = the app sent DROWSY (the alert) in that box.
