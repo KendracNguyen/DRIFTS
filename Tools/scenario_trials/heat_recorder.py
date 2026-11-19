@@ -16,16 +16,47 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 BOX, BOXES, WARMUP = 6.0, 10, 40.0
 # row -> (title, face part(s) scored, what to do in each 6 s box: boxes 1-2 are baseline)
+N = ("Normal", None)
 ROWS = {
-    "head":  ("Head Nods & Droop (pitch)", ["pitch"], ["normal"] * 2 + ["nod once", "normal", "nod once", "nod once",
-              "nod twice", "nod twice", "head down 3 s", "head down 4 s"]),
-    "eyes":  ("Eye Closure (EAR / PERCLOS)", ["ear", "blink"], ["normal"] * 2 + ["slow blinks", "slow blinks",
-              "close eyes 1 s", "close eyes 1 s", "close eyes 2 s", "close eyes 2 s", "close eyes 3 s", "close eyes 4 s"]),
-    "yawns": ("Yawning (MAR)", ["yawn", "mar"], ["normal"] * 2 + ["mouth slightly open", "normal", "YAWN (hold 2 s)",
-              "normal", "YAWN (hold 3 s)", "normal", "YAWN (hold 3 s)", "YAWN (hold 4 s)"]),
-    "glasses": ("Head Turn Off-Road with Glasses (yaw)", ["yaw"], ["normal"] * 2 + ["glance left 1 s", "normal",
-              "look left 2 s", "look right 2 s", "look left 3 s", "look right 3 s", "look away 4 s", "look away 5 s"]),
+    "head":  ("Head Nods & Droop (pitch)", ["pitch"], [N, N, ("Nod once", 1.0), N, ("Nod once", 1.0), ("Nod once", 1.0),
+              ("Nod twice", 3.0), ("Nod twice", 3.0), ("Head down", 3.0), ("Head down", 4.0)]),
+    "eyes":  ("Eye Closure (EAR / PERCLOS)", ["ear", "blink"], [N, N, ("Slow blinks", 4.0), ("Slow blinks", 4.0),
+              ("Close eyes", 1.0), ("Close eyes", 1.0), ("Close eyes", 2.0), ("Close eyes", 2.0), ("Close eyes", 3.0), ("Close eyes", 4.0)]),
+    "yawns": ("Yawning (MAR)", ["yawn", "mar"], [N, N, ("Mouth slightly open", 4.0), N, ("Yawn", 2.0), N,
+              ("Yawn", 3.0), N, ("Yawn", 3.0), ("Yawn", 4.0)]),
+    "glasses": ("Head Turn Off-Road with Glasses (yaw)", ["yaw"], [N, N, ("Glance left", 1.0), N, ("Look left", 2.0),
+              ("Look right", 2.0), ("Look left", 3.0), ("Look right", 3.0), ("Look away", 4.0), ("Look away", 5.0)]),
 }
+
+
+def say(text):
+    """Speak without blocking (Windows built-in voice; macOS 'say'; else just print)."""
+    import subprocess, sys
+    try:
+        if sys.platform == "win32":
+            cmd = ("Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+                   f"$s.Rate = 1; $s.Speak('{text}')")
+            subprocess.Popen(["powershell", "-NoProfile", "-Command", cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif sys.platform == "darwin":
+            subprocess.Popen(["say", text])
+    except OSError:
+        pass
+
+
+def beep(freq, ms, times=1):
+    try:
+        import winsound
+        for _ in range(times):
+            winsound.Beep(freq, ms)
+    except (ImportError, RuntimeError):
+        print("\a" * times, end="", flush=True)
+
+
+def spoken(cue):
+    text, hold = cue
+    if hold is None: return "Normal"
+    if text == "Slow blinks": return "Slow blinks"
+    return f"{text}, {hold:g} second" + ("" if hold == 1 else "s")
 
 
 def get(url):
@@ -54,26 +85,44 @@ def main():
     print(f"\n{title}: test {a.test}\nSit 50-70 cm from the camera, face it, good light.")
     input("Press Enter, then act NORMALLY for the 40 s warm-up...")
     end = time.time() + WARMUP
+    said = False
     while time.time() < end:
+        if not said and end - time.time() <= 3.0:
+            say("Starting. " + spoken(cues[0])); said = True
         f = (get(a.url).get("face") or {})
         print(f"\r  warm-up {end - time.time():3.0f} s   face {'OK  ' if f.get('found') else 'LOST'}", end="", flush=True)
         time.sleep(0.5)
     vals, alerts, missing = [], [], 0
+    print("\nListen for the voice and beeps: HIGH beep = start, two LOW beeps = stop / open your eyes.")
     for b in range(BOXES):
-        print(f"\n  box {b + 1:2d}/10  >>> {cues[b].upper()} <<<")
-        samples, fired, t_end = [], False, time.time() + BOX
-        while time.time() < t_end:
+        cue = cues[b]
+        nxt = cues[b + 1] if b + 1 < BOXES else None
+        print(f"\n  box {b + 1:2d}/10  >>> {spoken(cue).upper()} <<<")
+        if cue[1] is not None: beep(1200, 180)                       # start
+        samples, fired, t0, stopped, announced = [], False, time.time(), cue[1] is None, nxt is None
+        while time.time() - t0 < BOX:
+            el = time.time() - t0
+            if not stopped and el >= cue[1]:
+                beep(500, 150, 2); stopped = True                    # stop / open eyes
+            if not announced and el >= BOX - 3.0:
+                say("Next: " + spoken(nxt)); announced = True
             try:
                 s = get(a.url)
             except OSError:
                 missing += 1; time.sleep(0.25); continue
-            v = part(s.get("face"), keys)
+            f = s.get("face") or {}
+            v = part(f, keys)
             if v is not None: samples.append(v)
             fired = fired or bool(s.get("drowsy_sent")) or bool((s.get("esp") or {}).get("alert"))
+            live = (f"eyes {str(f.get('eye_state')):8s} closed {f.get('closed_for') or 0:3.1f}s" if a.row == "eyes" else
+                    f"yawning {bool(f.get('yawning'))!s:5s} MAR {f.get('mar') or 0:4.2f}" if a.row == "yawns" else
+                    f"pitch drop {f.get('pitch_drop') or 0:+5.1f} deg nods {f.get('nods') or 0}" if a.row == "head" else
+                    f"yaw from neutral {f.get('yaw_rel') or 0:+5.1f} deg")
+            print(f"\r      {BOX - el:3.1f}s  {live}  score {v if v is not None else 0:5.1f}   ", end="", flush=True)
             time.sleep(0.25)
         vals.append(round(st.mean(samples), 1) if samples else 0.0)
         if fired: alerts.append(b)
-        print(f"      score {vals[-1]:5.1f}{'   ALERT' if fired else ''}")
+        print(f"\r      box score {vals[-1]:5.1f}{'   ALERT' if fired else ''}" + " " * 50)
     data = json.loads(Path(a.out).read_text()) if Path(a.out).exists() else {}
     tests = data.setdefault(a.row, [None] * 4)
     while len(tests) < a.test: tests.append(None)
