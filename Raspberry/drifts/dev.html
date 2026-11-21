@@ -124,11 +124,11 @@ footer{margin-top:26px;font-size:12px;color:var(--muted)}
 
   <section style="--c:var(--sand)">
     <h2>III – ROAD GAZE</h2>
-    <h3>A – IRIS BETWEEN THE EYE CORNERS</h3>
-    <div class="view ring" style="--c:var(--sand)"><img id="v-gaze" alt="Both eyes with corners and iris"><div class="empty" id="e-gaze">Looking for a face…</div></div>
+    <h3>A – WHERE THE EYES POINT</h3>
+    <div class="view ring" style="--c:var(--sand)"><img id="v-gaze" alt="Road box with a gaze target"><div class="empty" id="e-gaze">Looking for a face…</div></div>
     <h3>B – IRIS POSITION</h3>
     <div class="formula serif">t = (iris − P1)·(P4 − P1) / |P4 − P1|² − ½</div>
-    <p class="desc">0 is centred. The pale band is the road zone (|t| ≤ limit); 3 s outside it counts as off the road.</p>
+    <p class="desc">The dashed box is the road zone (|t| ≤ limit). The target moves with the irises (left/right) and head pitch (up/down), and turns red off the road; 3 s off counts.</p>
     <div class="nums"><div><div class="big" id="n-gaze">--</div><div class="lab">t (CALIBRATED)</div></div>
       <div class="kv"><span>Limit</span><b id="n-limit">--</b><span>Off road for</span><b id="n-off">--</b>
         <span>Head yaw / pitch</span><b id="n-yp">--</b><span>Calibrated</span><b id="n-cal">--</b></div>
@@ -189,7 +189,7 @@ function stats(){
     $("n-mar").textContent=f2(s.mar); $("n-yawns").textContent=s.yawns==null?"--":s.yawns;
     $("s-mouth").textContent=s.yawning?"YAWNING":"RELAXED"; $("s-mouth").classList.toggle("bad",!!s.yawning);
     seg($("g-mar"), s.mar==null?null:s.mar/0.7);
-    $("n-gaze").textContent=s.gaze_x==null?"--":(s.gaze_x>=0?"+":"")+f2(s.gaze_x); $("n-limit").textContent="± "+f2(s.gaze_limit);
+    $("n-gaze").textContent=s.gaze_x==null?"--":(Math.abs(s.gaze_x)<0.005?"0.00":(s.gaze_x>0?"+":"")+f2(s.gaze_x)); $("n-limit").textContent="± "+f2(s.gaze_limit);
     $("n-off").textContent=s.gaze_off_s==null?"--":f2(s.gaze_off_s,1)+" s"; $("n-cal").textContent=s.gaze_calibrated?"yes":"calibrating";
     $("n-yp").textContent=s.yaw==null?"--":`${Math.round(s.yaw)}° / ${Math.round(s.pitch)}°`;
     $("s-gaze").textContent=s.gaze_off?"OFF ROAD":"ON ROAD"; $("s-gaze").classList.toggle("bad",!!s.gaze_off);

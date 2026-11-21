@@ -6,8 +6,8 @@ Draws, from one frame and its 478 face-mesh landmarks:
          eyelid openings |P2-P6|, |P3-P5| and the corner-to-corner width |P1-P4|
   mouth  the mouth, zoomed: the eight MAR points, the three inner-lip openings
          and the inner width
-  gaze   both eyes side by side: the corners, the iris centre and where the
-         iris sits between them (t), with the off-road band
+  gaze   the road zone as a box with a target: iris position t across,
+         head pitch up/down; the target turns red off the road
   face   the whole frame with every point used, small
 
 The /dev page (dev.html) shows them. They are drawn only while that page is
@@ -164,39 +164,51 @@ def mouth_view(img, P, f: dict, out=(620, 380)):
 
 
 def gaze_view(img, P, f: dict, out=(620, 380)):
-    """Both eyes: corners, iris centre and the iris position t between them."""
+    """The road zone as a box with a target: where the eyes point (iris t across, head pitch up/down)."""
     import cv2
     import numpy as np
-    s = out[0] / 620
-    half = (out[0] // 2, out[1])
-    panels = []
+    W, H = out
+    s = W / 620
+    view = np.zeros((H, W, 3), np.uint8)
+    view[:] = INK
     limit = float(f.get("gaze_limit") or 0.16)
     off = bool(f.get("gaze_off"))
-    for (a, b), iris in (((33, 133), fs.IRIS_RIGHT), ((362, 263), fs.IRIS_LEFT)):
-        crop, to = _crop(img, P, (a, b, iris), 0.7, half)
-        crop = _tone(crop)
-        pa, pb, pi = to(a), to(b), to(iris)
-        lo, hi = (pa, pb) if pa[0] < pb[0] else (pb, pa)
-        y = (lo[1] + hi[1]) / 2 + 62 * s
-        tt = max(2, int(3 * s))
-        # the road band: the middle of the eye, +/- gaze_limit
-        mid = ((lo[0] + hi[0]) / 2, y)
-        span = hi[0] - lo[0]
-        band = (mid[0] - span * limit, mid[0] + span * limit)
-        cv2.rectangle(crop, (int(band[0]), int(y - 9 * s)), (int(band[1]), int(y + 9 * s)), SAND, -1, cv2.LINE_AA)
-        _line(crop, (lo[0], y), (hi[0], y), CREAM, tt)
-        _line(crop, (pi[0], pi[1]), (pi[0], y), RED if off else CREAM, tt)
-        cv2.circle(crop, (int(pi[0]), int(y)), int(9 * s), RED if off else MAROON, -1, cv2.LINE_AA)
-        for q, lab in ((lo, "P1"), (hi, "P4")):
-            _dot(crop, q, 6 * s)
-            _label(crop, lab, q, 0, -30 * s, 0.7 * s)
-        cv2.circle(crop, (int(pi[0]), int(pi[1])), int(12 * s), CREAM, max(2, int(3 * s)), cv2.LINE_AA)
-        _dot(crop, pi, 5 * s)
-        panels.append(crop)
-    view = np.concatenate(panels[::-1], axis=1)           # image-left eye first
-    cv2.line(view, (half[0], 0), (half[0], out[1]), INK, max(2, int(4 * s)))
+    cx, cy = W / 2, H / 2 + 14 * s
+    bw, bh = W * 0.26, H * 0.27                           # half-size of the road box = +/- limit
+    # crosshair axes
+    for a_, b_ in (((cx, 18 * s), (cx, H - 12 * s)), ((14 * s, cy), (W - 14 * s, cy))):
+        _line(view, a_, b_, MAROON, max(1, int(2 * s)))
+    # the road box: tinted, rounded, dashed outline
+    x0, y0, x1, y1 = int(cx - bw), int(cy - bh), int(cx + bw), int(cy + bh)
+    tint = view.copy()
+    cv2.rectangle(tint, (x0, y0), (x1, y1), RUST if off else MAROON, -1, cv2.LINE_AA)
+    cv2.addWeighted(tint, 0.35, view, 0.65, 0, view)
+    col = RED if off else SAND
+    per = int(18 * s)
+    for (ax, ay), (bx, by) in (((x0, y0), (x1, y0)), ((x1, y0), (x1, y1)), ((x1, y1), (x0, y1)), ((x0, y1), (x0, y0))):
+        L = int(math.hypot(bx - ax, by - ay))
+        for d in range(0, L, per):
+            e = min(L, d + per * 0.6)
+            cv2.line(view, (int(ax + (bx - ax) * d / L), int(ay + (by - ay) * d / L)),
+                     (int(ax + (bx - ax) * e / L), int(ay + (by - ay) * e / L)), col, max(2, int(3 * s)), cv2.LINE_AA)
+    cv2.putText(view, "ROAD", (int(cx - 34 * s), int(y0 - 12 * s)), cv2.FONT_HERSHEY_DUPLEX, 0.75 * s, CREAM,
+                max(1, int(1.6 * s)), cv2.LINE_AA)
+    # target: iris position across, head pitch (relative to neutral) up/down
     g = f.get("gaze_x")
-    _banner(view, "GAZE t", "--" if g is None else f"{g:+.2f}  {'OFF ROAD' if off else 'ON ROAD'}", SAND)
+    pitch = f.get("pitch_drop")
+    tx = cx + (0.0 if g is None else max(-2.2, min(2.2, g / limit)) * bw)
+    ty = cy + (0.0 if pitch is None else max(-2.2, min(2.2, pitch / 20.0)) * bh)
+    r = 26 * s
+    tx = min(max(tx, r * 1.6), W - r * 1.6)
+    ty = min(max(ty, 60 * s + r * 1.5), H - r * 1.6)
+    if f.get("found", True):
+        tc = RED if off else CREAM
+        cv2.circle(view, (int(tx), int(ty)), int(r), tc, max(3, int(4 * s)), cv2.LINE_AA)
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            _line(view, (tx + dx * r * 0.55, ty + dy * r * 0.55), (tx + dx * r * 1.45, ty + dy * r * 1.45), tc,
+                  max(2, int(3 * s)))
+        cv2.circle(view, (int(tx), int(ty)), int(10 * s), RED if off else SALMON, -1, cv2.LINE_AA)
+    _banner(view, "GAZE t", "--" if g is None else f"{(g if abs(g) >= 0.005 else 0.0):+.2f}  {'OFF ROAD' if off else 'ON ROAD'}", SAND)
     return view
 
 

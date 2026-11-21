@@ -37,7 +37,7 @@ def test_render_all_views():
     v = devview.render(frame, synthetic_face(), face, mirrored=False)
     assert set(v) == {"eye", "mouth", "gaze", "face"}
     assert v["eye"].shape == (380, 620, 3) and v["mouth"].shape == (380, 620, 3)
-    assert v["gaze"].shape[0] == 380
+    assert v["gaze"].shape == (380, 620, 3)
     # the landmark dots are drawn in the poster red (BGR 1A 20 D0)
     assert ((v["eye"] == devview.RED).all(axis=2)).sum() > 50
 
@@ -53,3 +53,14 @@ def test_mouth_labels_match_formula():
     m = devview.MOUTH_ORDER
     assert (m[0], m[4]) == CORNERS
     assert {(m[1], m[7]), (m[2], m[6]), (m[3], m[5])} == set(UPPER_LOWER)
+
+
+def test_gaze_target_moves_and_turns_red_off_road():
+    frame = np.full((480, 640, 3), 128, np.uint8)
+    px = synthetic_face()
+    on = devview.render(frame, px, {"gaze_x": 0.0, "gaze_limit": 0.16, "gaze_off": False}, False)["gaze"]
+    off = devview.render(frame, px, {"gaze_x": 0.3, "gaze_limit": 0.16, "gaze_off": True}, False)["gaze"]
+    red = lambda im: ((np.abs(im.astype(int) - devview.RED) < 20).all(axis=2))
+    assert red(off).sum() > red(on).sum() + 500
+    cols = np.where(red(off).any(axis=0))[0]
+    assert cols.max() > 620 * 0.85                      # the target sits past the right of the road box
