@@ -8,6 +8,8 @@ Draws, from one frame and its 478 face-mesh landmarks:
          and the inner width
   gaze   the road zone as a box with a target: iris position t across,
          head pitch up/down; the target turns red off the road
+  nose   the nose, zoomed: bridge, tip and nostril edges for NAR (the
+         sunglasses-mode nod check)
   face   the whole frame with every point used, small
 
 The /dev page (dev.html) shows them. They are drawn only while that page is
@@ -203,6 +205,30 @@ def mouth_view(img, P, f: dict, out=(620, 380)):
     return crop
 
 
+def nose_view(img, P, f: dict, out=(620, 380)):
+    """The nose, zoomed: bridge P1, tip P2, nostril edges P3/P4; NAR = |P1-P2| / |P3-P4|."""
+    idx = (fs.NAR_BRIDGE, fs.NAR_TIP, fs.NAR_ALAE[0], fs.NAR_ALAE[1])
+    crop, to = _crop(img, P, idx, 0.6, out)
+    crop = _tone(crop)
+    s = out[0] / 620
+    t = max(1, int(2 * s))
+    p = [to(i) for i in idx]
+    _arrow(crop, p[0], p[1], t, s)                        # length: bridge -> tip
+    _arrow(crop, p[2], p[3], t, s)                        # width: nostril edges
+    items = []
+    for k, q in enumerate(p):
+        _dot(crop, q, 7 * s)
+        dx, dy = ((0, -36 * s), (38 * s, -12 * s), (-52 * s, 0), (52 * s, 0))[k]
+        if p[2][0] > p[3][0] and k >= 2:
+            dx = -dx
+        items.append((q, k + 1, dx, dy))
+    _labels(crop, items, s)
+    v, rel = f.get("nar"), f.get("nar_rel")
+    val = "--" if v is None else f"{v:.2f}" + ("" if rel is None else f"  ({0 if abs(rel) < 0.005 else rel * 100:+.0f}%)")
+    _banner(crop, "NAR", val, MAROON)
+    return crop
+
+
 def gaze_view(img, P, f: dict, out=(620, 380)):
     """The road zone as a box with a target: where the eyes point (iris t across, head pitch up/down)."""
     import cv2
@@ -265,7 +291,10 @@ def face_view(img, P, f: dict, max_w: int = 900):
         pts = [tuple(Q[i]) for i in idx]
         for a, b in zip(pts, pts[1:] + pts[:1]):
             _line(small, a, b, col, max(1, int(2 * s)))
-    for i in fs.EAR_RIGHT + fs.EAR_LEFT + MOUTH_ORDER + (fs.IRIS_LEFT, fs.IRIS_RIGHT, fs.NOSE_TIP):
+    pts = [tuple(Q[i]) for i in (fs.NAR_BRIDGE, fs.NAR_TIP)]
+    _line(small, pts[0], pts[1], MAROON, max(1, int(2 * s)))
+    _line(small, tuple(Q[fs.NAR_ALAE[0]]), tuple(Q[fs.NAR_ALAE[1]]), MAROON, max(1, int(2 * s)))
+    for i in fs.EAR_RIGHT + fs.EAR_LEFT + MOUTH_ORDER + (fs.IRIS_LEFT, fs.IRIS_RIGHT, fs.NAR_BRIDGE, fs.NAR_TIP) + fs.NAR_ALAE:
         _dot(small, tuple(Q[i]), 3.5 * s)
     return small
 
@@ -276,4 +305,5 @@ def render(frame, px: Optional[Sequence], face: dict, mirrored: bool) -> Optiona
         return None
     P = _pts(px, mirrored, frame.shape[1])
     return {"eye": eye_view(frame, P, face), "mouth": mouth_view(frame, P, face),
-            "gaze": gaze_view(frame, P, face), "face": face_view(frame, P, face)}
+            "gaze": gaze_view(frame, P, face), "nose": nose_view(frame, P, face),
+            "face": face_view(frame, P, face)}

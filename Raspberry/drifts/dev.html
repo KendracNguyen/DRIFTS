@@ -43,8 +43,9 @@ button[aria-pressed=true]{background:var(--red)}
 .credits{margin:14px 0 0;font:700 16px Bebas,sans-serif;letter-spacing:.03em;color:#2E2E2E}
 .rule{height:9px;background:var(--tan);margin:10px 0 8px}
 /* sections */
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0 30px}
-@media(max-width:1100px){.grid{grid-template-columns:1fr}}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0 26px}
+@media(max-width:1400px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
 section{padding-top:6px;margin-bottom:26px}
 h2{margin:0;font:700 50px/1 Bebas,sans-serif;color:var(--maroon)}
 h3{margin:12px 0 6px;padding-top:6px;border-top:3px solid var(--ink);font:700 22px/1 Bebas,sans-serif;color:#3A3A3A;letter-spacing:.02em}
@@ -52,7 +53,7 @@ h3{margin:12px 0 6px;padding-top:6px;border-top:3px solid var(--ink);font:700 22
 .view img{display:block;width:100%;height:100%;object-fit:cover}
 .view .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--cream);font:700 26px Bebas,sans-serif;letter-spacing:.04em;text-align:center;padding:20px}
 .ring{box-shadow:0 0 0 6px var(--c)}
-.formula{font-size:21px;font-weight:700;margin:10px 0 2px}
+.formula{font-size:20px;font-weight:700;margin:10px 0 2px}
 .formula sub{font-size:.6em}
 .desc{font-size:16px;color:#4A3A2E;margin:0}
 .nums{display:flex;align-items:flex-end;gap:22px;margin-top:10px;flex-wrap:wrap}
@@ -84,7 +85,7 @@ footer{margin-top:26px;font-size:12px;color:var(--muted)}
   <div><div class="bb wake">WAKE UP</div><div class="bb drifts">DRIFTS</div></div>
   <div class="bb sub">DEV VIEW · WHAT THE CAMERA MEASURES</div>
   <p class="serif lede">Live close-ups of the <b>face-mesh points</b> behind each signal: the <b>six eye points</b> (EAR),
-    the <b>eight mouth points</b> (MAR) and the <b>iris between the eye corners</b> (road gaze). Press <b>Freeze</b> to hold a frame for a screenshot.</p>
+    the <b>eight mouth points</b> (MAR) and the <b>iris between the eye corners</b> (road gaze) and the <b>nose</b> (NAR, the sunglasses nod check). Press <b>Freeze</b> to hold a frame for a screenshot.</p>
   <div class="tools">
     <span class="chip" id="chip">connecting…</span>
     <button id="freeze" aria-pressed="false">Freeze</button>
@@ -135,11 +136,25 @@ footer{margin-top:26px;font-size:12px;color:var(--muted)}
       <span class="state" id="s-gaze">--</span></div>
     <div class="seg" id="g-gaze"></div>
   </section>
+
+  <section style="--c:var(--maroon)">
+    <h2>IV – HEAD · NAR</h2>
+    <h3>A – NOSE, ZOOMED (SUNGLASSES CHECK)</h3>
+    <div class="view ring" style="--c:var(--maroon)"><img id="v-nose" alt="Zoomed nose with points P1 to P4"><div class="empty" id="e-nose">Looking for a face…</div></div>
+    <h3>B – NOSE ASPECT RATIO</h3>
+    <div class="formula serif">NAR = |P1 − P2| / |P3 − P4|</div>
+    <p class="desc">Bridge-to-tip length over nostril width. It rises as the head drops. With sunglasses a pitch drop counts as a nod only if NAR also rises 5 % above the driver’s neutral.</p>
+    <div class="nums"><div><div class="big" id="n-nar">--</div><div class="lab">NAR VS. NEUTRAL</div></div>
+      <div class="kv"><span>NAR / neutral</span><b id="n-narv">--</b><span>Pitch drop</span><b id="n-drop">--</b>
+        <span>Nods counted</span><b id="n-nods">--</b><span>Rejected by nose</span><b id="n-rej">--</b></div>
+      <span class="state" id="s-nose">--</span></div>
+    <div class="seg" id="g-nar"></div>
+  </section>
 </div>
 
 <div class="rule" style="margin-top:22px"></div>
 <section>
-  <h2>IV – EVERY POINT, WHOLE FACE</h2>
+  <h2>V – EVERY POINT, WHOLE FACE</h2>
   <div class="face">
     <div><h3>A – LIVE FRAME</h3><div class="view"><img id="v-face" alt="Whole face with every measured point"><div class="empty" id="e-face">Looking for a face…</div></div></div>
     <div class="legend"><h3>B – KEY</h3>
@@ -147,7 +162,7 @@ footer{margin-top:26px;font-size:12px;color:var(--muted)}
       <div><em style="--c:var(--salmon)"></em><span><b>Eyes · EAR</b>: P1–P6 on each eye</span></div>
       <div><em style="--c:var(--peach)"></em><span><b>Mouth · MAR</b>: P1–P8 on the inner lips</span></div>
       <div><em style="--c:var(--sand)"></em><span><b>Road gaze</b>: eye corners and iris centre</span></div>
-      <div><em style="--c:var(--maroon)"></em><span><b>Head pose</b>: nose tip, yaw / pitch / roll from the mesh</span></div>
+      <div><em style="--c:var(--maroon)"></em><span><b>Head · NAR</b>: nose bridge, tip and nostril edges; yaw / pitch / roll from the mesh</span></div>
       <p class="desc serif" style="font-size:19px;margin-top:8px">Nothing on this page is saved. The close-ups are drawn only while it is open, and every frame is dropped after it is measured.</p>
       <div class="kv" style="font-size:15px"><span>Face state</span><b id="n-state">--</b><span>Face score</span><b id="n-fscore">--</b>
         <span>Glasses mode</span><b id="n-glasses">--</b><span>Camera FPS</span><b id="n-fps">--</b></div>
@@ -158,7 +173,7 @@ footer{margin-top:26px;font-size:12px;color:var(--muted)}
 </div>
 <script>
 const $=id=>document.getElementById(id);
-const V=["eye","mouth","gaze","face"];
+const V=["eye","mouth","gaze","nose","face"];
 let frozen=false, busy={};
 function seg(el,frac){
   if(!el.children.length) for(let i=0;i<10;i++) el.appendChild(document.createElement("i"));
@@ -194,6 +209,13 @@ function stats(){
     $("n-yp").textContent=s.yaw==null?"--":`${Math.round(s.yaw)}° / ${Math.round(s.pitch)}°`;
     $("s-gaze").textContent=s.gaze_off?"OFF ROAD":"ON ROAD"; $("s-gaze").classList.toggle("bad",!!s.gaze_off);
     seg($("g-gaze"), s.gaze_dev==null||!s.gaze_limit?null:s.gaze_dev/(s.gaze_limit*2));
+    $("n-nar").textContent=s.nar_rel==null?"--":(Math.abs(s.nar_rel)<0.005?"0":(s.nar_rel>0?"+":"")+Math.round(s.nar_rel*100))+"%";
+    $("n-narv").textContent=`${f2(s.nar)} / ${f2(s.nar_neutral)}`; $("n-drop").textContent=s.pitch_drop==null?"--":f2(Math.abs(s.pitch_drop)<0.05?0:s.pitch_drop,1)+"°";
+    $("n-nods").textContent=s.nods??"--"; $("n-rej").textContent=s.nods_rejected??"--";
+    const noseDown=s.nar_rel!=null&&s.nar_rel>=(s.nar_rise||0.05);
+    $("s-nose").textContent=s.nod_check?(noseDown?"NOSE: HEAD DOWN":"NOSE: LEVEL"):"CHECK OFF (NO SUNGLASSES)";
+    $("s-nose").classList.toggle("bad",!!s.nod_check&&noseDown);
+    seg($("g-nar"), s.nar_rel==null?null:s.nar_rel/((s.nar_rise||0.05)*2));
     $("n-state").textContent=s.state||"--"; $("n-fscore").textContent=s.face_score==null?"--":Math.round(s.face_score);
     $("n-glasses").textContent=s.glasses?"on (weight on head pose)":"off"; $("n-fps").textContent=s.fps;
   }).catch(()=>$("chip").textContent="DRIFTS is not running");

@@ -238,8 +238,13 @@ class NodTracker:
         self.drop: Optional[float] = None
         self.neutral: Optional[float] = None
         self.total_nods = 0
+        self.rejected = 0                 # pitch drops the nose check (NAR) did not confirm
+        self._confirmed = True
 
-    def update(self, now: float, pitch: Optional[float]) -> None:
+    def update(self, now: float, pitch: Optional[float], confirm: Optional[bool] = None) -> None:
+        """confirm: None = no second check (normal mode). With sunglasses facemesh.py passes
+        whether the nose ratio (NAR) also shows the head down; a drop is then counted
+        as a nod or droop only if the nose agreed at some point while it was down."""
         while self._pitch and now - self._pitch[0][0] > self.neutral_s:
             self._pitch.popleft()
         while self.nods and now - self.nods[0] > self.window_s:
@@ -257,17 +262,23 @@ class NodTracker:
         vals = sorted(p for _, p in self._pitch)
         self.neutral = vals[len(vals) // 2]
         self.drop = pitch - self.neutral
+        if self.down_since is not None and confirm:
+            self._confirmed = True
         if self.down_since is None and self.drop >= self.drop_deg:
             self.down_since = now
+            self._confirmed = confirm is None or bool(confirm)
         elif self.down_since is not None and self.drop <= self.back_deg:
             dur = now - self.down_since
             if 0.25 <= dur <= 3.0:
-                self.nods.append(now)
-                self.total_nods += 1
+                if self._confirmed:
+                    self.nods.append(now)
+                    self.total_nods += 1
+                else:
+                    self.rejected += 1
             self.down_since = None
 
     def droop_s(self, now: float) -> float:
-        if self.down_since is None:
+        if self.down_since is None or not self._confirmed:
             return 0.0
         d = now - self.down_since
         return d if d > 2.0 else 0.0
@@ -276,6 +287,54 @@ class NodTracker:
         if self.neutral is None:
             return None
         return max(0.0, min(100.0, 100.0 - 20.0 * len(self.nods) - 20.0 * self.droop_s(now)))
+
+
+# ---------------------------------------------------------------- nose (NAR)
+# Nose aspect ratio: nose length over nostril width, from nose points only, so
+# sunglasses never hide it. The classic NAR (bridge to the base of the nose)
+# barely moves with a nod and also moves with a head turn; measured on a
+# MediaPipe mesh tilted in 3D it changes 2-7 % for 10-20 deg either way. Bridge
+# to nose TIP grows steadily as the head drops (about +6 % at 10 deg, +9 % at
+# 20 deg), because the tip sticks out of the face, so that is the length used.
+NAR_BRIDGE, NAR_TIP, NAR_ALAE = 168, 1, (98, 327)
+
+
+def nar(px: Sequence) -> Optional[float]:
+    """|bridge - tip| / |left ala - right ala|, or None."""
+    if px is None or len(px) <= max(NAR_BRIDGE, *NAR_ALAE):
+        return None
+    w = _d(px, *NAR_ALAE)
+    return None if w < 1e-6 else _d(px, NAR_BRIDGE, NAR_TIP) / w
+
+
+class NarTracker:
+    """NAR relative to the driver's own neutral (median of the last 30 s of
+    frames where the head was not down). head_down: NAR at least `rise` above
+    neutral, the nose-only sign of a nod used to confirm pitch with sunglasses."""
+
+    def __init__(self, rise: float = 0.05, neutral_s: float = 30.0, min_samples: int = 10):
+        self.rise, self.neutral_s, self.min_samples = rise, neutral_s, min_samples
+        self._v: deque = deque()
+        self.value: Optional[float] = None
+        self.neutral: Optional[float] = None
+        self.rel: Optional[float] = None
+
+    def update(self, now: float, value: Optional[float], head_down: bool) -> Optional[bool]:
+        self.value = value
+        while self._v and now - self._v[0][0] > self.neutral_s:
+            self._v.popleft()
+        if value is None:
+            self.rel = None
+            return None
+        if not head_down:
+            self._v.append((now, value))
+        if len(self._v) < self.min_samples:
+            self.neutral = self.rel = None
+            return None
+        vals = sorted(v for _, v in self._v)
+        self.neutral = vals[len(vals) // 2]
+        self.rel = value / self.neutral - 1.0
+        return self.rel >= self.rise
 
 
 # ---------------------------------------------------------------- glasses

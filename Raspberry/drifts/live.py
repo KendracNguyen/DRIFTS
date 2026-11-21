@@ -429,7 +429,8 @@ class Pipeline:
         f = self.camera.face if self.face_on else {}
         keys = ("found", "ear", "ear_l", "ear_r", "ear_terms", "ear_open", "openness", "eye_state", "closed_for",
                 "perclos", "mar", "yawning", "yawns", "gaze_x", "gaze_dev", "gaze_limit", "gaze_off", "gaze_off_s",
-                "gaze_calibrated", "yaw", "pitch", "roll", "glasses", "state", "face_score")
+                "gaze_calibrated", "yaw", "pitch", "roll", "glasses", "state", "face_score", "nar", "nar_neutral",
+                "nar_rel", "nar_rise", "nod_check", "pitch_drop", "nods", "nods_rejected")
         return {"face_mesh": self.face_on, "frozen": self.dev_frozen, "fps": round(self.eye.get("fps") or 0, 1),
                 **{k: f.get(k) for k in keys}}
 

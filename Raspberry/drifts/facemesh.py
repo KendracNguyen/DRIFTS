@@ -91,6 +91,7 @@ class FaceMeshSource:
         self._lm = landmarker                      # injectable for tests
         self.eyes = fs.EyeTracker()
         self.nods = fs.NodTracker()
+        self.nar = fs.NarTracker()
         self.glasses = fs.GlassesDetector(mode=glasses)
         self.yawns = YawnDetector()
         self.yaw_n, self.roll_n = fs.Neutral(), fs.Neutral()
@@ -236,8 +237,11 @@ class FaceMeshSource:
         if found and m is not None:
             yaw, pitch, roll = fs.angles_from_matrix(m)
             yaw *= self.yaw_sign
-        self.nods.update(now, pitch)
         glasses = self.glasses.update(now, edge)
+        # Sunglasses: the eye points are guessed under the lenses and head pose leans on
+        # them, so a pitch drop counts as a nod only if the nose (NAR) agrees.
+        nar_down = self.nar.update(now, fs.nar(px) if found else None, head_down=self.nods.down_since is not None)
+        self.nods.update(now, pitch, confirm=(bool(nar_down) if nar_down is not None else None) if glasses else None)
         mr = mar(px) if found else None
         self.yawns.update(now, mr)
         self.keypoints = self._coco(px) if found else None
@@ -287,6 +291,9 @@ class FaceMeshSource:
             "mar": mr, "yawning": self.yawns.yawning(), "yawns": self.yawns.recent(now),
             "nods": len(self.nods.nods), "nods_total": self.nods.total_nods,
             "pitch_drop": self.nods.drop, "droop_s": self.nods.droop_s(now),
+            "nar": self.nar.value, "nar_neutral": self.nar.neutral, "nar_rel": self.nar.rel,
+            "nar_rise": self.nar.rise, "nod_check": "nose (NAR)" if glasses else None,
+            "nods_rejected": self.nods.rejected,
             "glasses": glasses, "glasses_mode": self.glasses.mode, "glasses_level": self.glasses.level,
             "glasses_edge": edge,
             "gaze_off_s": gaze_off_s, "gaze_off": bool(gaze_off_now), "gaze_limit": self.gaze_limit,

@@ -28,6 +28,8 @@ def synthetic_face(w=640, h=480):
         x = (320, 305, 335)[k]
         px[a], px[b] = (x, 312), (x, 330)
     px[fs.NOSE_TIP] = (320, 260)
+    px[fs.NAR_BRIDGE] = (320, 205)
+    px[fs.NAR_ALAE[0]], px[fs.NAR_ALAE[1]] = (302, 272), (338, 272)
     return px
 
 
@@ -35,7 +37,7 @@ def test_render_all_views():
     frame = np.full((480, 640, 3), 128, np.uint8)
     face = {"ear_r": 0.3, "mar": 0.3, "gaze_x": 0.02, "gaze_limit": 0.16, "gaze_off": False}
     v = devview.render(frame, synthetic_face(), face, mirrored=False)
-    assert set(v) == {"eye", "mouth", "gaze", "face"}
+    assert set(v) == {"eye", "mouth", "gaze", "nose", "face"}
     assert v["eye"].shape == (380, 620, 3) and v["mouth"].shape == (380, 620, 3)
     assert v["gaze"].shape == (380, 620, 3)
     # the landmark dots are drawn in the poster red (BGR 0B 12 E3)
