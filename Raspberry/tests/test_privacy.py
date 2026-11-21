@@ -52,9 +52,21 @@ def test_training_capture_is_counted_as_saved(tmp_path):
 
 
 def test_dev_view_is_gone():
+    """The old always-on dev view (full-frame streams, mesh packets) stays removed."""
     import drifts.facemesh as fm
     src = (Path(__file__).resolve().parents[1] / "drifts" / "live.py").read_text()
-    for gone in ('"/dev"', "/face.sse", "/cam.mjpg", "/dev.mjpg", "/mesh.json", "/drowsy.json"):
+    for gone in ("/face.sse", "/cam.mjpg", "/dev.mjpg", "/mesh.json", "/drowsy.json"):
         assert gone not in src, gone
     assert not hasattr(fm.FaceMeshSource, "render_dev") and not hasattr(fm.FaceMeshSource, "packet")
     assert not (Path(__file__).resolve().parents[1] / "drifts" / "devview.html").exists()
+
+
+def test_dev_page_is_opt_in():
+    """The /dev close-ups exist only when DRIFTS is started with --dev."""
+    from drifts.live import build_parser
+    assert build_parser().parse_args([]).dev is False
+    assert build_parser().parse_args(["--dev"]).dev is True
+    src = (Path(__file__).resolve().parents[1] / "drifts" / "live.py").read_text()
+    routes = [ln for ln in src.splitlines() if "elif" in ln and ('"/dev' in ln)]
+    assert len(routes) == 4 and all("pipe.args.dev" in ln for ln in routes), routes
+    assert "if self.args.dev and now < self.dev_until" in src

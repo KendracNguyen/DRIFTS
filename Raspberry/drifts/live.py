@@ -154,6 +154,9 @@ class Pipeline:
         self.viewer_id = 0
         self._viewer_t = 0.0
         self.viewers = 0                          # phones watching the visitor stream now
+        self.dev_until = 0.0                      # /dev page open: draw the close-ups
+        self.dev_jpegs: dict = {}
+        self.dev_frozen = False
         self.frames_analysed = 0
         self.sent_log: collections.deque = collections.deque(maxlen=12)   # (t, message) to the ESP32
         self.perf = PerfMonitor()
@@ -406,6 +409,30 @@ class Pipeline:
         if 0 in pts:
             self._draw_heading(img, pts[0], span * 0.35, mirrored, max(2, int(span / 90)))
 
+    def _render_dev(self, frame) -> None:
+        """The /dev page's close-ups (eye EAR points, mouth MAR points, gaze, whole face)."""
+        import cv2
+        from drifts import devview
+        px = getattr(self.camera, "landmarks", None) if self.face_on else None
+        face = dict(self.camera.face) if self.face_on else {}
+        views = devview.render(frame, px, face, self.args.mirror)
+        if views is None:
+            with self._lock:
+                self.dev_jpegs = {}
+            return
+        enc = {k: cv2.imencode(".jpg", v, [cv2.IMWRITE_JPEG_QUALITY, 90])[1].tobytes() for k, v in views.items()}
+        with self._lock:
+            self.dev_jpegs = enc
+
+    def dev_status(self) -> dict:
+        """Numbers beside the /dev close-ups."""
+        f = self.camera.face if self.face_on else {}
+        keys = ("found", "ear", "ear_l", "ear_r", "ear_terms", "ear_open", "openness", "eye_state", "closed_for",
+                "perclos", "mar", "yawning", "yawns", "gaze_x", "gaze_dev", "gaze_limit", "gaze_off", "gaze_off_s",
+                "gaze_calibrated", "yaw", "pitch", "roll", "glasses", "state", "face_score")
+        return {"face_mesh": self.face_on, "frozen": self.dev_frozen, "fps": round(self.eye.get("fps") or 0, 1),
+                **{k: f.get(k) for k in keys}}
+
     def request_capture(self, label: str, n: int) -> None:
         with self._lock:
             self._burst += [label] * max(1, min(n, 50))
@@ -524,6 +551,8 @@ class Pipeline:
                         hook(self, now)
                     except Exception as exc:          # a bad hook must not stop the camera
                         log.warning("hook %s failed: %s", getattr(hook, "__name__", hook), exc)
+                if self.args.dev and now < self.dev_until and not self.dev_frozen:
+                    self._render_dev(frame)
                 if now - self._perf_t >= 2.0:
                     self._perf, self._perf_t = self.perf.snapshot(), now
                 self.frames_analysed += 1
@@ -741,6 +770,24 @@ def make_handler(pipe: Pipeline):
                     self.wfile.write(body)
                 else:
                     self._send(404, b"no such font", "text/plain")
+            elif path == "/dev" and pipe.args.dev:
+                self._send(200, PAGE_FILE.with_name("dev.html").read_bytes(), "text/html; charset=utf-8")
+            elif path == "/dev.json" and pipe.args.dev:
+                pipe.dev_until = time.time() + 3.0
+                self._send(200, json.dumps(pipe.dev_status()).encode(), "application/json")
+            elif path.startswith("/dev/") and path.endswith(".jpg") and pipe.args.dev:
+                pipe.dev_until = time.time() + 3.0           # close-ups are drawn only while watched
+                with pipe._lock:
+                    body = pipe.dev_jpegs.get(Path(path).stem)
+                if body is None:
+                    self._send(404, b"no face", "text/plain")
+                else:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/jpeg")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    self.wfile.write(body)
             elif path == "/compare":
                 self._send(200, PAGE_FILE.with_name("compare.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/status.json":
@@ -821,6 +868,9 @@ def make_handler(pipe: Pipeline):
                 return
             if u.path == "/capture" and q.get("label", [""])[0] in LABELS:
                 pipe.request_capture(q["label"][0], int(q.get("n", ["1"])[0]))
+                self._send(200, b"ok", "text/plain")
+            elif u.path == "/dev/freeze" and pipe.args.dev:
+                pipe.dev_frozen = q.get("on", ["1"])[0] == "1"
                 self._send(200, b"ok", "text/plain")
             elif u.path == "/calibrate":
                 pipe.recalibrate()
@@ -930,6 +980,9 @@ def build_parser(prog: str = "python -m drifts.live") -> argparse.ArgumentParser
     p.add_argument("--no-eye", action="store_true", help="show eye tracking but do not send EYE scores")
     p.add_argument("--work-width", type=int, default=320, help="detection resolution (lower = faster)")
     p.add_argument("--mirror", action="store_true", help="mirror the image (selfie view)")
+    p.add_argument("--dev", action="store_true",
+                   help="serve the /dev page: zoomed eye (EAR), mouth (MAR) and gaze close-ups for screenshots. "
+                        "Off by default: without it the app serves no camera close-ups")
     p.add_argument("--capture-dir", default="captures", help="where training frames are saved")
     p.add_argument("--trips", default="logs/trips.json", help="trip summaries for the History tab")
     p.add_argument("--debug", action="store_true")

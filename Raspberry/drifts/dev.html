@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DRIFTS Dev View</title>
+<link rel="icon" href="/static/icons/icon-32.png">
+<style>
+@font-face{font-family:"Bebas";src:url(/static/fonts/BebasNeue-Bold.woff2) format("woff2");font-weight:700}
+@font-face{font-family:"Garamond";src:url(/static/fonts/EBGaramond-Regular.woff2) format("woff2")}
+@font-face{font-family:"Garamond";src:url(/static/fonts/EBGaramond-Italic.woff2) format("woff2");font-style:italic}
+@font-face{font-family:"Inter";src:url(/static/fonts/Inter-Regular.woff2) format("woff2");font-weight:400}
+@font-face{font-family:"Inter";src:url(/static/fonts/Inter-SemiBold.woff2) format("woff2");font-weight:600}
+@font-face{font-family:"Inter";src:url(/static/fonts/Inter-Bold.woff2) format("woff2");font-weight:700}
+:root{
+  --paper:#E9DDC6; --paper2:#E2D3BA; --tan:#CDB592; --ink:#2B1A12; --muted:#5A4A3A;
+  --maroon:#7E2A2A; --rust:#B24A3A; --salmon:#D9826A; --peach:#EDB9A6; --sand:#E3D3C9;
+  --night:#1A0E0B; --cream:#F3E7D3; --red:#D0201A;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.45 Inter,system-ui,sans-serif}
+body{background-image:radial-gradient(rgba(43,26,18,.05) 1px,transparent 1px);background-size:5px 5px}
+.wrap{max-width:1500px;margin:0 auto;padding:22px 28px 40px}
+.bb{font-family:Bebas,Impact,"Arial Narrow",sans-serif;font-weight:700;letter-spacing:.01em}
+.serif{font-family:Garamond,Georgia,serif}
+/* masthead */
+header{display:flex;align-items:flex-end;gap:26px;flex-wrap:wrap}
+.icon{width:96px;height:96px;border-radius:22%;background:var(--night);position:relative;overflow:hidden;flex:none}
+.icon i{position:absolute;top:0;bottom:46%;width:9%}
+.icon b{position:absolute;bottom:0;height:46%;width:100%;
+  background:linear-gradient(90deg,#56161A 0 20%,#9A3A30 20% 40%,#C9604A 40% 60%,#E59A80 60% 80%,#F4CFBD 80%);
+  clip-path:polygon(39% 0,61% 0,100% 100%,0 100%)}
+.icon span{position:absolute;left:0;right:0;top:44%;transform:translateY(-50%);text-align:center;color:var(--cream);font:700 23px/1 Bebas,sans-serif;letter-spacing:.02em}
+.wake{font-size:44px;color:var(--maroon);letter-spacing:.28em;line-height:.9}
+.drifts{font-size:110px;color:var(--maroon);line-height:.82}
+.sub{font-size:30px;color:#3A3A3A;line-height:.95;max-width:300px}
+.lede{flex:1;min-width:300px;font-size:20px;line-height:1.35}
+.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+button{font:700 19px Bebas,sans-serif;letter-spacing:.04em;border:0;border-radius:4px;padding:9px 16px;cursor:pointer;background:var(--maroon);color:var(--cream)}
+button.ghost{background:transparent;color:var(--maroon);box-shadow:inset 0 0 0 2px var(--maroon)}
+button[aria-pressed=true]{background:var(--red)}
+.chip{font:600 13px Inter;padding:5px 10px;border-radius:99px;background:var(--night);color:var(--cream)}
+.credits{margin:14px 0 0;font:700 16px Bebas,sans-serif;letter-spacing:.03em;color:#2E2E2E}
+.rule{height:9px;background:var(--tan);margin:10px 0 8px}
+/* sections */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0 30px}
+@media(max-width:1100px){.grid{grid-template-columns:1fr}}
+section{padding-top:6px;margin-bottom:26px}
+h2{margin:0;font:700 50px/1 Bebas,sans-serif;color:var(--maroon)}
+h3{margin:12px 0 6px;padding-top:6px;border-top:3px solid var(--ink);font:700 22px/1 Bebas,sans-serif;color:#3A3A3A;letter-spacing:.02em}
+.view{position:relative;background:var(--night);aspect-ratio:620/380;border-radius:3px;overflow:hidden}
+.view img{display:block;width:100%;height:100%;object-fit:cover}
+.view .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--cream);font:700 26px Bebas,sans-serif;letter-spacing:.04em;text-align:center;padding:20px}
+.ring{box-shadow:0 0 0 6px var(--c)}
+.formula{font-size:21px;font-weight:700;margin:10px 0 2px}
+.formula sub{font-size:.6em}
+.desc{font-size:16px;color:#4A3A2E;margin:0}
+.nums{display:flex;align-items:flex-end;gap:22px;margin-top:10px;flex-wrap:wrap}
+.big{font:700 92px/0.85 Bebas,sans-serif;color:var(--maroon)}
+.lab{font:700 17px Bebas,sans-serif;letter-spacing:.03em;color:#3A3A3A}
+.kv{display:grid;grid-template-columns:auto auto;gap:2px 14px;font-size:14px}
+.kv b{font-weight:600}
+.seg{display:flex;gap:4px;padding:4px;border:1.5px solid var(--ink);background:#F7F0E6;margin-top:10px}
+.seg i{flex:1;height:16px;background:#E6DCC8}
+.seg i.on{background:var(--c)}
+.state{font:700 22px Bebas,sans-serif;letter-spacing:.03em;padding:3px 10px;border-radius:3px;background:var(--night);color:var(--cream)}
+.state.bad{background:var(--red)}
+.face{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:30px;margin-top:6px}
+@media(max-width:1100px){.face{grid-template-columns:1fr}}
+.face .view{aspect-ratio:auto;min-height:280px;max-height:640px}
+.face .view img{object-fit:contain;max-height:640px}
+.legend{display:grid;gap:12px;align-content:start}
+.legend div{display:flex;gap:12px;align-items:center}
+.legend em{display:inline-block;width:20px;height:20px;border-radius:3px;background:var(--c);flex:none}
+.legend span{font-size:16px}
+.dot{width:16px;height:16px;border-radius:50%;background:var(--red);box-shadow:0 0 0 3px var(--cream),0 0 0 4px var(--ink);flex:none}
+footer{margin-top:26px;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <img class="icon" src="/static/icons/drifts-road-180.png" alt="DRIFTS app icon">
+  <div><div class="bb wake">WAKE UP</div><div class="bb drifts">DRIFTS</div></div>
+  <div class="bb sub">DEV VIEW · WHAT THE CAMERA MEASURES</div>
+  <p class="serif lede">Live close-ups of the <b>face-mesh points</b> behind each signal: the <b>six eye points</b> (EAR),
+    the <b>eight mouth points</b> (MAR) and the <b>iris between the eye corners</b> (road gaze). Press <b>Freeze</b> to hold a frame for a screenshot.</p>
+  <div class="tools">
+    <span class="chip" id="chip">connecting…</span>
+    <button id="freeze" aria-pressed="false">Freeze</button>
+    <button class="ghost" id="save">Save PNGs</button>
+  </div>
+</header>
+<div class="credits">UNIVERSITY OF HOUSTON · COMPUTER ENGINEERING TECHNOLOGY SENIOR PROJECT</div>
+<div class="rule"></div>
+
+<div class="grid">
+  <section style="--c:var(--salmon)">
+    <h2>I – EYES · EAR</h2>
+    <h3>A – DRIVER’S RIGHT EYE, ZOOMED</h3>
+    <div class="view ring" style="--c:var(--salmon)"><img id="v-eye" alt="Zoomed eye with points P1 to P6"><div class="empty" id="e-eye">Looking for a face…</div></div>
+    <h3>B – EYE ASPECT RATIO</h3>
+    <div class="formula serif">EAR = (|P2 − P6| + |P3 − P5|) / (2 |P1 − P4|)</div>
+    <p class="desc">Two eyelid openings over the corner-to-corner width. It falls as the lids close; closed for more than 3 s fires the alert.</p>
+    <div class="nums"><div><div class="big" id="n-ear">--</div><div class="lab">EAR (BOTH EYES)</div></div>
+      <div class="kv"><span>Right / left</span><b id="n-earlr">--</b><span>Open baseline</span><b id="n-earopen">--</b>
+        <span>Openness</span><b id="n-open">--</b><span>Closed for</span><b id="n-closed">--</b><span>PERCLOS</span><b id="n-perclos">--</b></div>
+      <span class="state" id="s-eye">--</span></div>
+    <div class="seg" id="g-ear"></div>
+  </section>
+
+  <section style="--c:var(--peach)">
+    <h2>II – MOUTH · MAR</h2>
+    <h3>A – INNER LIPS, ZOOMED</h3>
+    <div class="view ring" style="--c:var(--peach)"><img id="v-mouth" alt="Zoomed mouth with points P1 to P8"><div class="empty" id="e-mouth">Looking for a face…</div></div>
+    <h3>B – MOUTH ASPECT RATIO</h3>
+    <div class="formula serif">MAR = (|P2 − P8| + |P3 − P7| + |P4 − P6|) / (3 |P1 − P5|)</div>
+    <p class="desc">Three inner-lip openings over the inner mouth width. A yawn is MAR held above 0.5 for 1.5 s.</p>
+    <div class="nums"><div><div class="big" id="n-mar">--</div><div class="lab">MAR</div></div>
+      <div class="kv"><span>Yawn threshold</span><b>0.50</b><span>Yawns (recent)</span><b id="n-yawns">--</b></div>
+      <span class="state" id="s-mouth">--</span></div>
+    <div class="seg" id="g-mar"></div>
+  </section>
+
+  <section style="--c:var(--sand)">
+    <h2>III – ROAD GAZE</h2>
+    <h3>A – IRIS BETWEEN THE EYE CORNERS</h3>
+    <div class="view ring" style="--c:var(--sand)"><img id="v-gaze" alt="Both eyes with corners and iris"><div class="empty" id="e-gaze">Looking for a face…</div></div>
+    <h3>B – IRIS POSITION</h3>
+    <div class="formula serif">t = (iris − P1)·(P4 − P1) / |P4 − P1|² − ½</div>
+    <p class="desc">0 is centred. The pale band is the road zone (|t| ≤ limit); 3 s outside it counts as off the road.</p>
+    <div class="nums"><div><div class="big" id="n-gaze">--</div><div class="lab">t (CALIBRATED)</div></div>
+      <div class="kv"><span>Limit</span><b id="n-limit">--</b><span>Off road for</span><b id="n-off">--</b>
+        <span>Head yaw / pitch</span><b id="n-yp">--</b><span>Calibrated</span><b id="n-cal">--</b></div>
+      <span class="state" id="s-gaze">--</span></div>
+    <div class="seg" id="g-gaze"></div>
+  </section>
+</div>
+
+<div class="rule" style="margin-top:22px"></div>
+<section>
+  <h2>IV – EVERY POINT, WHOLE FACE</h2>
+  <div class="face">
+    <div><h3>A – LIVE FRAME</h3><div class="view"><img id="v-face" alt="Whole face with every measured point"><div class="empty" id="e-face">Looking for a face…</div></div></div>
+    <div class="legend"><h3>B – KEY</h3>
+      <div><span class="dot"></span><span>Landmark used by a signal (face mesh, 478 points)</span></div>
+      <div><em style="--c:var(--salmon)"></em><span><b>Eyes · EAR</b>: P1–P6 on each eye</span></div>
+      <div><em style="--c:var(--peach)"></em><span><b>Mouth · MAR</b>: P1–P8 on the inner lips</span></div>
+      <div><em style="--c:var(--sand)"></em><span><b>Road gaze</b>: eye corners and iris centre</span></div>
+      <div><em style="--c:var(--maroon)"></em><span><b>Head pose</b>: nose tip, yaw / pitch / roll from the mesh</span></div>
+      <p class="desc serif" style="font-size:19px;margin-top:8px">Nothing on this page is saved. The close-ups are drawn only while it is open, and every frame is dropped after it is measured.</p>
+      <div class="kv" style="font-size:15px"><span>Face state</span><b id="n-state">--</b><span>Face score</span><b id="n-fscore">--</b>
+        <span>Glasses mode</span><b id="n-glasses">--</b><span>Camera FPS</span><b id="n-fps">--</b></div>
+    </div>
+  </div>
+</section>
+<footer>DRIFTS dev view · /dev · close-ups from drifts/devview.py</footer>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const V=["eye","mouth","gaze","face"];
+let frozen=false, busy={};
+function seg(el,frac){
+  if(!el.children.length) for(let i=0;i<10;i++) el.appendChild(document.createElement("i"));
+  const n=frac==null?0:Math.round(Math.max(0,Math.min(1,frac))*10);
+  [...el.children].forEach((c,i)=>c.classList.toggle("on",i<n));
+}
+const f2=(v,d=2)=>v==null?"--":Number(v).toFixed(d);
+function pull(k){
+  if(frozen||busy[k]) return; busy[k]=true;
+  fetch(`/dev/${k}.jpg?t=${Date.now()}`,{cache:"no-store"}).then(r=>r.ok?r.blob():null).then(b=>{
+    busy[k]=false;
+    $("e-"+k).style.display=b?"none":"flex";
+    if(!b) return;
+    const img=$("v-"+k), old=img.src; img.src=URL.createObjectURL(b);
+    if(old.startsWith("blob:")) URL.revokeObjectURL(old);
+  }).catch(()=>{busy[k]=false});
+}
+function stats(){
+  if(frozen) return;
+  fetch("/dev.json",{cache:"no-store"}).then(r=>r.json()).then(s=>{
+    if(!s.face_mesh){ $("chip").textContent="needs the face-mesh camera backend"; V.forEach(k=>$("e-"+k).textContent="Start DRIFTS with the face-mesh backend to see the points"); return; }
+    $("chip").textContent = s.found?`face found · ${s.fps} fps`:"no face in view";
+    $("n-ear").textContent=f2(s.ear); $("n-earlr").textContent=`${f2(s.ear_r)} / ${f2(s.ear_l)}`;
+    $("n-earopen").textContent=f2(s.ear_open); $("n-open").textContent=s.openness==null?"--":Math.round(s.openness*100)+"%";
+    $("n-closed").textContent=s.closed_for==null?"--":f2(s.closed_for,1)+" s"; $("n-perclos").textContent=s.perclos==null?"warming up":Math.round(s.perclos*100)+"%";
+    const eyeBad=["closed","closing"].includes(s.eye_state); $("s-eye").textContent=(s.eye_state||"--").toUpperCase(); $("s-eye").classList.toggle("bad",eyeBad);
+    seg($("g-ear"), s.openness);
+    $("n-mar").textContent=f2(s.mar); $("n-yawns").textContent=s.yawns==null?"--":s.yawns;
+    $("s-mouth").textContent=s.yawning?"YAWNING":"RELAXED"; $("s-mouth").classList.toggle("bad",!!s.yawning);
+    seg($("g-mar"), s.mar==null?null:s.mar/0.7);
+    $("n-gaze").textContent=s.gaze_x==null?"--":(s.gaze_x>=0?"+":"")+f2(s.gaze_x); $("n-limit").textContent="± "+f2(s.gaze_limit);
+    $("n-off").textContent=s.gaze_off_s==null?"--":f2(s.gaze_off_s,1)+" s"; $("n-cal").textContent=s.gaze_calibrated?"yes":"calibrating";
+    $("n-yp").textContent=s.yaw==null?"--":`${Math.round(s.yaw)}° / ${Math.round(s.pitch)}°`;
+    $("s-gaze").textContent=s.gaze_off?"OFF ROAD":"ON ROAD"; $("s-gaze").classList.toggle("bad",!!s.gaze_off);
+    seg($("g-gaze"), s.gaze_dev==null||!s.gaze_limit?null:s.gaze_dev/(s.gaze_limit*2));
+    $("n-state").textContent=s.state||"--"; $("n-fscore").textContent=s.face_score==null?"--":Math.round(s.face_score);
+    $("n-glasses").textContent=s.glasses?"on (weight on head pose)":"off"; $("n-fps").textContent=s.fps;
+  }).catch(()=>$("chip").textContent="DRIFTS is not running");
+}
+setInterval(()=>V.forEach(pull),160); setInterval(stats,300); stats();
+$("freeze").onclick=()=>{
+  frozen=!frozen; $("freeze").setAttribute("aria-pressed",frozen); $("freeze").textContent=frozen?"Frozen: press to resume":"Freeze";
+  fetch(`/dev/freeze?on=${frozen?1:0}`,{method:"POST"});
+};
+$("save").onclick=()=>V.forEach(k=>{const src=$("v-"+k).src; if(!src) return;
+  const a=document.createElement("a"); a.href=src; a.download=`drifts_dev_${k}.jpg`; document.body.appendChild(a); a.click(); a.remove();});
+</script>
+</body>
+</html>
