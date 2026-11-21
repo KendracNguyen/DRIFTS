@@ -6,3 +6,5 @@ opencv-python>=4.8,<5
 numpy
 pyserial>=3.5
 bleak>=0.22
+# Pillow draws the dev page's serif point labels (drifts/devview.py; laptop only)
+pillow

@@ -1,7 +1,8 @@
 Inter (subset: Latin, woff2) by The Inter Project Authors, https://rsms.me/inter/
 Bebas Neue (Bold, subset: Latin, woff2) by Ryoichi Tsunekawa, Dharma Type. Licensed under the SIL Open Font License 1.1.
 EB Garamond (12 Regular and Italic, subset: Latin, woff2) by Georg Duffner and Octavio Pardo. Licensed under the SIL Open Font License 1.1.
-All three families use the licence text below.
+Liberation Serif (Bold, subset: ASCII, ttf for the dev close-up labels) by Red Hat, Inc. Licensed under the SIL Open Font License 1.1.
+All four families use the licence text below.
 
 Copyright 2016-2023 The Inter Project Authors. Licensed under the SIL Open Font License 1.1:
 

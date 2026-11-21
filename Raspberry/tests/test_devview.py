@@ -38,8 +38,8 @@ def test_render_all_views():
     assert set(v) == {"eye", "mouth", "gaze", "face"}
     assert v["eye"].shape == (380, 620, 3) and v["mouth"].shape == (380, 620, 3)
     assert v["gaze"].shape == (380, 620, 3)
-    # the landmark dots are drawn in the poster red (BGR 1A 20 D0)
-    assert ((v["eye"] == devview.RED).all(axis=2)).sum() > 50
+    # the landmark dots are drawn in the poster red (BGR 0B 12 E3)
+    assert ((v["eye"] == devview.LABEL).all(axis=2)).sum() > 50
 
 
 def test_mirrored_and_no_face():

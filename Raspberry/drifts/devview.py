@@ -37,6 +37,7 @@ SALMON = _bgr("D9826A")     # eyes · EAR
 PEACH = _bgr("EDB9A6")      # mouth · MAR
 SAND = _bgr("E3D3C9")       # gaze
 RED = _bgr("D0201A")        # the poster's landmark dots
+LABEL = _bgr("E3120B")      # point labels and measurement arrows (as in the EAR paper figure)
 
 MOUTH_ORDER = (CORNERS[0], UPPER_LOWER[1][0], UPPER_LOWER[0][0], UPPER_LOWER[2][0],
                CORNERS[1], UPPER_LOWER[2][1], UPPER_LOWER[0][1], UPPER_LOWER[1][1])   # 78 82 13 312 308 317 14 87
@@ -72,12 +73,12 @@ def _crop(img, P, idx, pad: float, out: tuple):
 
 
 def _tone(img):
-    """Warm the photo towards the poster palette and darken it so the marks read."""
+    """Warm, light rendering of the photo (towards the poster peach) so the red marks read."""
     import cv2
     import numpy as np
-    g = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
-    lo, hi = np.array(INK, np.float32), np.array(PEACH, np.float32)
-    out = lo + (hi - lo) * (g[..., None] ** 1.1) * 0.85
+    g = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)[..., None] / 255.0
+    warm = np.array(INK, np.float32) + (np.array(CREAM, np.float32) - np.array(INK, np.float32)) * (0.25 + 0.75 * g)
+    out = 0.55 * img.astype(np.float32) * 1.15 + 0.45 * warm
     return out.clip(0, 255).astype(np.uint8)
 
 
@@ -92,18 +93,57 @@ def _line(img, a, b, col, t):
 
 def _dot(img, p, r):
     import cv2
-    cv2.circle(img, _I(p), int(r * 4) + 4 * 3, CREAM, -1, cv2.LINE_AA, shift=2)
-    cv2.circle(img, _I(p), int(r * 4), RED, -1, cv2.LINE_AA, shift=2)
+    cv2.circle(img, _I(p), int(r * 4), LABEL, -1, cv2.LINE_AA, shift=2)
 
 
-def _label(img, text, p, dx, dy, scale, col=CREAM, bg=INK):
+def _arrow(img, a, b, t, s):
+    """Thin double-headed measurement arrow, inset from the two points."""
     import cv2
-    font = cv2.FONT_HERSHEY_DUPLEX
-    (tw, th), base = cv2.getTextSize(text, font, scale, max(1, int(scale * 1.6)))
-    x, y = int(p[0] + dx - tw / 2), int(p[1] + dy + th / 2)
-    pad = int(5 * scale)
-    cv2.rectangle(img, (x - pad, y - th - pad), (x + tw + pad, y + base + pad // 2), bg, -1, cv2.LINE_AA)
-    cv2.putText(img, text, (x, y), font, scale, col, max(1, int(scale * 1.6)), cv2.LINE_AA)
+    L = math.hypot(b[0] - a[0], b[1] - a[1]) or 1.0
+    inset = min(10 * s, L * 0.2)
+    ux, uy = (b[0] - a[0]) / L, (b[1] - a[1]) / L
+    p, q = (a[0] + ux * inset, a[1] + uy * inset), (b[0] - ux * inset, b[1] - uy * inset)
+    tip = min(0.45, 16 * s / max(L - 2 * inset, 1))
+    cv2.arrowedLine(img, _I(p), _I(q), LABEL, t, cv2.LINE_AA, shift=2, tipLength=tip)
+    cv2.arrowedLine(img, _I(q), _I(p), LABEL, t, cv2.LINE_AA, shift=2, tipLength=tip)
+
+
+_FONT_CACHE: dict = {}
+
+
+def _serif(px: int):
+    from pathlib import Path
+    from PIL import ImageFont
+    if px not in _FONT_CACHE:
+        _FONT_CACHE[px] = ImageFont.truetype(str(Path(__file__).with_name("static") / "fonts" / "LiberationSerif-Bold.ttf"), px)
+    return _FONT_CACHE[px]
+
+
+def _labels(img, items, s):
+    """Red serif labels with subscript numbers ('P' + small '1'), no box, as in the EAR figure.
+    items: (point, number, dx, dy). Falls back to OpenCV's serif face without Pillow."""
+    import cv2
+    import numpy as np
+    try:
+        from PIL import Image, ImageDraw
+        big, small = _serif(int(40 * s)), _serif(int(26 * s))
+    except Exception:
+        for p, n, dx, dy in items:
+            cv2.putText(img, f"P{n}", (int(p[0] + dx - 16 * s), int(p[1] + dy + 10 * s)), cv2.FONT_HERSHEY_TRIPLEX,
+                        0.9 * s, LABEL, max(1, int(2 * s)), cv2.LINE_AA)
+        return img
+    pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    d = ImageDraw.Draw(pil)
+    rgb = (LABEL[2], LABEL[1], LABEL[0])
+    for p, n, dx, dy in items:
+        wP = d.textlength("P", font=big)
+        wn = d.textlength(str(n), font=small)
+        x = p[0] + dx - (wP + wn) / 2
+        y = p[1] + dy
+        d.text((x, y), "P", font=big, fill=rgb, anchor="lm")
+        d.text((x + wP, y + 10 * s), str(n), font=small, fill=rgb, anchor="lm")
+    img[:] = cv2.cvtColor(np.asarray(pil), cv2.COLOR_RGB2BGR)
+    return img
 
 
 def _banner(img, title, value, col):
@@ -125,17 +165,17 @@ def eye_view(img, P, f: dict, out=(620, 380)):
     crop = _tone(crop)
     p = [to(i) for i in idx]
     s = out[0] / 620
-    t = max(2, int(3 * s))
-    _line(crop, p[0], p[3], SAND, t)                      # |P1-P4|
-    _line(crop, p[1], p[5], SALMON, t + 1)                # |P2-P6|
-    _line(crop, p[2], p[4], SALMON, t + 1)                # |P3-P5|
+    t = max(1, int(2 * s))
+    _arrow(crop, p[0], p[3], t, s)                        # |P1-P4|
+    _arrow(crop, p[1], p[5], t, s)                        # |P2-P6|
+    _arrow(crop, p[2], p[4], t, s)                        # |P3-P5|
+    items = []
     for k, q in enumerate(p):
         _dot(crop, q, 7 * s)
-        above = k in (1, 2)
-        below = k in (4, 5)
-        dy = -30 * s if above else 30 * s if below else 0
-        dx = (-38 * s if k == 0 else 38 * s if k == 3 else 0)
-        _label(crop, f"P{k + 1}", q, dx, dy, 0.75 * s)
+        dy = -34 * s if k in (1, 2) else 36 * s if k in (4, 5) else 0
+        dx = -44 * s if k == 0 else 44 * s if k == 3 else 0
+        items.append((q, k + 1, dx, dy))
+    _labels(crop, items, s)
     ear = f.get("ear_r") if f.get("ear_r") is not None else f.get("ear")
     _banner(crop, "EAR", "--" if ear is None else f"{ear:.2f}", SALMON)
     return crop
@@ -146,18 +186,18 @@ def mouth_view(img, P, f: dict, out=(620, 380)):
     crop, to = _crop(img, P, idx, 0.45, out)
     crop = _tone(crop)
     s = out[0] / 620
-    t = max(2, int(3 * s))
-    _line(crop, to(CORNERS[0]), to(CORNERS[1]), SAND, t)  # inner width
-    for a, b in UPPER_LOWER:
-        _line(crop, to(a), to(b), PEACH, t + 1)           # three openings
+    t = max(1, int(2 * s))
+    _arrow(crop, to(CORNERS[0]), to(CORNERS[1]), t, s)    # inner width
+    for a_, b_ in UPPER_LOWER:
+        _arrow(crop, to(a_), to(b_), t, s)                # three openings
+    items = []
     for k, i in enumerate(idx):
         q = to(i)
         _dot(crop, q, 7 * s)
-        upper = k in (1, 2, 3)
-        lower = k in (5, 6, 7)
-        dy = -30 * s if upper else 30 * s if lower else 0
-        dx = (-40 * s if k == 0 else 40 * s if k == 4 else 0)
-        _label(crop, f"P{k + 1}", q, dx, dy, 0.75 * s)
+        dy = -34 * s if k in (1, 2, 3) else 36 * s if k in (5, 6, 7) else 0
+        dx = -46 * s if k == 0 else 46 * s if k == 4 else 0
+        items.append((q, k + 1, dx, dy))
+    _labels(crop, items, s)
     m = f.get("mar")
     _banner(crop, "MAR", "--" if m is None else f"{m:.2f}", PEACH)
     return crop
