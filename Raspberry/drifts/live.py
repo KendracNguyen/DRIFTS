@@ -981,14 +981,30 @@ def build_parser(prog: str = "python -m drifts.live") -> argparse.ArgumentParser
     p.add_argument("--work-width", type=int, default=320, help="detection resolution (lower = faster)")
     p.add_argument("--mirror", action="store_true", help="mirror the image (selfie view)")
     p.add_argument("--dev", action="store_true",
-                   help="serve the /dev page: zoomed eye (EAR), mouth (MAR) and gaze close-ups for screenshots. "
-                        "Off by default: without it the app serves no camera close-ups")
+                   help="laptop only: serve the /dev page (zoomed eye EAR, mouth MAR and road-gaze close-ups for "
+                        "screenshots). Ignored on a Raspberry Pi to save its memory. Off by default")
     p.add_argument("--capture-dir", default="captures", help="where training frames are saved")
     p.add_argument("--trips", default="logs/trips.json", help="trip summaries for the History tab")
     p.add_argument("--debug", action="store_true")
     p.add_argument("--listen-only", action="store_true",
                    help="BLE: read ESP32 telemetry only, never write (leaves the ESP32 to its own Pi)")
     return p
+
+
+def is_raspberry_pi(model_path: str = "/proc/device-tree/model") -> bool:
+    """True on a Raspberry Pi (Zero 2 W, Pi 5...): the board model file names it."""
+    try:
+        return "raspberry pi" in Path(model_path).read_bytes().decode("utf-8", "replace").lower()
+    except OSError:
+        return False
+
+
+def dev_allowed(args, model_path: str = "/proc/device-tree/model") -> bool:
+    """--dev is laptop-only: the close-ups cost memory and CPU the Pi needs for the camera."""
+    if getattr(args, "dev", False) and is_raspberry_pi(model_path):
+        log.warning("--dev is for the laptop only: the dev page is off on this Raspberry Pi to save its memory")
+        return False
+    return bool(getattr(args, "dev", False))
 
 
 def build(args) -> Pipeline:
@@ -1027,6 +1043,7 @@ def build(args) -> Pipeline:
         elif args.pose == "sim":
             from drifts.imx500_pose import SimPoseSource
             camera = SimPoseSource(inner=camera)
+    args.dev = dev_allowed(args)
     pipe = Pipeline(camera, link, args)
     pipe.start()
     return pipe

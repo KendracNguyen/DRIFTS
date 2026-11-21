@@ -64,3 +64,15 @@ def test_gaze_target_moves_and_turns_red_off_road():
     assert red(off).sum() > red(on).sum() + 500
     cols = np.where(red(off).any(axis=0))[0]
     assert cols.max() > 620 * 0.85                      # the target sits past the right of the road box
+
+
+def test_dev_page_is_laptop_only(tmp_path):
+    from types import SimpleNamespace
+    from drifts.live import dev_allowed, is_raspberry_pi
+    pi = tmp_path / "model"
+    pi.write_bytes(b"Raspberry Pi Zero 2 W Rev 1.0\x00")
+    laptop = tmp_path / "none"                           # laptops have no device-tree model file
+    assert is_raspberry_pi(str(pi)) and not is_raspberry_pi(str(laptop))
+    assert dev_allowed(SimpleNamespace(dev=True), str(pi)) is False
+    assert dev_allowed(SimpleNamespace(dev=True), str(laptop)) is True
+    assert dev_allowed(SimpleNamespace(dev=False), str(laptop)) is False
