@@ -1157,6 +1157,7 @@ class WhisplayUI:
         self._joy: list = []
         self._key = None
         self._frame = None
+        self._drawn_at = -1e9                   # when the screen was last redrawn (redraw_hz)
         # calibration: what ran last tick, and the "complete" screen
         self._calib: Optional[str] = None
         self._calib_done: Optional[str] = None
@@ -1401,10 +1402,25 @@ class WhisplayUI:
             key = key + (id(f.get("img")), f.get("hint"), f.get("ok"), round(f.get("progress") or 0, 2))
         if view == "awake":
             key = (view, banner, anim, round(ctx["awake"].get("left", 0) if ctx["awake"] else 0, 1))
-        if key != self._key:                        # draw only when something on screen changed
+        if key != self._key and not self._throttled(key, view, now):   # draw only when something changed
             self._key, self._frame = key, render(st, now, view, True, banner, ctx)
+            self._drawn_at = now
             self.board.show(self._frame)
         return self._frame
+
+    # Views that must follow every change: the camera face check, Select Driver, the awake check
+    LIVE_VIEWS = ("face", "select", "awake")
+
+    def _throttled(self, key, view: str, now: float) -> bool:
+        """True when this redraw should wait: only numbers changed on the same view and banner,
+        and the last redraw was less than 1 / redraw_hz ago. Each redraw (render + SPI) costs the
+        camera pipeline CPU on a Pi Zero, and the dashboard changed on almost every 0.1 s tick."""
+        hz = getattr(self.cfg, "redraw_hz", 0) or 0
+        if hz <= 0 or self._key is None or view in self.LIVE_VIEWS:
+            return False
+        if key[:2] != self._key[:2]:                 # another view or banner: show it now
+            return False
+        return now - self._drawn_at < 1.0 / hz
 
     def close(self) -> None:
         """Screen and LED off, driver released (on shutdown)."""

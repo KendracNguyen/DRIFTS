@@ -541,3 +541,30 @@ def test_welcome_voice_plays_once_at_start_and_no_ready_line():
     said = [n for _, n in ui.speaker.played]
     assert said[0] == "WELCOME" and said.count("WELCOME") == 1 and "READY" not in said
     assert ui.view(st(), booted=False, now=0.1) == "welcome"
+
+
+def test_dashboard_redraws_are_limited():
+    """Numbers changing every tick redraw the screen at most redraw_hz times a second
+    (each redraw costs the Pi Zero's face camera CPU); a new view still shows at once."""
+    board = SimBoard()
+    shown = []
+    orig = board.show
+    board.show = lambda img: (shown.append(img), orig(img))
+    ui = WhisplayUI(WhisplayConfig(enabled=True, voice=False, redraw_hz=2.0), board=board, sim=True)
+    ui.tick(st(), 0.0)
+    n0 = len(shown)
+    t = 5.0
+    for i in range(30):                              # 3 s of 0.1 s ticks, score changing every tick
+        ui.tick(demo_state(60 + i % 2), t)
+        t += 0.1
+    assert len(shown) - n0 <= 8                      # ~2/s plus the switch to the score view
+    unlimited = WhisplayUI(WhisplayConfig(enabled=True, voice=False, redraw_hz=0), board=SimBoard(), sim=True)
+    drawn = []
+    ob = unlimited.board.show
+    unlimited.board.show = lambda img: (drawn.append(img), ob(img))
+    t = 5.0
+    unlimited.tick(st(), 0.0)
+    for i in range(30):
+        unlimited.tick(demo_state(60 + i % 2), t)
+        t += 0.1
+    assert len(drawn) > len(shown) - n0 + 10         # without the limit it redraws every tick
