@@ -44,6 +44,9 @@ class CameraConfig:
     # Cameras without autofocus ignore this.
     focus: str = "manual"
     lens_position: float = 1.7
+    # How the camera is mounted: 180 = upside down (flipped by the camera's own ISP, no CPU
+    # cost). 0 or 180 only: the ISP can't turn the picture 90 degrees.
+    rotate: int = 0
 
 
 @dataclass

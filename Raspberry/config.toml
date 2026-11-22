@@ -29,6 +29,7 @@ fps = 10                             # capture rate (inference will be slower)
 # "continuous" can hunt in dim IR light; "auto" focuses once at start.
 focus = "manual"
 lens_position = 1.7
+rotate = 180                         # camera mounted upside down: 180 (free, done by the ISP); 0 = upright
 
 [detector]
 model_param = "model/mobilenetv2_dms.param"
