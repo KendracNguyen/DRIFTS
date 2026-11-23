@@ -92,6 +92,7 @@ class WhisplayConfig:
     # Level 3 check-in: an alert lasting this long shows "Say 'I am awake'" (0 = off)
     awake_after_s: float = 20.0
     awake_window_s: float = 10.0               # how long the screen asks
+    redraw_hz: float = 2.0                     # dashboard redraws per second at most (camera time on a Pi Zero); 0 = no limit
     # Start-up after the welcome screen (with the camera, drifts.live --whisplay): "Who's
     # driving? Say your name", then the face check and a calibration with the camera on the LCD
     select_driver: bool = True
