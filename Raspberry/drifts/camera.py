@@ -55,9 +55,13 @@ class Camera:
                 raise RuntimeError("picamera2 disabled")
             from picamera2 import Picamera2
             self._picam2 = Picamera2()
+            kw = {}
+            if self._upside_down():                 # mounted upside down: the ISP flips it (no CPU cost)
+                from libcamera import Transform
+                kw["transform"] = Transform(hflip=1, vflip=1)
             video_config = self._picam2.create_video_configuration(
                 main={"size": (self.cfg.width, self.cfg.height), "format": "RGB888"},
-                controls={"FrameRate": self.cfg.fps},
+                controls={"FrameRate": self.cfg.fps}, **kw,
             )
             self._picam2.configure(video_config)
             self._picam2.start()
@@ -67,8 +71,9 @@ class Camera:
             except Exception as exc:               # never stop the camera over focus
                 focus = f"not set ({exc})"
             self._is_running = True
-            log.info("picamera2 started: %s%s", self.model or "camera",
-                     f", focus {focus}" if focus else " (fixed focus)")
+            log.info("picamera2 started: %s%s%s", self.model or "camera",
+                     f", focus {focus}" if focus else " (fixed focus)",
+                     ", rotated 180" if kw else "")
             return
         except Exception as exc:
             log.debug("picamera2 not available: %s. Trying OpenCV fallback...", exc)
@@ -130,6 +135,9 @@ class Camera:
         if self._cv_cap is not None:
             ret, frame = self._cv_cap.read()
             if ret:
+                if self._upside_down():
+                    import cv2
+                    frame = cv2.rotate(frame, cv2.ROTATE_180)
                 return frame
             return None
 
@@ -166,6 +174,13 @@ class Camera:
 
         self._is_running = False
         log.info("Camera stopped.")
+
+    def _upside_down(self) -> bool:
+        rot = int(getattr(self.cfg, "rotate", 0) or 0) % 360
+        if rot not in (0, 180):
+            log.warning("[camera] rotate = %s is not supported (0 or 180): using 0", rot)
+            return False
+        return rot == 180
 
     @property
     def is_running(self) -> bool:
