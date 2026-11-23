@@ -217,13 +217,18 @@ gap:10px;text-align:left;cursor:pointer;box-shadow:var(--shadow);color:var(--ink
 .tests button:active{transform:scale(.98)}.tests button:disabled{opacity:.7}
 .tests .ib{width:38px;height:38px;border-radius:11px;background:var(--blush);color:var(--maroon);display:flex;align-items:center;justify-content:center;flex:none}
 .tests b{display:block;font-size:14px}.tests small{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
+/* symposium visitors (--viewers): view only */
+.vbadge{display:none;margin-left:8px;padding:2px 8px;border-radius:99px;background:var(--maroon,#7E2A2A);color:#fff;font-size:11px;font-weight:700;letter-spacing:.03em}
+body.viewer .vbadge{display:inline-block}
+body.viewer #fab,body.viewer .vhide{display:none!important}
+.vfull{display:none;position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;padding:16px;color:#fff;background:rgba(0,0,0,.55);font-weight:600}
 </style>
 </head>
 <body><div class="app">
 <header>
  <div class="hrow">
   <div><h1>DRIFTS<span class="demo" id="demotag" style="display:none">DEMO</span></h1>
-   <div class="hstat"><span class="ldot off" id="dot"></span><span id="linktxt">Connecting…</span></div>
+   <div class="hstat"><span class="ldot off" id="dot"></span><span id="linktxt">Connecting…</span><span class="vbadge">VIEW ONLY</span></div>
    <div class="devline" style="display:none"><span id="fw">fw --</span> · <span id="rigchip"></span></div></div>
   <div class="hright"><span data-i="car" data-s="24"></span><span class="drv">Drive: <span id="drive">0h 00m</span></span>
 </div>
@@ -251,7 +256,7 @@ gap:10px;text-align:left;cursor:pointer;box-shadow:var(--shadow);color:var(--ink
  </div>
 
  <h2 style="visibility:hidden;margin:6px 0 0;height:4px"></h2>
- <div class="cam" id="camcard"><img id="camimg" src="/stream.mjpg" alt="Live driver camera"><span class="lbl2"><span class="ldot" id="camdot"></span>Driver Camera (Live) · not recorded</span>
+ <div class="cam" id="camcard"><img id="camimg" src="/stream.mjpg" alt="Live driver camera" onerror="if(document.body.classList.contains('viewer'))$('vfull').style.display='flex'"><div class="vfull" id="vfull">Too many viewers right now: try again in a minute</div><span class="lbl2"><span class="ldot" id="camdot"></span>Driver Camera (Live) · not recorded</span>
   <div class="msg" id="feedmsg" style="display:none"></div></div>
  <div class="pts" id="ptscard" style="display:none"><canvas id="pts-home"></canvas><span class="lbl2">Camera preview off · points only</span><span class="none" id="pts-home-none">No face in view</span></div>
  <div class="card trust" onclick="show('privacy')"><span class="ib" data-i="shield" data-s="22"></span>
@@ -701,9 +706,20 @@ const EYES={open:"Open",closed:"Closed",no_face:"No face"};
 const BADGE=(el,state,txt)=>{el.className="badge "+(state===true?"on":state===false?"off":"na");el.textContent=txt||(state===true?"Online":state===false?"Offline":"Unknown")};
 const BAND_INK={normal:"var(--green-ink)",caution:"var(--yellow-ink)",high:"var(--red-ink)",unavailable:"var(--grey)"};
 let last=0;
+
+// ---- Symposium visitors: the server says this device is view only (--viewers) ----
+let viewerApplied=false;
+function applyViewer(s){
+ if(!s.viewer||viewerApplied)return;viewerApplied=true;document.body.classList.add("viewer");
+ const keep=el=>el.closest("#alarmcard")||el.closest("nav")||el.closest(".seg")||el.closest(".back")||el.id==="previewsw";
+ document.querySelectorAll("button,input,select,textarea").forEach(el=>{if(!keep(el)){el.disabled=true;
+   const row=el.closest(".btns")||el.closest(".row")||el.closest(".sw");(row||el).classList.add("vhide")}});
+ document.querySelectorAll('.set[data-go="s-profile"],.set[data-go="s-calib"],.set[data-go="s-train"],.set[data-go="s-wifi"],.set[data-go="s-contacts"],#t-devices .dev').forEach(el=>el.classList.add("vhide"));
+ if(s.viewer_video===false){$("camimg").removeAttribute("src");$("vfull").textContent="Camera hidden for visitors: face points and scores only";$("vfull").style.display="flex"}
+}
 async function tick(){let s;try{s=await (await fetch("/status.json",{cache:"no-store"})).json()}
  catch(e){$("linktxt").textContent="Dashboard offline";$("dot").className="ldot off";return}
- feedProblem(s);started=s.started;
+ applyViewer(s);feedProblem(s);started=s.started;
  const p=s.esp,e=s.eye,live=p.updated&&(s.time-p.updated)<5,ui=s.ui||{};
  $("dot").className="ldot"+(live?"":" off");$("linktxt").textContent=live?(p.link==="simulated"?"Connected (simulated)":"Connected"):"ESP32 not connected";
  $("demotag").style.display=ui.demo?"":"none";

@@ -147,6 +147,13 @@ class Pipeline:
         # every frame is analysed in memory and dropped (nothing is written unless
         # Training Capture is used). /privacy.json reports it.
         self.stream_until = 0.0
+        # Symposium visitors (--viewers): one lighter stream, encoded once and shared by
+        # every phone, only while someone watches it.
+        self.viewer_until = 0.0
+        self.viewer_jpeg: Optional[bytes] = None
+        self.viewer_id = 0
+        self._viewer_t = 0.0
+        self.viewers = 0                          # phones watching the visitor stream now
         self.frames_analysed = 0
         self.sent_log: collections.deque = collections.deque(maxlen=12)   # (t, message) to the ESP32
         self.perf = PerfMonitor()
@@ -523,6 +530,15 @@ class Pipeline:
                 # The preview is only encoded while a phone has it open (/stream.mjpg).
                 jpeg = (cv2.imencode(".jpg", self._preview_crop(img), [cv2.IMWRITE_JPEG_QUALITY, 75])[1].tobytes()
                         if now < self.stream_until else None)
+                if now < self.viewer_until and now - self._viewer_t >= 1.0 / VIEWER_FPS:
+                    self._viewer_t = now
+                    crop = self._preview_crop(img)
+                    h, w = crop.shape[:2]
+                    if w > VIEWER_WIDTH:
+                        crop = cv2.resize(crop, (VIEWER_WIDTH, int(h * VIEWER_WIDTH / w)), interpolation=cv2.INTER_AREA)
+                    vj = cv2.imencode(".jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, VIEWER_QUALITY])[1].tobytes()
+                    with self._lock:
+                        self.viewer_jpeg, self.viewer_id = vj, self.viewer_id + 1
                 if self.face_on and hasattr(self.camera, "apply_profile"):
                     self._guided_step(now)
                 if not self.history or now - self.history[-1][0] >= 1.0:
@@ -575,6 +591,7 @@ class Pipeline:
                               if pr else None)
         st["guided_capable"] = bool(self.face_on and hasattr(self.camera, "apply_profile"))
         st["mirror"] = bool(self.args.mirror)
+        st["viewers"] = self.viewers
         return st
 
     def calib_ui(self, st: dict, now: float) -> Optional[dict]:
@@ -680,6 +697,8 @@ def make_handler(pipe: Pipeline):
                                             "eye": [r[2] for r in h], "rpm": [r[3] for r in h],
                                             "yaw": [r[4] for r in h]}).encode(),
                            "application/json")
+            elif path == "/drivers.json" and self._viewer():
+                self._send(200, json.dumps({"drivers": [], "driver": None, "last": None}).encode(), "application/json")
             elif path == "/drivers.json":
                 from drifts import drivers as dv
                 names = dv.list_drivers()
@@ -725,7 +744,14 @@ def make_handler(pipe: Pipeline):
             elif path == "/compare":
                 self._send(200, PAGE_FILE.with_name("compare.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/status.json":
-                self._send(200, json.dumps(pipe.status()).encode(), "application/json")
+                st = pipe.status()
+                if self._viewer():
+                    st["viewer"] = True
+                    st["viewer_video"] = not pipe.args.no_video_for_viewers
+                    st.pop("profile_info", None)
+                self._send(200, json.dumps(st).encode(), "application/json")
+            elif path == "/stream.mjpg" and self._viewer():
+                self._viewer_stream()
             elif path == "/stream.mjpg":
                 self.send_response(200)
                 self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
@@ -748,9 +774,51 @@ def make_handler(pipe: Pipeline):
             else:
                 self._send(404, b"not found", "text/plain")
 
+        def _viewer(self) -> bool:
+            """--viewers: everyone except this computer itself is a view-only visitor."""
+            return bool(getattr(pipe.args, "viewers", False)) and self.client_address[0] not in LOCAL_ADDRS
+
+        def _viewer_stream(self):
+            """The visitors' stream: ~VIEWER_FPS, smaller and lighter, shared by all phones; capped."""
+            if pipe.args.no_video_for_viewers:
+                self._send(403, b"video is off for visitors", "text/plain")
+                return
+            with pipe._lock:
+                if pipe.viewers >= pipe.args.max_viewers:
+                    full = True
+                else:
+                    full = False
+                    pipe.viewers += 1
+            if full:
+                self._send(503, b"Too many viewers: try again in a minute", "text/plain")
+                return
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                last = -1
+                while True:
+                    pipe.viewer_until = time.time() + 3.0
+                    with pipe._lock:
+                        jpeg, vid = pipe.viewer_jpeg, pipe.viewer_id
+                    if jpeg is not None and vid != last:
+                        last = vid
+                        self.wfile.write(b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                                         + str(len(jpeg)).encode() + b"\r\n\r\n" + jpeg + b"\r\n")
+                    time.sleep(0.05)
+            except ConnectionError:
+                pass
+            finally:
+                with pipe._lock:
+                    pipe.viewers -= 1
+
         def do_POST(self):
             u = urlparse(self.path)
             q = parse_qs(u.query)
+            if self._viewer():                    # visitors can look, never control
+                self._send(403, b"view only", "text/plain")
+                return
             if u.path == "/capture" and q.get("label", [""])[0] in LABELS:
                 pipe.request_capture(q["label"][0], int(q.get("n", ["1"])[0]))
                 self._send(200, b"ok", "text/plain")
@@ -849,6 +917,12 @@ def build_parser(prog: str = "python -m drifts.live") -> argparse.ArgumentParser
     p.add_argument("--video-fps", type=float, default=8.0, help="playback rate for --video")
     p.add_argument("--no-picamera", action="store_true", help="skip the Pi camera even if present")
     p.add_argument("--http-port", type=int, default=8080)
+    p.add_argument("--viewers", action="store_true",
+                   help="symposium: other devices get a view-only page (no controls) and a lighter shared stream; "
+                        "only this computer can control the demo")
+    p.add_argument("--max-viewers", type=int, default=20, help="--viewers: phones watching the video at once")
+    p.add_argument("--no-video-for-viewers", action="store_true",
+                   help="--viewers: visitors see the signals and scores but not the camera")
     p.add_argument("--window", type=float, default=10.0, help="PERCLOS window, seconds")
     p.add_argument("--eye-every", type=float, default=2.0, help="seconds between EYE:<n> sends")
     p.add_argument("--no-drowsy", action="store_true",
@@ -992,6 +1066,8 @@ def main(argv=None) -> int:
 
 
 PAGE_FILE = Path(__file__).with_name("dashboard.html")
+LOCAL_ADDRS = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+VIEWER_FPS, VIEWER_WIDTH, VIEWER_QUALITY = 5.0, 480, 55     # the visitors' stream (--viewers)
 FONT_DIR = Path(__file__).with_name("static") / "fonts"
 ICON_DIR = Path(__file__).with_name("static") / "icons"
 # "Add to Home Screen": the DRIFTS icon and name, full screen like an app
