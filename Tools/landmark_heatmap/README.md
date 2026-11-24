@@ -72,7 +72,12 @@ python Tools/landmark_heatmap/live_graphs.py --video clip.mp4 --record all --no-
 
 Under the gaze box, a live **Zoom** panel shows the eye (p1–p6 and EAR), nose (NAR length vs. neutral)
 and mouth (p1–p6 and MAR), each with its value in the corner. Click **↓ PNG** on a tile to save that
-close-up; `p` saves all three plus the plain frame.
+close-up; `p` saves all three plus the plain frame and the head pose.
+
+Bottom right of the camera view, a **Head pose** inset mimics the mannequin figure: the live
+MediaPipe mesh as a black wireframe on grey from a three-quarter view, with long yaw / pitch / roll
+arrows. Its **↓ PNG** saves `picture_*_headpose.png` at 1200 × 1200 px (4 × 4 in at 300 dpi) with
+large labels and the angles underneath.
 
 | File | What it shows |
 | --- | --- |

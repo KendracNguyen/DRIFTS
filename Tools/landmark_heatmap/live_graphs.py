@@ -411,12 +411,14 @@ def picture_nose(raw, P, nar_value, nar_neutral, out):
     return f
 
 
-def take_picture(raw, P, v, nar_neutral, out):
-    """'p': the plain frame plus eye, mouth and nose close-ups, each with its value in the corner."""
+def take_picture(raw, P, v, nar_neutral, out, mat=None):
+    """'p': the plain frame plus eye, mouth and nose close-ups (value in the corner) and the head pose."""
     files = [out / time.strftime("picture_%H%M%S_frame.png")]
     cv2.imwrite(str(files[0]), raw)
     files += [picture_eye(raw, P, v.get("ear"), out), picture_mouth(raw, P, v.get("mar"), out),
               picture_nose(raw, P, v.get("nar"), nar_neutral, out)]
+    if mat is not None:
+        files.append(picture_mannequin(P, mat, v, out))
     for f in files:
         print(f"saved {f}")
     return files
@@ -591,32 +593,37 @@ def draw_overlay(img, P, mat, v):
     labels = []
     if mat is not None:
         tip = (float(P[1, 0]), float(P[1, 1]))
-        ends = lh.fs.nose_axes(mat, tip, 0.11 * jaw_w)
+        ends = lh.fs.nose_axes(mat, tip, 0.30 * jaw_w)
         for k in ("z", "x", "y"):
             col, name = AXES[k]
             e = np.array(ends[k])
             d = e - np.array(tip)
             L = float(np.linalg.norm(d)) or 1.0
-            u = d / L
-            cv2.line(img, _I(tip), _I(e), col, 2, cv2.LINE_AA, shift=4)
-            head = 0.09 * jaw_w
-            for ang in (0.45, -0.45):                                   # open chevron arrowhead
-                ca, sa = np.cos(ang), np.sin(ang)
-                hd = np.array([u[0] * ca - u[1] * sa, u[0] * sa + u[1] * ca])
-                cv2.line(img, _I(e), _I(e - hd * min(head, L * 0.35)), col, 2, cv2.LINE_AA, shift=4)
-            labels.append((name, e + u * 10, col))
+            if L > 0.9 * jaw_w:                                         # keep roll (out of the face) on screen
+                e = np.array(tip) + d / L * 0.9 * jaw_w
+                L = 0.9 * jaw_w
+            u = d / (np.linalg.norm(d) or 1.0)
+            hl = min(0.07 * jaw_w + 8, L * 0.45)                         # solid triangular head, as the mannequin
+            base = e - u * hl
+            nrm = np.array([-u[1], u[0]]) * hl * 0.42
+            cv2.line(img, _I(tip), _I(base), (20, 20, 20), 6, cv2.LINE_AA, shift=4)
+            cv2.line(img, _I(tip), _I(base), col, 4, cv2.LINE_AA, shift=4)
+            tri = np.array([_I(e), _I(base + nrm), _I(base - nrm)], np.int32)
+            cv2.fillPoly(img, [tri], col, cv2.LINE_AA, shift=4)
+            cv2.polylines(img, [tri], True, (20, 20, 20), 1, cv2.LINE_AA, shift=4)
+            labels.append((name, e + u * 16, col))
         cv2.circle(img, _I(tip), int(3.2 * 16), WHITE_BGR, -1, cv2.LINE_AA, shift=4)
     # text with Pillow: axis labels and the read-out
     from PIL import Image, ImageDraw
     pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)).convert("RGBA")
     over = Image.new("RGBA", pil.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(over)
-    f_lab = _font(13)
+    f_lab = _font(18)
     for name, pos, col in labels:
         tw = d.textlength(name, font=f_lab)
-        x, y = pos[0] - tw / 2, pos[1] - 8
+        x, y = pos[0] - tw / 2, pos[1] - 11
         d.text((x, y), name, font=f_lab, fill=(col[2], col[1], col[0], 255),
-               stroke_width=2, stroke_fill=(0, 0, 0, 170))
+               stroke_width=3, stroke_fill=(0, 0, 0, 200))
     fmt = lambda x, f: "–" if x is None else format(x, f)                      # noqa: E731
     rows = [("EAR", fmt(v.get("ear"), ".3f")), ("MAR", fmt(v.get("mar"), ".3f")), ("NAR", fmt(v.get("nar"), ".3f")),
             ("yaw", fmt(v.get("yaw"), "+.1f") + "°"), ("pitch", fmt(v.get("pitch"), "+.1f") + "°"),
@@ -638,6 +645,107 @@ def draw_overlay(img, P, mat, v):
     pil = Image.alpha_composite(pil, over).convert("RGB")
     img[:] = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
     return img
+
+
+# ---------------------------------------------------------------- head-pose mannequin
+# The live MediaPipe mesh as a black wireframe on grey, seen from a fixed three-quarter view so all
+# three head axes stay visible, with long yaw / pitch / roll arrows (the mannequin figure's style).
+# Axes follow DRIFTS: yaw turns about the head's up axis, pitch about the ear-to-ear axis,
+# roll about the nose (forward) axis.
+
+def _rot(axis, deg):
+    a = np.radians(deg)
+    c, s_ = np.cos(a), np.sin(a)
+    if axis == "x":
+        return np.array([[1, 0, 0], [0, c, -s_], [0, s_, c]])
+    return np.array([[c, 0, s_], [0, 1, 0], [-s_, 0, c]])
+
+
+VIEW = _rot("x", 14) @ _rot("y", 28)            # three-quarter view from slightly above, as the mannequin
+_TESS = None
+
+
+def _tess():
+    global _TESS
+    if _TESS is None:
+        from mediapipe.tasks.python.vision import FaceLandmarksConnections as C
+        _TESS = np.array([(c.start, c.end) for c in C.FACE_LANDMARKS_TESSELATION])
+    return _TESS
+
+
+def mannequin_geometry(P, mat):
+    """2-D drawing coordinates (y down, unit = face width) for the mesh points and the three axes."""
+    X = np.column_stack([P[:, 0], -P[:, 1], -P[:, 2]]).astype(float)       # camera frame: x right, y up, z to camera
+    fw = float(np.linalg.norm(X[234] - X[454])) or 1.0
+    X = (X - X.mean(0)) / fw
+    R = np.array(mat)[:3, :3] if mat is not None else np.eye(3)
+    ex, ey, ez = R[:, 0], R[:, 1], R[:, 2]                                 # across, up, out of the face
+    origin = -ez * 0.45                                                    # roughly the head's centre, behind the face
+    axes = {"yaw": (origin - ey * 0.85, origin + ey * 1.25),
+            "pitch": (origin, origin + ex * 1.05 * (-1 if (VIEW @ ex)[0] > 0 else 1)),   # to the viewer's left
+            "roll": (origin, origin + ez * 1.35)}
+    proj = lambda Y: (Y @ VIEW.T)[..., :2] * np.array([1, -1])           # noqa: E731
+    return proj(X), {k: (proj(a), proj(b)) for k, (a, b) in axes.items()}, (X @ VIEW.T)[:, 2]
+
+
+def mannequin_tile(P, mat, size):
+    """Live inset (BGR, size x size): grey ground, black wireframe, long black arrows."""
+    pts, axes, depth = mannequin_geometry(P, mat)
+    tile = np.full((size, size, 3), 201, np.uint8)
+    allp = np.vstack([pts] + [np.vstack(ab) for ab in axes.values()])
+    c, span = (allp.min(0) + allp.max(0)) / 2, float((allp.max(0) - allp.min(0)).max()) * 1.45
+    to = lambda q: (np.asarray(q) - c) / span * size + size / 2            # noqa: E731
+    sp = to(pts)
+    for a, b in _tess():
+        g = 70 if min(depth[a], depth[b]) > np.median(depth) else 115       # nearer edges darker
+        cv2.line(tile, _I(sp[a]), _I(sp[b]), (g, g, g), 1, cv2.LINE_AA, shift=4)
+    labels = []
+    for name, (a, b) in axes.items():
+        a, b = to(a), to(b)
+        d = b - a
+        L = float(np.linalg.norm(d)) or 1.0
+        u = d / L
+        hl = size * 0.06
+        base, nrm = b - u * hl, np.array([-u[1], u[0]]) * hl * 0.45
+        cv2.line(tile, _I(a), _I(base), (10, 10, 10), 2, cv2.LINE_AA, shift=4)
+        cv2.fillPoly(tile, [np.array([_I(b), _I(base + nrm), _I(base - nrm)], np.int32)], (10, 10, 10), cv2.LINE_AA, shift=4)
+        labels.append((name, b + u * size * 0.09))
+    from PIL import Image, ImageDraw
+    pil = Image.fromarray(cv2.cvtColor(tile, cv2.COLOR_BGR2RGB))
+    d = ImageDraw.Draw(pil)
+    f = _font(max(11, size // 13))
+    for name, q in labels:
+        tw = d.textlength(name, font=f)
+        d.text((q[0] - tw / 2, q[1] - f.size * 0.6), name, font=f, fill=(15, 15, 15))
+    return cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
+
+
+def picture_mannequin(P, mat, v, out, px=1200):
+    """4 x 4 in at 300 dpi: the mannequin figure with live head pose, readable at poster size."""
+    from matplotlib.collections import LineCollection
+    pts, axes, depth = mannequin_geometry(P, mat)
+    fig = plt.figure(figsize=(4, 4), dpi=px / 4, facecolor="#C9C9C9")
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_facecolor("#C9C9C9")
+    T = _tess()
+    near = np.minimum(depth[T[:, 0]], depth[T[:, 1]]) > np.median(depth)
+    for sel, lw, col in ((~near, 0.35, "0.35"), (near, 0.45, "black")):
+        ax.add_collection(LineCollection(pts[T[sel]], colors=col, linewidths=lw))
+    for name, (a, b) in axes.items():
+        ax.annotate("", xy=b, xytext=a, arrowprops=dict(arrowstyle="-|>", color="black", lw=3.2,
+                                                        mutation_scale=34, shrinkA=0, shrinkB=0))
+        u = (b - a) / (np.linalg.norm(b - a) or 1.0)
+        ax.text(*(b + u * 0.26), name, fontsize=26, ha="center", va="center", color="#151515")
+    allp = np.vstack([pts] + [np.vstack(ab) for ab in axes.values()])
+    c, span = (allp.min(0) + allp.max(0)) / 2, float((allp.max(0) - allp.min(0)).max()) * 1.75
+    ax.set_xlim(c[0] - span / 2, c[0] + span / 2), ax.set_ylim(c[1] + span / 2, c[1] - span / 2)
+    ax.set_aspect("equal"), ax.axis("off")
+    fmt = lambda x: "–" if x is None else f"{x:+.1f}°"                    # noqa: E731
+    ax.text(0.5, 0.03, f"yaw {fmt(v.get('yaw'))}    pitch {fmt(v.get('pitch'))}    roll {fmt(v.get('roll'))}",
+            transform=ax.transAxes, ha="center", fontsize=11, color="#222222")
+    f = out / time.strftime("picture_%H%M%S_headpose.png")
+    fig.savefig(f, facecolor="#C9C9C9"), plt.close(fig)
+    return f
 
 
 # ---------------------------------------------------------------- main loop
@@ -686,7 +794,7 @@ def main(argv=None):
 
     view = None
     neutral, calib = None, []          # neutral head (yaw, pitch): median of the first ~1 s with a face ('c' re-centres)
-    nar_neutral, nar_calib, last = None, [], None
+    nar_neutral, nar_calib, last, last_mat = None, [], None, None
     clicks, flash = [], {}
     win_name = "DRIFTS live graphs (dev)"
     if not args.no_window:
@@ -703,6 +811,7 @@ def main(argv=None):
             P, _, mat = r
             v = indicators(P, mat)
             last = (frame.copy(), P, v)                          # plain frame for 'p' pictures
+            last_mat = mat
             if v.get("nar") is not None and nar_neutral is None:
                 nar_calib.append(v["nar"])
                 if len(nar_calib) >= 30:
@@ -731,6 +840,25 @@ def main(argv=None):
             Pd[:, 0] = (P[:, 0] - (fw - cw) // 2) * sc
             Pd[:, 1] = P[:, 1] * sc
             draw_overlay(cam, Pd, mat, v)
+        cam_buttons = {}
+        if r is not None and not args.no_overlay:               # head-pose mannequin inset, bottom right
+            m = 210
+            mx, my = cam.shape[1] - m - 12, cam.shape[0] - m - 12
+            cam[my:my + m, mx:mx + m] = mannequin_tile(P, mat, m)
+            cv2.rectangle(cam, (mx, my), (mx + m - 1, my + m - 1), (150, 150, 150), 1)
+            cam_buttons["headpose"] = (mx + m - 74, my + m - 26, mx + m - 6, my + m - 6)
+            from PIL import Image, ImageDraw
+            pil = Image.fromarray(cv2.cvtColor(cam, cv2.COLOR_BGR2RGB))
+            dd = ImageDraw.Draw(pil)
+            bx0, by0, bx1, by1 = cam_buttons["headpose"]
+            ok_ = flash.get("headpose", 0) > time.time()
+            dd.rounded_rectangle([bx0, by0, bx1, by1], radius=5, fill=(46, 125, 50) if ok_ else (107, 15, 26),
+                                 outline=(255, 255, 255))
+            lab = "Saved ✓" if ok_ else "↓ PNG"
+            dd.text(((bx0 + bx1 - dd.textlength(lab, font=_font(12))) / 2, by0 + 3), lab, font=_font(12),
+                    fill=(255, 255, 255))
+            dd.text((mx + 8, my + m - 20), "Head pose", font=_font(12), fill=(30, 30, 30))
+            cam[:] = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
         if dash is None:
             dash = Dashboard(h)
         panel = dash.update(v, recording)
@@ -741,6 +869,11 @@ def main(argv=None):
         if clicks:                                               # Download PNG buttons
             cx, cy = clicks.pop()
             clicks.clear()
+            hb = cam_buttons.get("headpose")
+            if hb and last is not None and hb[0] <= cx <= hb[2] and hb[1] <= cy <= hb[3]:
+                f = picture_mannequin(last[1], last_mat, last[2], out)
+                print(f"saved {f}")
+                flash["headpose"] = time.time() + 1.5
             for kind, (bx0, by0, bx1, by1) in buttons.items():
                 if last is not None and bx0 <= cx - cam.shape[1] <= bx1 and by0 <= cy <= by1:
                     raw_l, P_l, v_l = last
@@ -762,7 +895,7 @@ def main(argv=None):
                     if recording[name] == recording[names[0]]:
                         toggle(name)
             elif k == ord("p") and last is not None:
-                take_picture(*last, nar_neutral or (float(np.median(nar_calib)) if nar_calib else None), out)
+                take_picture(*last, nar_neutral or (float(np.median(nar_calib)) if nar_calib else None), out, last_mat)
             elif k == ord("c"):
                 neutral, calib, nar_neutral, nar_calib = None, [], None, []
                 print("re-centring: look at the road for 1 s")
@@ -778,7 +911,7 @@ def main(argv=None):
     if view is not None:
         cv2.imwrite(str(out / "dashboard_last.png"), view)
     if args.no_window and last is not None:      # headless runs: close-ups of the last frame
-        take_picture(*last, nar_neutral or (float(np.median(nar_calib)) if nar_calib else None), out)
+        take_picture(*last, nar_neutral or (float(np.median(nar_calib)) if nar_calib else None), out, last_mat)
     if not args.no_window:
         cv2.destroyAllWindows()
     print(f"Wrote {out}")
