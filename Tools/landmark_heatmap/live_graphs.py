@@ -416,54 +416,118 @@ def take_picture(raw, P, v, nar_neutral, out):
 
 # ---------------------------------------------------------------- main loop
 
-# Major landmarks as dots, colours and size as the 98-point reference figure
-# (jaw blue, brows green, eyes + pupils magenta, nose bridge black, nose base yellow,
-# outer lips cyan, inner lips red). MediaPipe indices; EAR, NAR and MAR points included.
-DOT_GROUPS = (
-    ((238, 4, 8), (127, 234, 93, 132, 58, 172, 136, 150, 149, 176, 148, 152,
-                   377, 400, 378, 379, 365, 397, 288, 361, 323, 454, 356)),               # jaw
-    ((12, 240, 12), (70, 63, 105, 66, 107, 46, 53, 52, 65, 55,
-                     300, 293, 334, 296, 336, 276, 283, 282, 295, 285)),                  # brows
-    ((232, 12, 240), (33, 160, 159, 158, 133, 153, 145, 144,
-                      362, 385, 386, 387, 263, 373, 374, 380, 468, 473)),                 # eyes + pupils
-    ((1, 1, 5), (168, 6, 195, 1)),                                                        # nose bridge -> tip
-    ((15, 251, 251), (98, 97, 2, 326, 327)),                                              # nose base
-    ((243, 246, 18), (61, 40, 37, 0, 267, 270, 291, 321, 314, 17, 84, 91)),              # outer lips
-    ((12, 10, 235), (78, 82, 13, 312, 308, 317, 14, 87)),                                 # inner lips (MAR)
-)
-AXIS_COLOURS = {"x": ((0, 0, 255), "pitch"), "y": ((0, 200, 0), "yaw"), "z": ((255, 0, 0), "roll")}
+# ---------------------------------------------------------------- face overlay (poster style)
+# One restrained palette: thin white contours and points; DRIFTS red only on the points the
+# indicators measure (EAR 12, MAR 8, NAR 4); a slim pitch / yaw / roll axis at the nose; a small
+# translucent read-out. Drawn on the display-size image with sub-pixel anti-aliasing.
+MEASURED = tuple(lh.EAR_R) + tuple(lh.EAR_L) + tuple(MOUTH6) + (13, 14, 78, 308) + (168, 1, 98, 327)
+KEY_POINTS = (70, 63, 105, 66, 107, 300, 293, 334, 296, 336,                 # brows
+              33, 160, 159, 158, 133, 153, 145, 144, 362, 385, 386, 387, 263, 373, 374, 380,   # eyes
+              168, 6, 195, 1, 98, 97, 2, 326, 327,                          # nose
+              61, 40, 37, 0, 267, 270, 291, 321, 314, 17, 84, 91,           # outer lips
+              78, 82, 13, 312, 308, 317, 14, 87,                            # inner lips
+              10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378,
+              400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109)
+WHITE_BGR, RED_BGR = (255, 255, 255), (60, 50, 232)                         # DRIFTS red #E8323C
+AXES = {"x": ((76, 76, 232), "pitch"), "y": ((113, 179, 60), "yaw"), "z": ((242, 140, 61), "roll")}
+_FONT = {}
 
 
-def draw_dots(frame, P):
+def _font(px):
+    from PIL import ImageFont
+    from matplotlib import font_manager
+    if px not in _FONT:
+        _FONT[px] = ImageFont.truetype(font_manager.findfont("DejaVu Sans"), px)
+    return _FONT[px]
+
+
+def _I(p):                                       # sub-pixel point for cv2 (shift=4)
+    return (int(round(p[0] * 16)), int(round(p[1] * 16)))
+
+
+def draw_overlay(img, P, mat, v):
+    """Poster-style face overlay on the display-size image `img` (P in its pixel coords)."""
+    from mediapipe.tasks.python.vision import FaceLandmarksConnections as C
     jaw_w = float(np.linalg.norm(P[234, :2] - P[454, :2]))
-    r = max(2, int(round(0.0097 * jaw_w)))            # ~9 px dots on a 440 px-wide face, as the figure
-    for col, idx in DOT_GROUPS:
-        for i in idx:
-            cv2.circle(frame, (int(round(P[i, 0])), int(round(P[i, 1]))), r, col, -1, cv2.LINE_AA)
-    return jaw_w
-
-
-def draw_nose_axes(frame, P, mat, jaw_w):
-    """Head axes from the nose tip (facesignals.nose_axes): pitch = across the face,
-    yaw = up the face, roll = out of the face (where the head points)."""
-    if mat is None:
-        return
-    tip = (float(P[1, 0]), float(P[1, 1]))
-    ends = lh.fs.nose_axes(mat, tip, 0.18 * jaw_w)
-    t = max(2, int(round(jaw_w / 150)))
-    for k in ("z", "x", "y"):
-        col, name = AXIS_COLOURS[k]
-        e = ends[k]
-        cv2.arrowedLine(frame, (int(tip[0]), int(tip[1])), (int(e[0]), int(e[1])), col, t, cv2.LINE_AA, tipLength=0.12)
-        # label just beyond the arrow tip, along the arrow, so the three never sit on each other
-        d = np.array([e[0] - tip[0], e[1] - tip[1]])
-        u = d / (np.linalg.norm(d) or 1.0)
-        fs_ = max(0.4, jaw_w / 600)
-        (tw, th), _ = cv2.getTextSize(name, cv2.FONT_HERSHEY_SIMPLEX, fs_, t)
-        lx = e[0] + u[0] * (8 + tw * 0.6) - tw / 2
-        ly = e[1] + u[1] * (8 + th * 1.2) + th / 2
-        for c, w in (((255, 255, 255), t + 2), (col, t)):
-            cv2.putText(frame, name, (int(lx), int(ly)), cv2.FONT_HERSHEY_SIMPLEX, fs_, c, w, cv2.LINE_AA)
+    # contours: face oval faint, features a little stronger
+    layer = img.copy()
+    for conns, alpha in ((C.FACE_LANDMARKS_FACE_OVAL, 0.35),):
+        for c in conns:
+            cv2.line(layer, _I(P[c.start]), _I(P[c.end]), WHITE_BGR, 1, cv2.LINE_AA, shift=4)
+        img[:] = cv2.addWeighted(layer, alpha, img, 1 - alpha, 0)
+    layer = img.copy()
+    for conns in (C.FACE_LANDMARKS_LEFT_EYE, C.FACE_LANDMARKS_RIGHT_EYE, C.FACE_LANDMARKS_LEFT_EYEBROW,
+                  C.FACE_LANDMARKS_RIGHT_EYEBROW, C.FACE_LANDMARKS_LIPS):
+        for c in conns:
+            cv2.line(layer, _I(P[c.start]), _I(P[c.end]), WHITE_BGR, 1, cv2.LINE_AA, shift=4)
+    for chain in ((168, 6, 195, 1), (98, 97, 2, 326, 327)):           # nose: bridge line and nostril base
+        for a, b in zip(chain, chain[1:]):
+            cv2.line(layer, _I(P[a]), _I(P[b]), WHITE_BGR, 1, cv2.LINE_AA, shift=4)
+    for iris in (range(469, 473), range(474, 478)):                  # iris as a thin ring
+        ring = P[list(iris), :2]
+        cen = ring.mean(0)
+        rad = float(np.linalg.norm(ring - cen, axis=1).mean())
+        cv2.circle(layer, _I(cen), int(rad * 16), WHITE_BGR, 1, cv2.LINE_AA, shift=4)
+    img[:] = cv2.addWeighted(layer, 0.6, img, 0.4, 0)
+    # points: small white; measured ones red with a white ring
+    r = max(1.6, jaw_w * 0.0075)
+    for i in KEY_POINTS:
+        if i not in MEASURED:
+            cv2.circle(img, _I(P[i]), int(r * 16), WHITE_BGR, -1, cv2.LINE_AA, shift=4)
+    for i in set(MEASURED):
+        cv2.circle(img, _I(P[i]), int((r * 1.45 + 1.2) * 16), WHITE_BGR, -1, cv2.LINE_AA, shift=4)
+        cv2.circle(img, _I(P[i]), int(r * 1.45 * 16), RED_BGR, -1, cv2.LINE_AA, shift=4)
+    # head axes: slim, from the nose tip
+    labels = []
+    if mat is not None:
+        tip = (float(P[1, 0]), float(P[1, 1]))
+        ends = lh.fs.nose_axes(mat, tip, 0.11 * jaw_w)
+        for k in ("z", "x", "y"):
+            col, name = AXES[k]
+            e = np.array(ends[k])
+            d = e - np.array(tip)
+            L = float(np.linalg.norm(d)) or 1.0
+            u = d / L
+            cv2.line(img, _I(tip), _I(e), col, 2, cv2.LINE_AA, shift=4)
+            head = 0.09 * jaw_w
+            for ang in (0.45, -0.45):                                   # open chevron arrowhead
+                ca, sa = np.cos(ang), np.sin(ang)
+                hd = np.array([u[0] * ca - u[1] * sa, u[0] * sa + u[1] * ca])
+                cv2.line(img, _I(e), _I(e - hd * min(head, L * 0.35)), col, 2, cv2.LINE_AA, shift=4)
+            labels.append((name, e + u * 10, col))
+        cv2.circle(img, _I(tip), int(3.2 * 16), WHITE_BGR, -1, cv2.LINE_AA, shift=4)
+    # text with Pillow: axis labels and the read-out
+    from PIL import Image, ImageDraw
+    pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)).convert("RGBA")
+    over = Image.new("RGBA", pil.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(over)
+    f_lab = _font(13)
+    for name, pos, col in labels:
+        tw = d.textlength(name, font=f_lab)
+        x, y = pos[0] - tw / 2, pos[1] - 8
+        d.text((x, y), name, font=f_lab, fill=(col[2], col[1], col[0], 255),
+               stroke_width=2, stroke_fill=(0, 0, 0, 170))
+    fmt = lambda x, f: "–" if x is None else format(x, f)                      # noqa: E731
+    rows = [("EAR", fmt(v.get("ear"), ".3f")), ("MAR", fmt(v.get("mar"), ".3f")), ("NAR", fmt(v.get("nar"), ".3f")),
+            ("yaw", fmt(v.get("yaw"), "+.1f") + "°"), ("pitch", fmt(v.get("pitch"), "+.1f") + "°"),
+            ("roll", fmt(v.get("roll"), "+.1f") + "°")]
+    f_k, f_v = _font(12), _font(15)
+    W, H = pil.size
+    pad, colw, rowh = 12, 74, 34
+    bw, bh = pad * 2 + colw * 3, pad * 2 + rowh * 2 + 18
+    x0, y0 = 14, H - bh - 14
+    d.rounded_rectangle([x0, y0, x0 + bw, y0 + bh], radius=10, fill=(12, 12, 16, 150))
+    for k, (key, val) in enumerate(rows):
+        cx, cy = x0 + pad + (k % 3) * colw, y0 + pad + (k // 3) * rowh
+        d.text((cx, cy), key, font=f_k, fill=(190, 190, 196, 255))
+        d.text((cx, cy + 13), val, font=f_v, fill=(255, 255, 255, 255))
+    ly = y0 + bh - 18
+    d.ellipse([x0 + pad, ly + 3, x0 + pad + 9, ly + 12], fill=(232, 50, 60, 255), outline=(255, 255, 255, 255))
+    d.text((x0 + pad + 14, ly), "measured points  ·  MediaPipe Face Landmarker", font=_font(11),
+           fill=(200, 200, 205, 255))
+    pil = Image.alpha_composite(pil, over).convert("RGB")
+    img[:] = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
+    return img
 
 
 def main(argv=None):
@@ -526,8 +590,6 @@ def main(argv=None):
                 nar_calib.append(v["nar"])
                 if len(nar_calib) >= 30:
                     nar_neutral = float(np.median(nar_calib))
-            if not args.no_overlay:
-                draw_nose_axes(frame, P, mat, draw_dots(frame, P))
         if v.get("pitch") is not None and v.get("yaw") is not None and neutral is None:
             calib.append((v["yaw"], v["pitch"]))
             if len(calib) >= 30:
@@ -545,7 +607,13 @@ def main(argv=None):
         fh, fw = frame.shape[:2]
         cw = min(fw, int(fh * 3 / 4))                            # 3:4 portrait centre crop keeps the window < 1920 px
         sq = frame[:, (fw - cw) // 2:(fw - cw) // 2 + cw]
-        cam = cv2.resize(sq, (int(h * 3 / 4), h))
+        cam = cv2.resize(sq, (int(h * 3 / 4), h), interpolation=cv2.INTER_CUBIC)
+        if r is not None and not args.no_overlay:               # draw at display size: crisp lines and text
+            sc = h / fh
+            Pd = P.copy()
+            Pd[:, 0] = (P[:, 0] - (fw - cw) // 2) * sc
+            Pd[:, 1] = P[:, 1] * sc
+            draw_overlay(cam, Pd, mat, v)
         if dash is None:
             dash = Dashboard(h)
         view = np.hstack([cam, dash.update(v, recording)])

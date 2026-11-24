@@ -36,9 +36,9 @@ and `mouth.py`, so these images always match what the Pi measures.
 
 ## Live line graphs (`live_graphs.py`)
 
-Webcam (or clip) on the left with the major MediaPipe landmarks as colour-coded dots (jaw blue,
-brows green, eyes magenta, nose bridge black, nose base yellow, outer lips cyan, inner lips red)
-and the head's pitch / yaw / roll axes drawn from the nose tip; live line graphs on the right in
+Webcam (or clip) on the left with a poster-style overlay: thin white contours and key points,
+DRIFTS red on the points the indicators measure (EAR, MAR, NAR), a slim pitch / yaw / roll axis at
+the nose and a small read-out of the live values; live line graphs on the right in
 plain matplotlib style (white background, light grid, last 100 frames):
 
 | Graph | Value | Axis reads |
