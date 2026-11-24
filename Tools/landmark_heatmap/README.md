@@ -58,6 +58,7 @@ Each indicator records **on its own**: press its key to start, press again to st
 | `4` | record head pose (yaw, pitch, roll) |
 | `5` | record gaze |
 | `a` | start / stop all |
+| `p` | picture: the plain frame plus eye, mouth and nose close-ups (PNG), each with its value in the corner |
 | `c` | re-centre gaze (look straight at the road for 1 s) |
 | `s` | snapshot of the whole window |
 | `q` | quit (anything still recording is saved) |
@@ -66,3 +67,14 @@ Each indicator records **on its own**: press its key to start, press again to st
 python Tools/landmark_heatmap/live_graphs.py --camera 0
 python Tools/landmark_heatmap/live_graphs.py --video clip.mp4 --record all --no-window
 ```
+
+### Picture close-ups (`p`)
+
+| File | What it shows |
+| --- | --- |
+| `picture_*_eye.png` | the larger (closer) eye zoomed, points p1–p6, yellow arrows for \|p2–p6\|, \|p3–p5\| and \|p1–p4\|; corner: total EAR (both eyes) and this eye's EAR |
+| `picture_*_mouth.png` | the mouth zoomed, p1–p6 (upper 82 / 312, corners 308 / 78, lower 317 / 87), black arrows for the two openings and the width; corner: MAR |
+| `picture_*_nose.png` | bridge → tip length and nostril width, with the neutral length dashed beside it (longer = looking down, shorter = looking up); corner: NAR, neutral and the % change |
+| `picture_*_frame.png` | the plain camera frame (no dots) |
+
+With `--no-window`, close-ups of the last frame are saved at the end.
