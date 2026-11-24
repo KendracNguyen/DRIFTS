@@ -15,7 +15,8 @@ same points and maths as the Pi (facesignals.py / mouth.py):
 Each indicator records on its own: press its key to start, press again to
 stop and save that graph (PNG) and its data (CSV) to captures/<session>/.
 
-    keys   1 EAR   2 NAR   3 MAR   4 head pose   5 gaze   a all   c re-centre   s snapshot   q quit
+    keys   1 EAR   2 NAR   3 MAR   4 head pose   5 gaze   a all   p picture   c re-centre   s snapshot   q quit
+    mouse  click Download PNG under the Eye / Nose / Mouth zoom tiles
 
     python Tools/landmark_heatmap/live_graphs.py --camera 0
     python Tools/landmark_heatmap/live_graphs.py --video clip.mp4 --record all --no-window
@@ -34,7 +35,9 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt                                   # noqa: E402
-plt.rcParams.update({"font.family": "DejaVu Sans", "axes.facecolor": "white", "figure.facecolor": "white"})
+plt.rcParams.update({"font.family": "DejaVu Sans", "axes.facecolor": "white", "figure.facecolor": "white",
+                     "mathtext.fontset": "stix"})
+import matplotlib.patheffects as pe                               # noqa: E402
 from matplotlib.patches import Circle, FancyBboxPatch, Polygon         # noqa: E402
 from matplotlib.ticker import AutoMinorLocator                    # noqa: E402
 
@@ -190,7 +193,10 @@ class Dashboard:
             self.ln[k], = a.plot([], [], "b--", linewidth=1.4)
             a.set_xlim(0, WINDOW)
             self.ax[k] = a
-        self.ax["gaze"] = self.fig.add_subplot(gs[:, 3])
+        self.ax["gaze"] = self.fig.add_subplot(gs[0:2, 3])
+        self.ax_zoom = self.fig.add_subplot(gs[2:, 3])           # area for the live zoom tiles (drawn with OpenCV)
+        self.ax_zoom.axis("off")
+        self.zoom_box = None
         self.hist = {k: deque(maxlen=WINDOW) for k in ("ear", "nar", "mar", "yaw", "pitch", "roll")}
         self.trail = deque(maxlen=30)
 
@@ -229,6 +235,10 @@ class Dashboard:
         if recording.get("gaze"):
             self.ax["gaze"].title.set_color("red")
         self.fig.canvas.draw()
+        if self.zoom_box is None:                                  # (x, y, w, h) in panel pixels, top-left origin
+            bb = self.ax_zoom.get_window_extent()
+            H = self.fig.canvas.get_width_height()[1]
+            self.zoom_box = (int(bb.x0), int(H - bb.y1), int(bb.width), int(bb.height))
         img = np.asarray(self.fig.canvas.buffer_rgba())[..., :3]
         return cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
@@ -283,57 +293,354 @@ def save_recording(name, rows, folder: Path):
     return png
 
 
-# ---------------------------------------------------------------- main loop
+# ---------------------------------------------------------------- picture close-ups ('p')
 
-# Major landmarks as dots, colours and size as the 98-point reference figure
-# (jaw blue, brows green, eyes + pupils magenta, nose bridge black, nose base yellow,
-# outer lips cyan, inner lips red). MediaPipe indices; EAR, NAR and MAR points included.
-DOT_GROUPS = (
-    ((238, 4, 8), (127, 234, 93, 132, 58, 172, 136, 150, 149, 176, 148, 152,
-                   377, 400, 378, 379, 365, 397, 288, 361, 323, 454, 356)),               # jaw
-    ((12, 240, 12), (70, 63, 105, 66, 107, 46, 53, 52, 65, 55,
-                     300, 293, 334, 296, 336, 276, 283, 282, 295, 285)),                  # brows
-    ((232, 12, 240), (33, 160, 159, 158, 133, 153, 145, 144,
-                      362, 385, 386, 387, 263, 373, 374, 380, 468, 473)),                 # eyes + pupils
-    ((1, 1, 5), (168, 6, 195, 1)),                                                        # nose bridge -> tip
-    ((15, 251, 251), (98, 97, 2, 326, 327)),                                              # nose base
-    ((243, 246, 18), (61, 40, 37, 0, 267, 270, 291, 321, 314, 17, 84, 91)),              # outer lips
-    ((12, 10, 235), (78, 82, 13, 312, 308, 317, 14, 87)),                                 # inner lips (MAR)
-)
-AXIS_COLOURS = {"x": ((0, 0, 255), "pitch"), "y": ((0, 200, 0), "yaw"), "z": ((255, 0, 0), "roll")}
+DOT_RED, ARROW_YELLOW = "#E8323C", "#F2E519"
+MOUTH6 = (82, 312, 308, 317, 87, 78)          # figure (b) p1..p6: upper L/R, right corner, lower R/L, left corner
+NOSE4 = {"bridge": 168, "tip": 1, "ala L": 98, "ala R": 327}
 
 
-def draw_dots(frame, P):
+def _window(P, idx, aspect, pad):
+    """(x0, x1, y0, y1) around landmarks idx with width/height = aspect."""
+    sel = P[list(idx), :2]
+    (x0, y0), (x1, y1) = sel.min(0), sel.max(0)
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    w = max(x1 - x0, (y1 - y0) * aspect) * (1 + 2 * pad)
+    h = w / aspect
+    return cx - w / 2, cx + w / 2, cy - h / 2, cy + h / 2
+
+
+def _closeup_axes(raw, win, width_in=6.0):
+    x0, x1, y0, y1 = win
+    fig = plt.figure(figsize=(width_in, width_in * (y1 - y0) / (x1 - x0)), dpi=200)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.imshow(cv2.cvtColor(raw, cv2.COLOR_BGR2RGB), interpolation="lanczos")
+    ax.set_xlim(x0, x1), ax.set_ylim(y1, y0), ax.axis("off")
+    return fig, ax
+
+
+def _corner(ax, label, value, sub=None):
+    """Small value label in the top-left corner."""
+    ax.text(0.012, 0.975, f"{label} {value:.3f}" if value is not None else f"{label} n/a", transform=ax.transAxes,
+            fontsize=8, fontweight="bold", va="top", ha="left",
+            bbox=dict(boxstyle="round,pad=0.25", facecolor="white", edgecolor="none", alpha=0.85))
+    if sub:
+        ax.text(0.012, 0.86, sub, transform=ax.transAxes, fontsize=6, va="top", ha="left", color="0.25",
+                bbox=dict(boxstyle="round,pad=0.2", facecolor="white", edgecolor="none", alpha=0.75))
+
+
+def _arrow(ax, a, b, color, lw):
+    ax.annotate("", xy=b, xytext=a, arrowprops=dict(arrowstyle="<->", color=color, lw=lw, shrinkA=0, shrinkB=0,
+                                                    mutation_scale=14))
+
+
+GLOW = [pe.withStroke(linewidth=3, foreground="white")]
+
+
+def picture_eye(raw, P, ear_total, out):
+    """Figure (a): the larger (closer) eye, zoomed, p1..p6 with the EAR openings and width."""
+    widths = {k: float(np.linalg.norm(P[idx[0], :2] - P[idx[3], :2])) for k, idx in (("right", lh.EAR_R), ("left", lh.EAR_L))}
+    side = max(widths, key=widths.get)
+    idx = lh.EAR_R if side == "right" else lh.EAR_L
+    pts = [P[i, :2] for i in idx]
+    fig, ax = _closeup_axes(raw, _window(P, idx, 2.2, 0.45))
+    _arrow(ax, pts[0], pts[3], ARROW_YELLOW, 2.4)                      # |p1-p4|
+    _arrow(ax, pts[1], pts[5], ARROW_YELLOW, 2.4)                      # |p2-p6|
+    _arrow(ax, pts[2], pts[4], ARROW_YELLOW, 2.4)                      # |p3-p5|
+    ax.scatter([p[0] for p in pts], [p[1] for p in pts], s=150, color=DOT_RED, zorder=5, edgecolors="none")
+    offs = [(-22, 0), (0, 18), (0, 18), (22, 0), (0, -20), (0, -20)]   # p1 left, p2/p3 above, p4 right, p5/p6 below
+    for k, (pt, (dx, dy)) in enumerate(zip(pts, offs), 1):
+        ax.annotate(rf"$\mathbfit{{p}}_{{\mathbf{{{k}}}}}$", pt, xytext=(dx, dy), textcoords="offset points",
+                    ha="center", va="center", fontsize=20, color="black", path_effects=GLOW, zorder=6)
+    _corner(ax, "EAR", ear_total, f"this eye ({side}) {lh.ear(P, idx):.3f}  ·  (|p2-p6|+|p3-p5|) / 2|p1-p4|")
+    f = out / time.strftime("picture_%H%M%S_eye.png")
+    fig.savefig(f), plt.close(fig)
+    return f
+
+
+def picture_mouth(raw, P, mar_value, out):
+    """Figure (b): the mouth, zoomed, p1..p6 with two openings and the width."""
+    pts = [P[i, :2] for i in MOUTH6]
+    fig, ax = _closeup_axes(raw, _window(P, MOUTH6, 1.6, 0.35))
+    _arrow(ax, pts[0], pts[4], "black", 1.8)                           # p1-p5
+    _arrow(ax, pts[1], pts[3], "black", 1.8)                           # p2-p4
+    _arrow(ax, pts[5], pts[2], "black", 1.8)                           # p6-p3
+    ax.scatter([p[0] for p in pts], [p[1] for p in pts], s=90, color=DOT_RED, zorder=5, edgecolors="none")
+    offs = [(-14, 10), (14, 10), (16, -6), (12, -14), (-12, -14), (-16, -6)]
+    for k, (pt, (dx, dy)) in enumerate(zip(pts, offs), 1):
+        ax.annotate(f"p{k}", pt, xytext=(dx, dy), textcoords="offset points", ha="center", va="center",
+                    fontsize=12, color="black", path_effects=GLOW, zorder=6)
+    _corner(ax, "MAR", mar_value, "openings / width (DRIFTS also averages the centre 13-14)")
+    f = out / time.strftime("picture_%H%M%S_mouth.png")
+    fig.savefig(f), plt.close(fig)
+    return f
+
+
+def picture_nose(raw, P, nar_value, nar_neutral, out):
+    """NAR: nose length (bridge -> tip) over nostril width, with the neutral length dashed.
+    Looking down the tip comes toward the camera and the length line grows; looking up it shrinks."""
+    b, t, l, r = (P[NOSE4[k], :2] for k in ("bridge", "tip", "ala L", "ala R"))
+    fig, ax = _closeup_axes(raw, _window(P, NOSE4.values(), 1.15, 0.40), width_in=6.0)
+    width = float(np.linalg.norm(l - r))
+    if nar_neutral:
+        u = (t - b) / (np.linalg.norm(t - b) or 1.0)
+        n_end = b + u * nar_neutral * width
+        nrm = np.array([u[1], -u[0]]) * width * 0.16                  # beside the live line, on the image-left side
+        if nrm[0] > 0:
+            nrm = -nrm
+        ax.plot([b[0] + nrm[0], n_end[0] + nrm[0]], [b[1] + nrm[1], n_end[1] + nrm[1]], "--", color="0.35", lw=2.0)
+        ax.plot([n_end[0] + nrm[0] - width * 0.05, n_end[0] + nrm[0] + width * 0.05], [n_end[1] + nrm[1]] * 2,
+                color="0.35", lw=2.0)
+        ax.annotate("neutral\nlength", n_end + nrm, xytext=(-10, 0), textcoords="offset points", fontsize=10,
+                    color="0.25", ha="right", va="center", path_effects=GLOW)
+    _arrow(ax, b, t, "black", 1.8)                                    # length
+    _arrow(ax, l, r, "black", 1.8)                                    # width
+    pts = [b, t, l, r]
+    ax.scatter([p[0] for p in pts], [p[1] for p in pts], s=110, color=DOT_RED, zorder=5, edgecolors="none")
+    for name, pt, (dx, dy) in (("bridge", b, (0, 14)), ("tip", t, (22, 0)), ("ala", l, (-16, -12)), ("ala", r, (16, -12))):
+        ax.annotate(name, pt, xytext=(dx, dy), textcoords="offset points", ha="center", va="center", fontsize=12,
+                    color="black", path_effects=GLOW, zorder=6)
+    sub = "length / width"
+    if nar_value and nar_neutral:
+        d = (nar_value / nar_neutral - 1) * 100
+        sub = f"neutral {nar_neutral:.3f}  ·  {d:+.0f}% " + ("longer: looking down" if d > 2 else
+                                                            "shorter: looking up" if d < -2 else "level")
+    _corner(ax, "NAR", nar_value, sub)
+    f = out / time.strftime("picture_%H%M%S_nose.png")
+    fig.savefig(f), plt.close(fig)
+    return f
+
+
+def take_picture(raw, P, v, nar_neutral, out):
+    """'p': the plain frame plus eye, mouth and nose close-ups, each with its value in the corner."""
+    files = [out / time.strftime("picture_%H%M%S_frame.png")]
+    cv2.imwrite(str(files[0]), raw)
+    files += [picture_eye(raw, P, v.get("ear"), out), picture_mouth(raw, P, v.get("mar"), out),
+              picture_nose(raw, P, v.get("nar"), nar_neutral, out)]
+    for f in files:
+        print(f"saved {f}")
+    return files
+
+
+# ---------------------------------------------------------------- live zoom tiles with Download PNG buttons
+
+ZOOM_TILES = ("eye", "nose", "mouth")
+ZOOM_TITLES = {"eye": "Eye  ·  EAR  (p1–p6)", "nose": "Nose  ·  NAR", "mouth": "Mouth  ·  MAR  (p1–p6)"}
+
+
+def _tile_crop(raw, win, tw, th):
+    x0, x1, y0, y1 = win
+    src = np.float32([[x0, y0], [x1, y0], [x0, y1]])
+    dst = np.float32([[0, 0], [tw, 0], [0, th]])
+    M = cv2.getAffineTransform(src, dst)
+    tile = cv2.warpAffine(raw, M, (tw, th), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+    return tile, (lambda p: (M[0, 0] * p[0] + M[0, 1] * p[1] + M[0, 2], M[1, 0] * p[0] + M[1, 1] * p[1] + M[1, 2]))
+
+
+def zoom_tile(kind, raw, P, v, nar_neutral, tw, th):
+    """One live close-up (BGR tile) with the figure's points and lines, value in the corner."""
+    aspect = tw / th
+    if kind == "eye":
+        w = {s_: float(np.linalg.norm(P[i[0], :2] - P[i[3], :2])) for s_, i in (("R", lh.EAR_R), ("L", lh.EAR_L))}
+        idx = lh.EAR_R if w["R"] >= w["L"] else lh.EAR_L
+        tile, to = _tile_crop(raw, _window(P, idx, aspect, 0.40), tw, th)
+        q = [to(P[i]) for i in idx]
+        lines, lc = [(0, 3), (1, 5), (2, 4)], (25, 229, 242)            # yellow, as figure (a)
+        labels = [(f"p{k + 1}", q[k], off) for k, off in
+                  enumerate([(-14, 0), (0, -13), (0, -13), (14, 0), (0, 13), (0, 13)])]
+        val = ("EAR", v.get("ear"))
+    elif kind == "mouth":
+        tile, to = _tile_crop(raw, _window(P, MOUTH6, aspect, 0.30), tw, th)
+        q = [to(P[i]) for i in MOUTH6]
+        lines, lc = [(0, 4), (1, 3), (5, 2)], (20, 20, 20)              # black, as figure (b)
+        labels = [(f"p{k + 1}", q[k], off) for k, off in
+                  enumerate([(-10, -10), (10, -10), (14, 0), (10, 11), (-10, 11), (-14, 0)])]
+        val = ("MAR", v.get("mar"))
+    else:
+        ids = [NOSE4[k] for k in ("bridge", "tip", "ala L", "ala R")]
+        tile, to = _tile_crop(raw, _window(P, ids, aspect, 0.12), tw, th)
+        q = [to(P[i]) for i in ids]
+        lines, lc = [(0, 1), (2, 3)], (20, 20, 20)
+        labels = []
+        val = ("NAR", v.get("nar"))
+        if nar_neutral and v.get("nar"):
+            b, t = np.array(q[0]), np.array(q[1])
+            u = (t - b) / (np.linalg.norm(t - b) or 1.0)
+            width = float(np.linalg.norm(np.array(q[2]) - np.array(q[3])))
+            nrm = np.array([u[1], -u[0]]) * width * 0.18
+            nrm = -nrm if nrm[0] > 0 else nrm
+            e = b + u * nar_neutral * width
+            for k in range(0, 10, 2):                                   # dashed neutral length
+                a_, b_ = b + (e - b) * k / 10 + nrm, b + (e - b) * (k + 1) / 10 + nrm
+                cv2.line(tile, _I(a_), _I(b_), (90, 90, 90), 2, cv2.LINE_AA, shift=4)
+    for a, b in lines:
+        cv2.line(tile, _I(q[a]), _I(q[b]), (255, 255, 255), 4, cv2.LINE_AA, shift=4)
+        cv2.line(tile, _I(q[a]), _I(q[b]), lc, 2, cv2.LINE_AA, shift=4)
+    for p in q:
+        cv2.circle(tile, _I(p), 5 * 16, (255, 255, 255), -1, cv2.LINE_AA, shift=4)
+        cv2.circle(tile, _I(p), 4 * 16, RED_BGR, -1, cv2.LINE_AA, shift=4)
+    from PIL import Image, ImageDraw
+    pil = Image.fromarray(cv2.cvtColor(tile, cv2.COLOR_BGR2RGB))
+    d = ImageDraw.Draw(pil)
+    for text, p, (dx, dy) in labels:
+        f = _font(12)
+        tw_ = d.textlength(text, font=f)
+        d.text((p[0] + dx - tw_ / 2, p[1] + dy - 7), text, font=f, fill=(0, 0, 0), stroke_width=2,
+               stroke_fill=(255, 255, 255))
+    txt = f"{val[0]} {val[1]:.3f}" if val[1] is not None else f"{val[0]} –"
+    f = _font(11)
+    d.rounded_rectangle([4, 4, 12 + d.textlength(txt, font=f), 21], radius=4, fill=(255, 255, 255))
+    d.text((8, 6), txt, font=f, fill=(20, 20, 20))
+    return cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
+
+
+def draw_zoom_panel(panel, box, raw, P, v, nar_neutral, flash):
+    """Live close-ups: the eye wide across the top, nose and mouth side by side below, each with a
+    '↓ PNG' button in its corner. Returns {kind: (x0, y0, x1, y1)} button rectangles in panel pixels."""
+    from PIL import Image, ImageDraw
+    x, y, w, h = box
+    gap, title_h = 10, 17
+    eye_h = int((h - 2 * title_h - gap) * 0.5)
+    low_h = h - 2 * title_h - gap - eye_h
+    half = (w - gap) // 2
+    rects = {"eye": (x, y + title_h, w, eye_h),
+             "nose": (x, y + 2 * title_h + gap + eye_h, half, low_h),
+             "mouth": (x + half + gap, y + 2 * title_h + gap + eye_h, w - half - gap, low_h)}
+    buttons = {}
+    for kind, (tx, ty, tw, th) in rects.items():
+        panel[ty:ty + th, tx:tx + tw] = zoom_tile(kind, raw, P, v, nar_neutral, tw, th) if P is not None else 235
+        cv2.rectangle(panel, (tx, ty), (tx + tw - 1, ty + th - 1), (190, 190, 190), 1)
+        buttons[kind] = (tx + tw - 74, ty + 5, tx + tw - 6, ty + 25)       # top-right, opposite the value
+    pil = Image.fromarray(cv2.cvtColor(panel, cv2.COLOR_BGR2RGB))
+    d = ImageDraw.Draw(pil)
+    for kind, (tx, ty, tw, th) in rects.items():
+        d.text((tx, ty - title_h + 1), ZOOM_TITLES[kind], font=_font(12), fill=(40, 40, 40))
+        bx0, by0, bx1, by1 = buttons[kind]
+        saved = flash.get(kind, 0) > time.time()
+        d.rounded_rectangle([bx0, by0, bx1, by1], radius=5, fill=(46, 125, 50) if saved else (107, 15, 26),
+                            outline=(255, 255, 255))
+        label = "Saved ✓" if saved else "↓ PNG"
+        f = _font(12)
+        d.text(((bx0 + bx1 - d.textlength(label, font=f)) / 2, by0 + 3), label, font=f, fill=(255, 255, 255))
+    panel[:] = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
+    return buttons
+
+
+# ---------------------------------------------------------------- face overlay (poster style)
+# One restrained palette: thin white contours and points; DRIFTS red only on the points the
+# indicators measure (EAR 12, MAR 8, NAR 4); a slim pitch / yaw / roll axis at the nose; a small
+# translucent read-out. Drawn on the display-size image with sub-pixel anti-aliasing.
+MEASURED = tuple(lh.EAR_R) + tuple(lh.EAR_L) + tuple(MOUTH6) + (13, 14, 78, 308) + (168, 1, 98, 327)
+KEY_POINTS = (70, 63, 105, 66, 107, 300, 293, 334, 296, 336,                 # brows
+              33, 160, 159, 158, 133, 153, 145, 144, 362, 385, 386, 387, 263, 373, 374, 380,   # eyes
+              168, 6, 195, 1, 98, 97, 2, 326, 327,                          # nose
+              61, 40, 37, 0, 267, 270, 291, 321, 314, 17, 84, 91,           # outer lips
+              78, 82, 13, 312, 308, 317, 14, 87,                            # inner lips
+              10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378,
+              400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109)
+WHITE_BGR, RED_BGR = (255, 255, 255), (60, 50, 232)                         # DRIFTS red #E8323C
+AXES = {"x": ((76, 76, 232), "pitch"), "y": ((113, 179, 60), "yaw"), "z": ((242, 140, 61), "roll")}
+_FONT = {}
+
+
+def _font(px):
+    from PIL import ImageFont
+    from matplotlib import font_manager
+    if px not in _FONT:
+        _FONT[px] = ImageFont.truetype(font_manager.findfont("DejaVu Sans"), px)
+    return _FONT[px]
+
+
+def _I(p):                                       # sub-pixel point for cv2 (shift=4)
+    return (int(round(p[0] * 16)), int(round(p[1] * 16)))
+
+
+def draw_overlay(img, P, mat, v):
+    """Poster-style face overlay on the display-size image `img` (P in its pixel coords)."""
+    from mediapipe.tasks.python.vision import FaceLandmarksConnections as C
     jaw_w = float(np.linalg.norm(P[234, :2] - P[454, :2]))
-    r = max(2, int(round(0.0097 * jaw_w)))            # ~9 px dots on a 440 px-wide face, as the figure
-    for col, idx in DOT_GROUPS:
-        for i in idx:
-            cv2.circle(frame, (int(round(P[i, 0])), int(round(P[i, 1]))), r, col, -1, cv2.LINE_AA)
-    return jaw_w
+    # contours: face oval faint, features a little stronger
+    layer = img.copy()
+    for conns, alpha in ((C.FACE_LANDMARKS_FACE_OVAL, 0.35),):
+        for c in conns:
+            cv2.line(layer, _I(P[c.start]), _I(P[c.end]), WHITE_BGR, 1, cv2.LINE_AA, shift=4)
+        img[:] = cv2.addWeighted(layer, alpha, img, 1 - alpha, 0)
+    layer = img.copy()
+    for conns in (C.FACE_LANDMARKS_LEFT_EYE, C.FACE_LANDMARKS_RIGHT_EYE, C.FACE_LANDMARKS_LEFT_EYEBROW,
+                  C.FACE_LANDMARKS_RIGHT_EYEBROW, C.FACE_LANDMARKS_LIPS):
+        for c in conns:
+            cv2.line(layer, _I(P[c.start]), _I(P[c.end]), WHITE_BGR, 1, cv2.LINE_AA, shift=4)
+    for chain in ((168, 6, 195, 1), (98, 97, 2, 326, 327)):           # nose: bridge line and nostril base
+        for a, b in zip(chain, chain[1:]):
+            cv2.line(layer, _I(P[a]), _I(P[b]), WHITE_BGR, 1, cv2.LINE_AA, shift=4)
+    for iris in (range(469, 473), range(474, 478)):                  # iris as a thin ring
+        ring = P[list(iris), :2]
+        cen = ring.mean(0)
+        rad = float(np.linalg.norm(ring - cen, axis=1).mean())
+        cv2.circle(layer, _I(cen), int(rad * 16), WHITE_BGR, 1, cv2.LINE_AA, shift=4)
+    img[:] = cv2.addWeighted(layer, 0.6, img, 0.4, 0)
+    # points: small white; measured ones red with a white ring
+    r = max(1.6, jaw_w * 0.0075)
+    for i in KEY_POINTS:
+        if i not in MEASURED:
+            cv2.circle(img, _I(P[i]), int(r * 16), WHITE_BGR, -1, cv2.LINE_AA, shift=4)
+    for i in set(MEASURED):
+        cv2.circle(img, _I(P[i]), int((r * 1.45 + 1.2) * 16), WHITE_BGR, -1, cv2.LINE_AA, shift=4)
+        cv2.circle(img, _I(P[i]), int(r * 1.45 * 16), RED_BGR, -1, cv2.LINE_AA, shift=4)
+    # head axes: slim, from the nose tip
+    labels = []
+    if mat is not None:
+        tip = (float(P[1, 0]), float(P[1, 1]))
+        ends = lh.fs.nose_axes(mat, tip, 0.11 * jaw_w)
+        for k in ("z", "x", "y"):
+            col, name = AXES[k]
+            e = np.array(ends[k])
+            d = e - np.array(tip)
+            L = float(np.linalg.norm(d)) or 1.0
+            u = d / L
+            cv2.line(img, _I(tip), _I(e), col, 2, cv2.LINE_AA, shift=4)
+            head = 0.09 * jaw_w
+            for ang in (0.45, -0.45):                                   # open chevron arrowhead
+                ca, sa = np.cos(ang), np.sin(ang)
+                hd = np.array([u[0] * ca - u[1] * sa, u[0] * sa + u[1] * ca])
+                cv2.line(img, _I(e), _I(e - hd * min(head, L * 0.35)), col, 2, cv2.LINE_AA, shift=4)
+            labels.append((name, e + u * 10, col))
+        cv2.circle(img, _I(tip), int(3.2 * 16), WHITE_BGR, -1, cv2.LINE_AA, shift=4)
+    # text with Pillow: axis labels and the read-out
+    from PIL import Image, ImageDraw
+    pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)).convert("RGBA")
+    over = Image.new("RGBA", pil.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(over)
+    f_lab = _font(13)
+    for name, pos, col in labels:
+        tw = d.textlength(name, font=f_lab)
+        x, y = pos[0] - tw / 2, pos[1] - 8
+        d.text((x, y), name, font=f_lab, fill=(col[2], col[1], col[0], 255),
+               stroke_width=2, stroke_fill=(0, 0, 0, 170))
+    fmt = lambda x, f: "–" if x is None else format(x, f)                      # noqa: E731
+    rows = [("EAR", fmt(v.get("ear"), ".3f")), ("MAR", fmt(v.get("mar"), ".3f")), ("NAR", fmt(v.get("nar"), ".3f")),
+            ("yaw", fmt(v.get("yaw"), "+.1f") + "°"), ("pitch", fmt(v.get("pitch"), "+.1f") + "°"),
+            ("roll", fmt(v.get("roll"), "+.1f") + "°")]
+    f_k, f_v = _font(12), _font(15)
+    W, H = pil.size
+    pad, colw, rowh = 12, 74, 34
+    bw, bh = pad * 2 + colw * 3, pad * 2 + rowh * 2 + 18
+    x0, y0 = 14, H - bh - 14
+    d.rounded_rectangle([x0, y0, x0 + bw, y0 + bh], radius=10, fill=(12, 12, 16, 150))
+    for k, (key, val) in enumerate(rows):
+        cx, cy = x0 + pad + (k % 3) * colw, y0 + pad + (k // 3) * rowh
+        d.text((cx, cy), key, font=f_k, fill=(190, 190, 196, 255))
+        d.text((cx, cy + 13), val, font=f_v, fill=(255, 255, 255, 255))
+    ly = y0 + bh - 18
+    d.ellipse([x0 + pad, ly + 3, x0 + pad + 9, ly + 12], fill=(232, 50, 60, 255), outline=(255, 255, 255, 255))
+    d.text((x0 + pad + 14, ly), "measured points  ·  MediaPipe Face Landmarker", font=_font(11),
+           fill=(200, 200, 205, 255))
+    pil = Image.alpha_composite(pil, over).convert("RGB")
+    img[:] = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
+    return img
 
 
-def draw_nose_axes(frame, P, mat, jaw_w):
-    """Head axes from the nose tip (facesignals.nose_axes): pitch = across the face,
-    yaw = up the face, roll = out of the face (where the head points)."""
-    if mat is None:
-        return
-    tip = (float(P[1, 0]), float(P[1, 1]))
-    ends = lh.fs.nose_axes(mat, tip, 0.18 * jaw_w)
-    t = max(2, int(round(jaw_w / 150)))
-    for k in ("z", "x", "y"):
-        col, name = AXIS_COLOURS[k]
-        e = ends[k]
-        cv2.arrowedLine(frame, (int(tip[0]), int(tip[1])), (int(e[0]), int(e[1])), col, t, cv2.LINE_AA, tipLength=0.12)
-        # label just beyond the arrow tip, along the arrow, so the three never sit on each other
-        d = np.array([e[0] - tip[0], e[1] - tip[1]])
-        u = d / (np.linalg.norm(d) or 1.0)
-        fs_ = max(0.4, jaw_w / 600)
-        (tw, th), _ = cv2.getTextSize(name, cv2.FONT_HERSHEY_SIMPLEX, fs_, t)
-        lx = e[0] + u[0] * (8 + tw * 0.6) - tw / 2
-        ly = e[1] + u[1] * (8 + th * 1.2) + th / 2
-        for c, w in (((255, 255, 255), t + 2), (col, t)):
-            cv2.putText(frame, name, (int(lx), int(ly)), cv2.FONT_HERSHEY_SIMPLEX, fs_, c, w, cv2.LINE_AA)
-
+# ---------------------------------------------------------------- main loop
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -366,7 +673,7 @@ def main(argv=None):
     lmk = lh.Landmarker(video=True)
     dash, t0, n, saved = None, time.time(), 0, []
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
-    print("keys: 1 EAR  2 NAR  3 MAR  4 head pose  5 gaze  a all  c re-centre  s snapshot  q quit")
+    print("keys: 1 EAR  2 NAR  3 MAR  4 head pose  5 gaze  a all  p picture  c re-centre  s snapshot  q quit")
 
     def toggle(name):
         if recording[name]:
@@ -379,6 +686,12 @@ def main(argv=None):
 
     view = None
     neutral, calib = None, []          # neutral head (yaw, pitch): median of the first ~1 s with a face ('c' re-centres)
+    nar_neutral, nar_calib, last = None, [], None
+    clicks, flash = [], {}
+    win_name = "DRIFTS live graphs (dev)"
+    if not args.no_window:
+        cv2.namedWindow(win_name, cv2.WINDOW_AUTOSIZE)
+        cv2.setMouseCallback(win_name, lambda ev, x, y, *_: clicks.append((x, y)) if ev == cv2.EVENT_LBUTTONDOWN else None)
     while True:
         ok, frame = cap.read()
         if not ok:
@@ -389,8 +702,11 @@ def main(argv=None):
         if r is not None:
             P, _, mat = r
             v = indicators(P, mat)
-            if not args.no_overlay:
-                draw_nose_axes(frame, P, mat, draw_dots(frame, P))
+            last = (frame.copy(), P, v)                          # plain frame for 'p' pictures
+            if v.get("nar") is not None and nar_neutral is None:
+                nar_calib.append(v["nar"])
+                if len(nar_calib) >= 30:
+                    nar_neutral = float(np.median(nar_calib))
         if v.get("pitch") is not None and v.get("yaw") is not None and neutral is None:
             calib.append((v["yaw"], v["pitch"]))
             if len(calib) >= 30:
@@ -408,13 +724,34 @@ def main(argv=None):
         fh, fw = frame.shape[:2]
         cw = min(fw, int(fh * 3 / 4))                            # 3:4 portrait centre crop keeps the window < 1920 px
         sq = frame[:, (fw - cw) // 2:(fw - cw) // 2 + cw]
-        cam = cv2.resize(sq, (int(h * 3 / 4), h))
+        cam = cv2.resize(sq, (int(h * 3 / 4), h), interpolation=cv2.INTER_CUBIC)
+        if r is not None and not args.no_overlay:               # draw at display size: crisp lines and text
+            sc = h / fh
+            Pd = P.copy()
+            Pd[:, 0] = (P[:, 0] - (fw - cw) // 2) * sc
+            Pd[:, 1] = P[:, 1] * sc
+            draw_overlay(cam, Pd, mat, v)
         if dash is None:
             dash = Dashboard(h)
-        view = np.hstack([cam, dash.update(v, recording)])
+        panel = dash.update(v, recording)
+        raw_now, P_now = (last[0], last[1]) if (r is not None and last is not None) else (None, None)
+        nn = nar_neutral or (float(np.median(nar_calib)) if nar_calib else None)
+        buttons = draw_zoom_panel(panel, dash.zoom_box, raw_now, P_now, v, nn, flash)
+        view = np.hstack([cam, panel])
+        if clicks:                                               # Download PNG buttons
+            cx, cy = clicks.pop()
+            clicks.clear()
+            for kind, (bx0, by0, bx1, by1) in buttons.items():
+                if last is not None and bx0 <= cx - cam.shape[1] <= bx1 and by0 <= cy <= by1:
+                    raw_l, P_l, v_l = last
+                    f = (picture_eye(raw_l, P_l, v_l.get("ear"), out) if kind == "eye" else
+                         picture_mouth(raw_l, P_l, v_l.get("mar"), out) if kind == "mouth" else
+                         picture_nose(raw_l, P_l, v_l.get("nar"), nn, out))
+                    print(f"saved {f}")
+                    flash[kind] = time.time() + 1.5
         n += 1
         if not args.no_window:
-            cv2.imshow("DRIFTS live graphs (dev)", view)
+            cv2.imshow(win_name, view)
             k = cv2.waitKey(1) & 0xFF
             if k == ord("q"):
                 break
@@ -424,8 +761,10 @@ def main(argv=None):
                 for name in names:
                     if recording[name] == recording[names[0]]:
                         toggle(name)
+            elif k == ord("p") and last is not None:
+                take_picture(*last, nar_neutral or (float(np.median(nar_calib)) if nar_calib else None), out)
             elif k == ord("c"):
-                neutral, calib = None, []
+                neutral, calib, nar_neutral, nar_calib = None, [], None, []
                 print("re-centring: look at the road for 1 s")
             elif k == ord("s"):
                 p = out / time.strftime("dashboard_%H%M%S.png")
@@ -438,6 +777,8 @@ def main(argv=None):
             toggle(name)
     if view is not None:
         cv2.imwrite(str(out / "dashboard_last.png"), view)
+    if args.no_window and last is not None:      # headless runs: close-ups of the last frame
+        take_picture(*last, nar_neutral or (float(np.median(nar_calib)) if nar_calib else None), out)
     if not args.no_window:
         cv2.destroyAllWindows()
     print(f"Wrote {out}")

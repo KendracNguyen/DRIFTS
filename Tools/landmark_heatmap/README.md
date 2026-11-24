@@ -36,9 +36,9 @@ and `mouth.py`, so these images always match what the Pi measures.
 
 ## Live line graphs (`live_graphs.py`)
 
-Webcam (or clip) on the left with the major MediaPipe landmarks as colour-coded dots (jaw blue,
-brows green, eyes magenta, nose bridge black, nose base yellow, outer lips cyan, inner lips red)
-and the head's pitch / yaw / roll axes drawn from the nose tip; live line graphs on the right in
+Webcam (or clip) on the left with a poster-style overlay: thin white contours and key points,
+DRIFTS red on the points the indicators measure (EAR, MAR, NAR), a slim pitch / yaw / roll axis at
+the nose and a small read-out of the live values; live line graphs on the right in
 plain matplotlib style (white background, light grid, last 100 frames):
 
 | Graph | Value | Axis reads |
@@ -58,6 +58,7 @@ Each indicator records **on its own**: press its key to start, press again to st
 | `4` | record head pose (yaw, pitch, roll) |
 | `5` | record gaze |
 | `a` | start / stop all |
+| `p` | picture: the plain frame plus eye, mouth and nose close-ups (PNG), each with its value in the corner |
 | `c` | re-centre gaze (look straight at the road for 1 s) |
 | `s` | snapshot of the whole window |
 | `q` | quit (anything still recording is saved) |
@@ -66,3 +67,18 @@ Each indicator records **on its own**: press its key to start, press again to st
 python Tools/landmark_heatmap/live_graphs.py --camera 0
 python Tools/landmark_heatmap/live_graphs.py --video clip.mp4 --record all --no-window
 ```
+
+### Zoom panel and picture close-ups
+
+Under the gaze box, a live **Zoom** panel shows the eye (p1–p6 and EAR), nose (NAR length vs. neutral)
+and mouth (p1–p6 and MAR), each with its value in the corner. Click **↓ PNG** on a tile to save that
+close-up; `p` saves all three plus the plain frame.
+
+| File | What it shows |
+| --- | --- |
+| `picture_*_eye.png` | the larger (closer) eye zoomed, points p1–p6, yellow arrows for \|p2–p6\|, \|p3–p5\| and \|p1–p4\|; corner: total EAR (both eyes) and this eye's EAR |
+| `picture_*_mouth.png` | the mouth zoomed, p1–p6 (upper 82 / 312, corners 308 / 78, lower 317 / 87), black arrows for the two openings and the width; corner: MAR |
+| `picture_*_nose.png` | bridge → tip length and nostril width, with the neutral length dashed beside it (longer = looking down, shorter = looking up); corner: NAR, neutral and the % change |
+| `picture_*_frame.png` | the plain camera frame (no dots) |
+
+With `--no-window`, close-ups of the last frame are saved at the end.
