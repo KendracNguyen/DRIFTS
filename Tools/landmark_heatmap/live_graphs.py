@@ -16,6 +16,7 @@ Each indicator records on its own: press its key to start, press again to
 stop and save that graph (PNG) and its data (CSV) to captures/<session>/.
 
     keys   1 EAR   2 NAR   3 MAR   4 head pose   5 gaze   a all   p picture   c re-centre   s snapshot   q quit
+    mouse  click Download PNG under the Eye / Nose / Mouth zoom tiles
 
     python Tools/landmark_heatmap/live_graphs.py --camera 0
     python Tools/landmark_heatmap/live_graphs.py --video clip.mp4 --record all --no-window
@@ -192,7 +193,10 @@ class Dashboard:
             self.ln[k], = a.plot([], [], "b--", linewidth=1.4)
             a.set_xlim(0, WINDOW)
             self.ax[k] = a
-        self.ax["gaze"] = self.fig.add_subplot(gs[:, 3])
+        self.ax["gaze"] = self.fig.add_subplot(gs[0:2, 3])
+        self.ax_zoom = self.fig.add_subplot(gs[2:, 3])           # area for the live zoom tiles (drawn with OpenCV)
+        self.ax_zoom.axis("off")
+        self.zoom_box = None
         self.hist = {k: deque(maxlen=WINDOW) for k in ("ear", "nar", "mar", "yaw", "pitch", "roll")}
         self.trail = deque(maxlen=30)
 
@@ -231,6 +235,10 @@ class Dashboard:
         if recording.get("gaze"):
             self.ax["gaze"].title.set_color("red")
         self.fig.canvas.draw()
+        if self.zoom_box is None:                                  # (x, y, w, h) in panel pixels, top-left origin
+            bb = self.ax_zoom.get_window_extent()
+            H = self.fig.canvas.get_width_height()[1]
+            self.zoom_box = (int(bb.x0), int(H - bb.y1), int(bb.width), int(bb.height))
         img = np.asarray(self.fig.canvas.buffer_rgba())[..., :3]
         return cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
@@ -414,7 +422,109 @@ def take_picture(raw, P, v, nar_neutral, out):
     return files
 
 
-# ---------------------------------------------------------------- main loop
+# ---------------------------------------------------------------- live zoom tiles with Download PNG buttons
+
+ZOOM_TILES = ("eye", "nose", "mouth")
+ZOOM_TITLES = {"eye": "Eye  ·  EAR  (p1–p6)", "nose": "Nose  ·  NAR", "mouth": "Mouth  ·  MAR  (p1–p6)"}
+
+
+def _tile_crop(raw, win, tw, th):
+    x0, x1, y0, y1 = win
+    src = np.float32([[x0, y0], [x1, y0], [x0, y1]])
+    dst = np.float32([[0, 0], [tw, 0], [0, th]])
+    M = cv2.getAffineTransform(src, dst)
+    tile = cv2.warpAffine(raw, M, (tw, th), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+    return tile, (lambda p: (M[0, 0] * p[0] + M[0, 1] * p[1] + M[0, 2], M[1, 0] * p[0] + M[1, 1] * p[1] + M[1, 2]))
+
+
+def zoom_tile(kind, raw, P, v, nar_neutral, tw, th):
+    """One live close-up (BGR tile) with the figure's points and lines, value in the corner."""
+    aspect = tw / th
+    if kind == "eye":
+        w = {s_: float(np.linalg.norm(P[i[0], :2] - P[i[3], :2])) for s_, i in (("R", lh.EAR_R), ("L", lh.EAR_L))}
+        idx = lh.EAR_R if w["R"] >= w["L"] else lh.EAR_L
+        tile, to = _tile_crop(raw, _window(P, idx, aspect, 0.40), tw, th)
+        q = [to(P[i]) for i in idx]
+        lines, lc = [(0, 3), (1, 5), (2, 4)], (25, 229, 242)            # yellow, as figure (a)
+        labels = [(f"p{k + 1}", q[k], off) for k, off in
+                  enumerate([(-14, 0), (0, -13), (0, -13), (14, 0), (0, 13), (0, 13)])]
+        val = ("EAR", v.get("ear"))
+    elif kind == "mouth":
+        tile, to = _tile_crop(raw, _window(P, MOUTH6, aspect, 0.30), tw, th)
+        q = [to(P[i]) for i in MOUTH6]
+        lines, lc = [(0, 4), (1, 3), (5, 2)], (20, 20, 20)              # black, as figure (b)
+        labels = [(f"p{k + 1}", q[k], off) for k, off in
+                  enumerate([(-10, -10), (10, -10), (14, 0), (10, 11), (-10, 11), (-14, 0)])]
+        val = ("MAR", v.get("mar"))
+    else:
+        ids = [NOSE4[k] for k in ("bridge", "tip", "ala L", "ala R")]
+        tile, to = _tile_crop(raw, _window(P, ids, aspect, 0.12), tw, th)
+        q = [to(P[i]) for i in ids]
+        lines, lc = [(0, 1), (2, 3)], (20, 20, 20)
+        labels = []
+        val = ("NAR", v.get("nar"))
+        if nar_neutral and v.get("nar"):
+            b, t = np.array(q[0]), np.array(q[1])
+            u = (t - b) / (np.linalg.norm(t - b) or 1.0)
+            width = float(np.linalg.norm(np.array(q[2]) - np.array(q[3])))
+            nrm = np.array([u[1], -u[0]]) * width * 0.18
+            nrm = -nrm if nrm[0] > 0 else nrm
+            e = b + u * nar_neutral * width
+            for k in range(0, 10, 2):                                   # dashed neutral length
+                a_, b_ = b + (e - b) * k / 10 + nrm, b + (e - b) * (k + 1) / 10 + nrm
+                cv2.line(tile, _I(a_), _I(b_), (90, 90, 90), 2, cv2.LINE_AA, shift=4)
+    for a, b in lines:
+        cv2.line(tile, _I(q[a]), _I(q[b]), (255, 255, 255), 4, cv2.LINE_AA, shift=4)
+        cv2.line(tile, _I(q[a]), _I(q[b]), lc, 2, cv2.LINE_AA, shift=4)
+    for p in q:
+        cv2.circle(tile, _I(p), 5 * 16, (255, 255, 255), -1, cv2.LINE_AA, shift=4)
+        cv2.circle(tile, _I(p), 4 * 16, RED_BGR, -1, cv2.LINE_AA, shift=4)
+    from PIL import Image, ImageDraw
+    pil = Image.fromarray(cv2.cvtColor(tile, cv2.COLOR_BGR2RGB))
+    d = ImageDraw.Draw(pil)
+    for text, p, (dx, dy) in labels:
+        f = _font(12)
+        tw_ = d.textlength(text, font=f)
+        d.text((p[0] + dx - tw_ / 2, p[1] + dy - 7), text, font=f, fill=(0, 0, 0), stroke_width=2,
+               stroke_fill=(255, 255, 255))
+    txt = f"{val[0]} {val[1]:.3f}" if val[1] is not None else f"{val[0]} –"
+    f = _font(11)
+    d.rounded_rectangle([4, 4, 12 + d.textlength(txt, font=f), 21], radius=4, fill=(255, 255, 255))
+    d.text((8, 6), txt, font=f, fill=(20, 20, 20))
+    return cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
+
+
+def draw_zoom_panel(panel, box, raw, P, v, nar_neutral, flash):
+    """Live close-ups: the eye wide across the top, nose and mouth side by side below, each with a
+    '↓ PNG' button in its corner. Returns {kind: (x0, y0, x1, y1)} button rectangles in panel pixels."""
+    from PIL import Image, ImageDraw
+    x, y, w, h = box
+    gap, title_h = 10, 17
+    eye_h = int((h - 2 * title_h - gap) * 0.5)
+    low_h = h - 2 * title_h - gap - eye_h
+    half = (w - gap) // 2
+    rects = {"eye": (x, y + title_h, w, eye_h),
+             "nose": (x, y + 2 * title_h + gap + eye_h, half, low_h),
+             "mouth": (x + half + gap, y + 2 * title_h + gap + eye_h, w - half - gap, low_h)}
+    buttons = {}
+    for kind, (tx, ty, tw, th) in rects.items():
+        panel[ty:ty + th, tx:tx + tw] = zoom_tile(kind, raw, P, v, nar_neutral, tw, th) if P is not None else 235
+        cv2.rectangle(panel, (tx, ty), (tx + tw - 1, ty + th - 1), (190, 190, 190), 1)
+        buttons[kind] = (tx + tw - 74, ty + 5, tx + tw - 6, ty + 25)       # top-right, opposite the value
+    pil = Image.fromarray(cv2.cvtColor(panel, cv2.COLOR_BGR2RGB))
+    d = ImageDraw.Draw(pil)
+    for kind, (tx, ty, tw, th) in rects.items():
+        d.text((tx, ty - title_h + 1), ZOOM_TITLES[kind], font=_font(12), fill=(40, 40, 40))
+        bx0, by0, bx1, by1 = buttons[kind]
+        saved = flash.get(kind, 0) > time.time()
+        d.rounded_rectangle([bx0, by0, bx1, by1], radius=5, fill=(46, 125, 50) if saved else (107, 15, 26),
+                            outline=(255, 255, 255))
+        label = "Saved ✓" if saved else "↓ PNG"
+        f = _font(12)
+        d.text(((bx0 + bx1 - d.textlength(label, font=f)) / 2, by0 + 3), label, font=f, fill=(255, 255, 255))
+    panel[:] = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
+    return buttons
+
 
 # ---------------------------------------------------------------- face overlay (poster style)
 # One restrained palette: thin white contours and points; DRIFTS red only on the points the
@@ -530,6 +640,8 @@ def draw_overlay(img, P, mat, v):
     return img
 
 
+# ---------------------------------------------------------------- main loop
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     src = ap.add_mutually_exclusive_group(required=True)
@@ -575,6 +687,11 @@ def main(argv=None):
     view = None
     neutral, calib = None, []          # neutral head (yaw, pitch): median of the first ~1 s with a face ('c' re-centres)
     nar_neutral, nar_calib, last = None, [], None
+    clicks, flash = [], {}
+    win_name = "DRIFTS live graphs (dev)"
+    if not args.no_window:
+        cv2.namedWindow(win_name, cv2.WINDOW_AUTOSIZE)
+        cv2.setMouseCallback(win_name, lambda ev, x, y, *_: clicks.append((x, y)) if ev == cv2.EVENT_LBUTTONDOWN else None)
     while True:
         ok, frame = cap.read()
         if not ok:
@@ -616,10 +733,25 @@ def main(argv=None):
             draw_overlay(cam, Pd, mat, v)
         if dash is None:
             dash = Dashboard(h)
-        view = np.hstack([cam, dash.update(v, recording)])
+        panel = dash.update(v, recording)
+        raw_now, P_now = (last[0], last[1]) if (r is not None and last is not None) else (None, None)
+        nn = nar_neutral or (float(np.median(nar_calib)) if nar_calib else None)
+        buttons = draw_zoom_panel(panel, dash.zoom_box, raw_now, P_now, v, nn, flash)
+        view = np.hstack([cam, panel])
+        if clicks:                                               # Download PNG buttons
+            cx, cy = clicks.pop()
+            clicks.clear()
+            for kind, (bx0, by0, bx1, by1) in buttons.items():
+                if last is not None and bx0 <= cx - cam.shape[1] <= bx1 and by0 <= cy <= by1:
+                    raw_l, P_l, v_l = last
+                    f = (picture_eye(raw_l, P_l, v_l.get("ear"), out) if kind == "eye" else
+                         picture_mouth(raw_l, P_l, v_l.get("mar"), out) if kind == "mouth" else
+                         picture_nose(raw_l, P_l, v_l.get("nar"), nn, out))
+                    print(f"saved {f}")
+                    flash[kind] = time.time() + 1.5
         n += 1
         if not args.no_window:
-            cv2.imshow("DRIFTS live graphs (dev)", view)
+            cv2.imshow(win_name, view)
             k = cv2.waitKey(1) & 0xFF
             if k == ord("q"):
                 break

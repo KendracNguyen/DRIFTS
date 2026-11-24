@@ -68,7 +68,11 @@ python Tools/landmark_heatmap/live_graphs.py --camera 0
 python Tools/landmark_heatmap/live_graphs.py --video clip.mp4 --record all --no-window
 ```
 
-### Picture close-ups (`p`)
+### Zoom panel and picture close-ups
+
+Under the gaze box, a live **Zoom** panel shows the eye (p1–p6 and EAR), nose (NAR length vs. neutral)
+and mouth (p1–p6 and MAR), each with its value in the corner. Click **↓ PNG** on a tile to save that
+close-up; `p` saves all three plus the plain frame.
 
 | File | What it shows |
 | --- | --- |
