@@ -36,7 +36,9 @@ and `mouth.py`, so these images always match what the Pi measures.
 
 ## Live line graphs (`live_graphs.py`)
 
-Webcam (or clip) on the left with MediaPipe's face mesh; live line graphs on the right in
+Webcam (or clip) on the left with the major MediaPipe landmarks as colour-coded dots (jaw blue,
+brows green, eyes magenta, nose bridge black, nose base yellow, outer lips cyan, inner lips red)
+and the head's pitch / yaw / roll axes drawn from the nose tip; live line graphs on the right in
 plain matplotlib style (white background, light grid, last 100 frames):
 
 | Graph | Value | Axis reads |
@@ -45,7 +47,7 @@ plain matplotlib style (white background, light grid, last 100 frames):
 | Nose Angle (NAR) | \|168–1\| / \|98–327\|, red (axis inverted: NAR rises as the head drops) | Down → Up |
 | Mouth Opening (MAR) | MAR, green | Closed → Open |
 | Yaw / Pitch / Roll | head pose in degrees, dashed blue | DRIFTS sign convention |
-| Gaze | graph-paper box: road range (iris ±0.16, pitch ±20° vs. your neutral) and a red sight target | Left ↔ Right, Down ↔ Up |
+| Gaze | from the driver's seat in degrees (head yaw/pitch vs. your neutral + eyes); the windshield (±30° across, 10° up, 15° down) is the road range; red sight target | driver's left ↔ right, down ↔ up |
 
 Each indicator records **on its own**: press its key to start, press again to stop; that graph
 (PNG, 200 dpi) and its data (CSV) are saved to `captures/graphs-<timestamp>/`.
@@ -56,7 +58,7 @@ Each indicator records **on its own**: press its key to start, press again to st
 | `4` | record head pose (yaw, pitch, roll) |
 | `5` | record gaze |
 | `a` | start / stop all |
-| `c` | re-centre gaze (look at the road for 1 s) |
+| `c` | re-centre gaze (look straight at the road for 1 s) |
 | `s` | snapshot of the whole window |
 | `q` | quit (anything still recording is saved) |
 
