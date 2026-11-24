@@ -35,6 +35,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt                                   # noqa: E402
 plt.rcParams.update({"font.family": "DejaVu Sans", "axes.facecolor": "white", "figure.facecolor": "white"})
 from matplotlib.patches import Circle, Polygon, Rectangle         # noqa: E402
+from matplotlib.ticker import AutoMinorLocator                    # noqa: E402
 
 import landmark_heatmap as lh                                     # noqa: E402  (same folder)
 
@@ -88,6 +89,10 @@ def style(ax, title, ylabel, xlabel=None, bold=False):
     if xlabel:
         ax.set_xlabel(xlabel, fontsize=9, fontweight=w)
     ax.grid(True, alpha=0.3)
+    # x grid at half the tick spacing: an extra unlabelled line halfway between numbered ticks
+    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.grid(True, which="minor", axis="x", alpha=0.3)
+    ax.tick_params(which="minor", axis="x", length=0)
     ax.tick_params(labelsize=8)
     ax.set_facecolor("white")
 
