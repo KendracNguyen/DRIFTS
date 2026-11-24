@@ -26,3 +26,6 @@ Esp32/test/test_pi_uart
 Raspberry/profiles/
 # the Select Driver speech model (downloaded by deploy/install.sh, ~70 MB)
 Raspberry/models/vosk-small-en/
+
+# dev-only landmark tool: downloaded model (face captures are covered by captures/ above)
+Tools/landmark_heatmap/models/
