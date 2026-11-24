@@ -1,0 +1,6 @@
+# DEV ONLY (laptop) - landmark_heatmap.py. Never install on the Pi.
+#   pip install -r Tools/landmark_heatmap/requirements-dev.txt
+mediapipe>=0.10.14
+opencv-python
+numpy
+scipy
